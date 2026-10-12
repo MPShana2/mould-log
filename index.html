@@ -1027,8 +1027,7 @@ $("#mouldform").addEventListener("submit",async e=>{
 // Photos and files live in Google Drive, in the work order's folder inside the Work Orders folder
 // (named like "#2549 - Biax 215 Pod Gen 2"). New uploads wait in an on-device queue until they reach Drive.
 let pickTarget=null, uploading=0, driveRoot=null, currentUser=null;
-const IS_ANDROID=/Android/i.test(navigator.userAgent);
-const CAMERA_INTENT="intent:#Intent;action=android.media.action.STILL_IMAGE_CAMERA;end";
+const IS_MOBILE=/Android|iPhone|iPad/i.test(navigator.userAgent);
 let camPending=null, camReturn=null;
 const entryTab={};
 const FOLDER_MT="application/vnd.google-apps.folder";
@@ -1245,7 +1244,7 @@ function driveBody(t){
 }
 function drivePanelFor(t){
   const da=`data-addnum="${esc(t.num)}" data-addlabel="${esc(t.label)}"`;
-  const camApp=IS_ANDROID?`<a class="btn ghost" href="${CAMERA_INTENT}" data-camapp="1" ${da}>Camera app</a>`:"";
+  const camApp=IS_MOBILE?`<label class="btn ghost" for="pick-gallery" ${da} role="button" tabindex="0">From gallery</label>`:"";
   const btns=`<div class="attbtns"><label class="btn ghost" for="pick-photo" ${da} role="button" tabindex="0">Take photo</label>${camApp}<label class="btn ghost" for="pick-file" ${da} role="button" tabindex="0">Attach file</label></div>`+
     (camReturn&&camReturn.num===t.num?`<div class="cambanner"><span>Add the photos you just took to <b>#${esc(t.num)}</b>?</span><span class="attbtns" style="margin:0"><label class="btn" for="pick-gallery" ${da} role="button" tabindex="0">Choose photos</label><button type="button" class="btn ghost" data-camdismiss="1">Not now</button></span></div>`:"");
   const pend=queueCache.filter(q=>q.num===t.num);
@@ -1434,7 +1433,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-8";
+const APP_VERSION="2026.10.12-9";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
