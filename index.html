@@ -134,6 +134,11 @@ nav.tabs button[aria-current="true"]{color:var(--bar-fg);border-top-color:var(--
 .wotable{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .worow2{display:grid;grid-template-columns:minmax(84px,auto) 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-bottom:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
 .worow2:first-child{border-top:0}
+.worow2.parent{font-weight:600}
+.worow2.sub{border-top:1px dashed var(--line);padding-block:9px;background:color-mix(in srgb,var(--sunk) 45%,transparent);font-size:14px}
+.worow2.sub:hover{background:var(--sunk)}
+.worow2.sub .wo{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);padding-left:6px}
+.subtree{width:10px;height:12px;border-left:2px solid var(--line);border-bottom:2px solid var(--line);border-bottom-left-radius:3px;margin-top:-8px;flex:none}
 .worow2:hover{background:var(--sunk)}
 .worow2.head{cursor:default;background:var(--sunk);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-block:8px}
 .worow2 .wo{font-family:var(--mono);font-weight:600}
@@ -228,6 +233,11 @@ details.ck>summary span:first-child{flex:1}
 .mbox{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
 .mbox[hidden]{display:none}
 .mbody{padding:14px;display:flex;flex-direction:column;gap:16px}
+.mmeta{display:flex;flex-direction:column;gap:14px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.subhead{display:flex;align-items:baseline;gap:10px}
+.subno{font-family:var(--mono);font-size:20px;font-weight:600;letter-spacing:-.01em}
+.pmtabs .tabno{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);margin-right:6px}
+.pmtabs button[aria-selected="true"] .tabno{color:#8a5a00}
 .mcol{display:flex;flex-direction:column;gap:16px;min-width:0}
 .pmtabs{display:flex;gap:0;overflow-x:auto;background:var(--sunk);border-bottom:1px solid var(--line)}
 .pmtabs button{flex:0 0 auto;font:inherit;font-size:14px;font-weight:600;border:0;background:none;color:var(--muted);padding:11px 14px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -301,6 +311,8 @@ details summary{cursor:pointer;font-weight:600;color:var(--steel)}
   #logform.multi .fcol-side{display:none}
   .mbox,#savebtn{grid-column:1/-1}
   .mbody{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px 28px;align-items:start;padding:18px}
+  .mmeta{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);align-items:end;gap:14px 24px}
+  .mmeta .subhead{flex-direction:column;gap:6px;align-self:center}
   #logform>#savebtn{grid-column:1/-1;justify-self:start;min-width:220px}
   .fcol-side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 140px)}
   #logform.hasbox .fcol-side{position:static}
@@ -453,6 +465,22 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <div class="mbox" id="mbox" hidden>
         <div class="pmtabs" id="pmtabs" role="tablist" aria-label="Moulds on this work order"></div>
         <div class="mbody">
+          <div class="mmeta">
+            <div class="subhead"><span class="label">Sub-job</span><span class="subno" id="b-subno"></span></div>
+            <div class="field">
+              <span class="label">Status</span>
+              <div class="seg status" id="b-status" role="group" aria-label="Sub-job status">
+                <button type="button" data-v="Pending" aria-pressed="true">Pending</button>
+                <button type="button" data-v="In progress" aria-pressed="false">In progress</button>
+                <button type="button" data-v="On hold" aria-pressed="false">On hold</button>
+                <button type="button" data-v="Complete" aria-pressed="false">Complete</button>
+              </div>
+            </div>
+            <div class="grid2">
+              <div class="field"><label class="label" for="b-date">Date started</label><input id="b-date" type="date"></div>
+              <div class="field"><label class="label" for="b-done">Date completed</label><input id="b-done" type="date"></div>
+            </div>
+          </div>
           <div class="mcol">
             <div class="field" id="b-shots-field"><label class="label" for="b-shots">Shot count</label><input id="b-shots" class="mono" type="number" inputmode="numeric" min="0" placeholder="e.g. 412500"></div>
             <div class="field"><label class="label" for="b-faults">Inspection / faults found</label><textarea id="b-faults" class="autogrow" rows="2" placeholder="e.g. Worn ejector pin on cavity 3, blocked vent"></textarea></div>
@@ -648,7 +676,7 @@ function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTi
 function segBind(id){$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;$(id).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"))})}
 function segVal(id){return $(id).querySelector('[aria-pressed="true"]')?.dataset.v}
 function segReset(id){$(id).querySelectorAll("button").forEach((x,i)=>x.setAttribute("aria-pressed",i===0?"true":"false"))}
-segBind("#f-status");
+segBind("#f-status");segBind("#b-status");
 $("#f-type").innerHTML=JOBTYPES.map(t=>`<option>${esc(t)}</option>`).join("");
 // ---------- Service checklist ----------
 const CHECKLIST=[
@@ -937,7 +965,7 @@ window.addEventListener("resize",growAll);
 $("#f-status").addEventListener("click",e=>{const b=e.target.closest("button");if(b&&b.dataset.v==="Complete"&&!$("#f-done").value)$("#f-done").value=today()});
 const STATUSES=["Pending","In progress","On hold","Complete"];
 const stClass=s=>"st-"+String(s||"").replace(/\s+/g,"");
-function statusSel(l){const cur=l.status||"Complete";return `<select class="stsel ${stClass(cur)}" data-st="${esc(l.id)}" aria-label="Job status">${STATUSES.map(s=>`<option${s===cur?" selected":""}>${s}</option>`).join("")}</select>`}
+function statusSel(l,mid){const sm=mid?subMeta(l,mid):null,cur=sm?sm.status:(l.status||"Complete");return `<select class="stsel ${stClass(cur)}" data-st="${esc(l.id)}"${sm&&sm.no?` data-mid="${esc(mid)}"`:""} aria-label="Job status">${STATUSES.map(s=>`<option${s===cur?" selected":""}>${s}</option>`).join("")}</select>`}
 
 
 $("#f-date").value=today();
@@ -989,8 +1017,8 @@ function summary(m){
   const ml=logs.filter(l=>hasMould(l,m.id));
   const last=ml[0];
   const shots=ml.reduce((a,l)=>Math.max(a,Number(pmVal(l,m.id).shots)||0),0);
-  const open=ml.filter(l=>l.status&&l.status!=="Complete").length;
-  return {count:ml.length,last,shots:shots||null,st:last?(last.status||"Complete"):"",open};
+  const open=ml.filter(l=>l.status&&subMeta(l,m.id).status!=="Complete").length;
+  return {count:ml.length,last,shots:shots||null,st:last?subMeta(last,m.id).status:"",open};
 }
 
 // ---- Typo-tolerant search ----
@@ -1038,12 +1066,30 @@ function pmVal(l,id){if(!id||id===l.mouldId)return {shots:l.shots,faults:l.fault
 function subName(id){const m=moulds.find(x=>x.id===id);return String(m?mlabel(m):"Mould").replace(/[\\/|]/g,"-").trim().slice(0,100)||"Mould"}
 // Which moulds get a tab: every mould when the main one is a mould; only the added ones when the main one is a general job
 function tabIdsFor(prim,extras){const all=[...new Set([prim,...(extras||[])].filter(Boolean))];if(all.length<2)return [];const pm=moulds.find(x=>x.id===prim);return pm&&isGen(pm)?all.filter(x=>x!==prim):all}
+// A tabbed mould is a sub-job (e.g. 2601-2) with its own status and dates, kept in l.subs[mouldId]; anything else uses the work order's
+function subMeta(l,id){
+  const tabs=tabIdsFor(l.mouldId,l.extraMouldIds),s=(l.subs&&l.subs[id])||{};
+  if(tabs.includes(id))return {status:s.status||l.status||"Complete",date:s.date||l.date||"",dateCompleted:s.dateCompleted||"",no:s.no||(!l.subs?tabs.indexOf(id)+1:null)};
+  return {status:l.status||"Complete",date:l.date||"",dateCompleted:l.dateCompleted||"",no:null};
+}
+// The sub-jobs of a work order, in number order
+function subJobs(l){return tabIdsFor(l.mouldId,l.extraMouldIds).map(id=>{const m=moulds.find(x=>x.id===id),i=jobIds(l).indexOf(id);return {id,name:m?mlabel(m):(jobNames(l)[i]||"Unknown mould"),...subMeta(l,id)}}).filter(x=>x.no).sort((a,b)=>a.no-b.no)}
+const anySubOpen=l=>subJobs(l).some(x=>x.status!=="Complete");
+const subLabel=(l,id)=>{const n=subMeta(l,id).no;return n?`${l.wo||""}-${n}`:(l.wo||"")};
+// Work order numbers to match in searches, sub-job numbers included
+const normWo=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"").replace(/^wo/,"");
+const woKeys=l=>[normWo(l.wo),...Object.values(l.subs||{}).filter(x=>x&&x.no).map(x=>normWo(`${l.wo}-${x.no}`))];
 // Form state. The main fields (f-*) show mainFor's values, the mould tab fields (b-*) show boxFor's; formPM keeps everyone's
 let formPM={}, mainFor=null, boxFor=null, boxActive=null, lastPrimary="";
-function readSet(p){return {shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,parts:$(`#${p}-parts`).value,ck:{...(p==="f"?ckState:boxCk)}}}
+let formSubNo={}; // mould id -> sub-job number on this work order
+function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,parts:$(`#${p}-parts`).value,ck:{...(p==="f"?ckState:boxCk)}};
+  if(p==="b"){v.status=segVal("#b-status");v.date=$("#b-date").value;v.done=$("#b-done").value}
+  return v}
 function writeSet(p,id){const v=formPM[id]||{};
   $(`#${p}-shots`).value=v.shots??"";$(`#${p}-faults`).value=v.faults||"";$(`#${p}-work`).value=v.work||"";$(`#${p}-notes`).value=v.notes||"";$(`#${p}-parts`).value=v.parts||"";
-  if(p==="f"){ckState={...(v.ck||{})};ckMain.sync();ckMain.setCounter(v.shots)}else{boxCk={...(v.ck||{})};ckBox.sync();ckBox.setCounter(v.shots)}}
+  if(p==="f"){ckState={...(v.ck||{})};ckMain.sync();ckMain.setCounter(v.shots)}else{boxCk={...(v.ck||{})};ckBox.sync();ckBox.setCounter(v.shots);
+    // a new sub-job starts with the work order's status and start date
+    segSet("#b-status",v.status||segVal("#f-status")||"Pending");$("#b-date").value=v.date??$("#f-date").value;$("#b-done").value=v.done||""}}
 const FORCE="\u0000"; // marks a field set that must be reloaded
 function stashPM(){if(mainFor&&mainFor!==FORCE)formPM[mainFor]=readSet("f");if(boxFor&&boxFor!==FORCE)formPM[boxFor]=readSet("b")}
 const pmIds=()=>[...new Set([$("#f-mould").value||lastPrimary,...extraIds].filter(Boolean))];
@@ -1053,15 +1099,19 @@ function renderPM(){
   let moved=false;
   if(prim&&mainShows&&mainFor!==prim){if(!mainFor&&!formPM[prim])formPM[prim]=readSet("f");writeSet("f",prim);mainFor=prim;moved=true}
   if(prim&&!mainShows&&mainFor){mainFor=null;moved=true}
+  let nx=Math.max(0,...Object.values(formSubNo));tabs.forEach(id=>{if(!formSubNo[id])formSubNo[id]=++nx});
   if(tabs.length){if(!tabs.includes(boxActive))boxActive=tabs[0];if(boxFor!==boxActive){if(!formPM[boxActive])formPM[boxActive]={};writeSet("b",boxActive);boxFor=boxActive;moved=true}}
   else if(boxFor){boxFor=null;boxActive=null;moved=true}
-  $("#pmtabs").innerHTML=tabs.map(id=>{const m=moulds.find(x=>x.id===id);return `<button type="button" role="tab" data-pm="${esc(id)}" aria-selected="${id===boxActive}">${esc(m?mlabel(m):"Unknown")}</button>`}).join("");
+  const wo=$("#f-wo").value.trim().toUpperCase();
+  $("#pmtabs").innerHTML=tabs.map(id=>{const m=moulds.find(x=>x.id===id);return `<button type="button" role="tab" data-pm="${esc(id)}" aria-selected="${id===boxActive}"><span class="tabno">${esc(wo)}-${formSubNo[id]}</span>${esc(m?mlabel(m):"Unknown")}</button>`}).join("");
+  if(boxActive)$("#b-subno").textContent=`${wo||"#"}-${formSubNo[boxActive]}`;
   $("#mbox").hidden=!tabs.length;$("#logform").classList.toggle("hasbox",!!tabs.length);
   $("#pmmain").classList.toggle("off",!mainShows);$("#logform").classList.toggle("multi",!mainShows);
   const pm=moulds.find(x=>x.id===prim),bm=moulds.find(x=>x.id===boxActive);
   $("#shots-field").hidden=!!(pm&&isGen(pm));$("#b-shots-field").hidden=!!(bm&&isGen(bm));
   if(moved){growAll();renderFormDrive()}
 }
+const curTabsNow=()=>tabIdsFor($("#f-mould").value||lastPrimary,extraIds);
 function switchPM(id){if(id===boxActive)return;boxActive=id;renderPM()}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-pm]");if(b)switchPM(b.dataset.pm)});
 // Keeps per-mould values with the right mould when the main mould changes
@@ -1078,7 +1128,7 @@ function applyPrimary(id){
   }
   if(id)lastPrimary=id;
 }
-function resetPM(){formPM={};mainFor=null;boxFor=null;boxActive=null;lastPrimary="";extraIds=[];$("#f-mould").value=""}
+function resetPM(){formPM={};formSubNo={};mainFor=null;boxFor=null;boxActive=null;lastPrimary="";extraIds=[];$("#f-mould").value=""}
 function setMould(id,label){
   applyPrimary(id);
   $("#f-mould").value=id||"";
@@ -1170,7 +1220,7 @@ function renderList(){
   // Work order numbers match ignoring "#", "WO-", spaces etc.
   const norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
   const qn=norm(q).replace(/^wo/,"");
-  const jobHits=q&&qn?logs.filter(l=>norm(l.wo).replace(/^wo/,"").includes(qn))
+  const jobHits=q&&qn?logs.filter(l=>woKeys(l).some(k=>k.includes(qn)))
     .sort((a,b)=>String(a.wo).localeCompare(String(b.wo),undefined,{numeric:true})):[];
   const jobMoulds=new Set(jobHits.flatMap(jobIds));
   const mScore=m=>jobMoulds.has(m.id)?3:searchScore([m.name,m.number,m.part,m.material,m.area].join(" "),q);
@@ -1245,10 +1295,10 @@ function renderHist(){
    <div><span>Latest shots</span><b>${fmtNum(s.shots)}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`}</div>`;
   const ml=logs.filter(l=>hasMould(l,m.id));
   const alsoOn=l=>{const o=jobIds(l).map((id,i)=>[id,jobNames(l)[i]]).filter(([id])=>id!==m.id).map(x=>x[1]);return o.length?`<div class="alsoon">Also on: ${esc(o.join(", "))}</div>`:""};
-  $("#timeline").innerHTML=ml.length?ml.map(l=>`<div class="entry e-${stClass(l.status||"Complete").slice(3)}">
+  $("#timeline").innerHTML=ml.length?ml.map(l=>{const sm=subMeta(l,m.id);return `<div class="entry e-${stClass(sm.status).slice(3)}">
      <div class="ehead">
-       <div class="row"><div class="type">${l.wo?`<span class="wotag">${esc(l.wo)}</span>`:""}${esc(l.type)}</div>${statusSel(l)}</div>
-       <div class="when">Started ${fmtDate(l.date)}${l.dateCompleted?" · Completed "+fmtDate(l.dateCompleted):""}${pmVal(l,m.id).shots?" · "+fmtNum(pmVal(l,m.id).shots)+" shots":""}</div>${alsoOn(l)}
+       <div class="row"><div class="type">${l.wo?`<span class="wotag">${esc(subLabel(l,m.id))}</span>`:""}${esc(l.type)}</div>${statusSel(l,m.id)}</div>
+       <div class="when">Started ${fmtDate(sm.date)}${sm.dateCompleted?" · Completed "+fmtDate(sm.dateCompleted):""}${pmVal(l,m.id).shots?" · "+fmtNum(pmVal(l,m.id).shots)+" shots":""}</div>${alsoOn(l)}
      </div>
      <div class="etabs" role="group" aria-label="Work order sections">
        <button type="button" data-etab="${esc(l.id)}" data-t="details" aria-pressed="${entryTab[l.id]!=="att"}">Details</button>
@@ -1258,7 +1308,7 @@ function renderHist(){
      ${l.description?`<p class="edesc">${esc(l.description)}</p>`:`<p class="edesc none">No description</p>`}
      ${(l.todos||[]).length?`<div class="small">To-do: ${l.todos.filter(i=>i.done).length} of ${l.todos.length} ticked</div>`:""}`}</div>
      <div class="small">${confirmDel===l.id?`<button class="linkish" data-del="${esc(l.id)}" style="color:var(--bad)">Confirm delete</button> · <button class="linkish" data-cancel="1">Keep</button>`:`<button class="linkish" data-edit="${esc(l.id)}" style="color:var(--steel)">Edit</button> · <button class="linkish" data-ask="${esc(l.id)}">Delete</button>`}${woNum(l.wo)?` · ${backupNote(l.id)}`:""}${l.updatedAt?` · <span>edited ${fmtDate(l.updatedAt.slice(0,10))}</span>`:""}</div>
-   </div>`).join(""):'<div class="empty"><strong>No history yet</strong>Log the first job on this mould and it will appear here, newest first.</div>';
+   </div>`}).join(""):'<div class="empty"><strong>No history yet</strong>Log the first job on this mould and it will appear here, newest first.</div>';
 }
 $("#timeline").addEventListener("click",async e=>{
   const t=e.target;
@@ -1273,8 +1323,19 @@ $("#timeline").addEventListener("change",async e=>{
   const s=e.target.closest(".stsel");if(!s||!db)return;
   const status=s.value;s.className="stsel "+stClass(status);
   const l=logs.find(x=>x.id===s.dataset.st);
-  const patch={status,statusUpdatedAt:new Date().toISOString()};
+  let patch={status,statusUpdatedAt:new Date().toISOString()};
   if(status==="Complete"&&l&&!l.dateCompleted)patch.dateCompleted=today();
+  if(s.dataset.mid&&l){ // a sub-job: change just that mould's status, and roll the work order up
+    const mid=s.dataset.mid,subs=JSON.parse(JSON.stringify(l.subs||{}));
+    subs[mid]={...(subs[mid]||{}),status};if(status==="Complete"&&!subs[mid].dateCompleted)subs[mid].dateCompleted=today();
+    patch={subs,statusUpdatedAt:new Date().toISOString()};
+    const tabs=tabIdsFor(l.mouldId,l.extraMouldIds);
+    if(tabs.includes(l.mouldId)){
+      const all=tabs.every(id=>((subs[id]||{}).status||l.status)==="Complete");
+      if(all&&l.status!=="Complete"){patch.status="Complete";if(!l.dateCompleted)patch.dateCompleted=today()}
+      else if(!all&&l.status==="Complete"){patch.status="In progress";patch.dateCompleted=""}
+    }
+  }
   try{await db.collection("logs").doc(s.dataset.st).update(patch);toast("Status set to "+status);scheduleBackup(s.dataset.st)}
   catch(err){toast("Couldn't update status: "+(err.message||err.code));renderHist()}
 });
@@ -1303,11 +1364,16 @@ $("#wonext").onclick=()=>{suggestedWO=nextWO();$("#f-wo").value=suggestedWO};
 const woSortNum=l=>{const n=parseInt(woNum(l.wo),10);return isNaN(n)?-1:n};
 function jobTable(list){
   return '<div class="wotable"><div class="worow2 head"><span>Job no.</span><span>Tool</span><span class="dsk">Type</span><span class="dsk">Description</span><span class="dsk">Started</span><span>Status</span></div>'+
-    list.map(l=>{const tool=jobTool(l);const st=l.status||"Complete";
-      return `<button type="button" class="worow2" data-open="${esc(l.id)}" aria-label="Edit ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(tool)}</span><span class="dsk">${esc(l.type||"")}</span><span class="dsk dsc">${esc(l.description||l.faults||"")}</span><span class="dsk mono">${l.date?fmtDate(l.date):"—"}</span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`}).join("")+'</div>';
+    list.map(l=>{const st=l.status||"Complete";const subs=subJobs(l);
+      // with sub-jobs listed underneath, the work order row names only what isn't a sub-job
+      const own=subs.length?jobIds(l).map((id,i)=>subs.some(x=>x.id===id)?null:jobNames(l)[i]).filter(Boolean):[];
+      const tool=subs.length?(own.length?own.join(", "):`${subs.length} moulds`):jobTool(l);
+      return `<button type="button" class="worow2${subs.length?" parent":""}" data-open="${esc(l.id)}" aria-label="Edit ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(tool)}</span><span class="dsk">${esc(l.type||"")}</span><span class="dsk dsc">${esc(l.description||l.faults||"")}</span><span class="dsk mono">${l.date?fmtDate(l.date):"—"}</span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`+
+        // sub-jobs nested under their work order
+        subs.map((x,i)=>`<button type="button" class="worow2 sub${i===subs.length-1?" last":""}" data-open="${esc(l.id)}" data-sub="${esc(x.id)}" aria-label="Edit ${esc((l.wo||"")+"-"+x.no)}"><span class="wo"><span class="subtree" aria-hidden="true"></span>${esc((l.wo||"")+"-"+x.no)}</span><span class="tool">${esc(x.name)}</span><span class="dsk"></span><span class="dsk"></span><span class="dsk mono">${x.date?fmtDate(x.date):"—"}</span><span class="stpill ${stClass(x.status)}">${esc(x.status)}</span></button>`).join("")}).join("")+'</div>';
 }
 function renderOpen(){
-  const open=logs.filter(l=>l.status&&l.status!=="Complete")
+  const open=logs.filter(l=>l.status&&(l.status!=="Complete"||anySubOpen(l)))
     .sort((a,b)=>String(a.wo||"").localeCompare(String(b.wo||""),undefined,{numeric:true}));
   const n=open.length,tc=$("#tabcount");tc.textContent=n;tc.hidden=!n;
   $("#opencount").textContent=n?`${n} open`:"";
@@ -1325,11 +1391,11 @@ function renderAllJobs(){
   const q=$("#allsearch").value.trim().toLowerCase(),qn=q.replace(/[^a-z0-9]/g,"").replace(/^wo/,"");
   const fs=$("#allstatus").value;
   let list=logs.slice();
-  if(fs)list=list.filter(l=>(l.status||"Complete")===fs);
+  if(fs)list=list.filter(l=>(l.status||"Complete")===fs||subJobs(l).some(x=>x.status===fs));
   const woOrder=(a,b)=>woSortNum(b)-woSortNum(a)||String(b.wo||"").localeCompare(String(a.wo||""),undefined,{numeric:true});
   let nExact=list.length;
   if(q){
-    const sc=new Map(list.map(l=>[l,(qn&&String(l.wo||"").toLowerCase().replace(/[^a-z0-9]/g,"").replace(/^wo/,"").includes(qn))?2:searchScore([jobTool(l),l.description,l.faults,l.work,l.notes,l.type].join(" "),q)]));
+    const sc=new Map(list.map(l=>[l,(qn&&woKeys(l).some(k=>k.includes(qn)))?2:searchScore([jobTool(l),l.description,l.faults,l.work,l.notes,l.type].join(" "),q)]));
     const exact=list.filter(l=>sc.get(l)===2).sort(woOrder),close=list.filter(l=>sc.get(l)===1).sort(woOrder);
     list=exact.concat(close);nExact=exact.length;
   }else list.sort(woOrder);
@@ -1342,10 +1408,10 @@ $("#allsearch").addEventListener("input",()=>{allShown=ALL_PAGE;renderAllJobs()}
 $("#allstatus").addEventListener("change",()=>{allShown=ALL_PAGE;renderAllJobs()});
 $("#alllist").addEventListener("click",e=>{
   if(e.target.closest("#allmore")){allShown+=ALL_PAGE;renderAllJobs();return}
-  const r=e.target.closest("[data-open]");if(r)startEdit(r.dataset.open)});
+  const r=e.target.closest("[data-open]");if(r)startEdit(r.dataset.open,r.dataset.sub)});
 $("#newjob").onclick=()=>show("log");
 $("#newjob2").onclick=()=>{returnTab="all";show("log")};
-$("#openlist").addEventListener("click",e=>{const r=e.target.closest("[data-open]");if(r)startEdit(r.dataset.open)});
+$("#openlist").addEventListener("click",e=>{const r=e.target.closest("[data-open]");if(r)startEdit(r.dataset.open,r.dataset.sub)});
 
 function renderAll(){
   renderOpen();renderAllJobs();renderTodo();
@@ -1372,7 +1438,8 @@ function clearForm(){
   dirty=false;clearTimeout(saveTimer);
   growAll();
 }
-async function startEdit(id){
+async function startEdit(id,subId){
+  if(subId)setTimeout(()=>{if(editingId===id&&curTabsNow().includes(subId))switchPM(subId)},30);
   const l=logs.find(x=>x.id===id);if(!l)return;
   returnTab=["all","todo"].includes(currentView())?currentView():"open";
   await flushSave();
@@ -1380,6 +1447,7 @@ async function startEdit(id){
   resetPM();
   formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",ck:{...((l.checklist&&l.checklist.state)||{})}};
   for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",ck:{...((v.checklist&&v.checklist.state)||{})}}}
+  for(const [x,sm] of Object.entries(l.subs||{})){if(!sm||!formPM[x])continue;if(sm.no)formSubNo[x]=sm.no;Object.assign(formPM[x],{status:sm.status,date:sm.date,done:sm.dateCompleted||""})}
   $("#f-wo").value=l.wo||"";setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);
   formTodos=(l.todos||[]).map(i=>({...i}));mountFormTodos();$("#f-date").value=l.date||today();
   $("#f-shots").value=l.shots??"";$("#f-parts").value=l.parts||"";$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-desc").value=l.description||"";
@@ -1418,7 +1486,8 @@ function buildEntry(){
   const pmClean=id=>{const v=formPM[id]||(id===mouldId?readSet("f"):{});const sh=String(v.shots??"").trim();return {shots:sh===""?null:Number(sh),faults:String(v.faults||"").trim(),work:String(v.work||"").trim(),notes:String(v.notes||"").trim(),parts:String(v.parts||"").trim(),checklist:v.ck&&Object.keys(v.ck).length?{state:{...v.ck}}:null}};
   const main=pmClean(mouldId), extras=extraIds.filter(x=>x!==mouldId);
   const perMould={};for(const x of extras)perMould[x]=pmClean(x);
-  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,checklist:main.checklist,todos:cleanItems(formTodos)}};
+  const subs={};for(const x of tabIdsFor(mouldId,extras)){const v=formPM[x]||{};subs[x]={no:formSubNo[x]||null,status:v.status||segVal("#f-status"),date:v.date??$("#f-date").value,dateCompleted:v.done||""}}
+  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,checklist:main.checklist,todos:cleanItems(formTodos),subs}};
 }
 function markDirty(delay){
   if(!db)return;
@@ -1461,6 +1530,22 @@ async function flushSave(){
 $("#logform").addEventListener("input",e=>{if(e.target.id==="f-mould-q"||e.target.id==="f-add-q")return;markDirty(e.target.matches("select,input[type=date]")?250:900)});
 $("#logform").addEventListener("change",e=>{if(e.target.id==="f-mould-q"||e.target.id==="f-add-q")return;markDirty(250)});
 $("#f-status").addEventListener("click",e=>{if(e.target.closest("button"))markDirty(250)});
+$("#b-status").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.v==="Complete"){if(!$("#b-done").value)$("#b-done").value=today()}else $("#b-done").value="";
+  rollUpStatus();markDirty(250);
+});
+// When every mould on the work order is a sub-job, the work order is complete once they all are
+function rollUpStatus(){
+  stashPM();
+  const prim=$("#f-mould").value||lastPrimary,tabs=tabIdsFor(prim,extraIds);
+  if(!tabs.length||!tabs.includes(prim))return;
+  const st=tabs.map(id=>(formPM[id]||{}).status||segVal("#f-status")),top=segVal("#f-status");
+  if(st.every(x=>x==="Complete")){
+    if(top!=="Complete"){segSet("#f-status","Complete");if(!$("#f-done").value)$("#f-done").value=tabs.map(id=>(formPM[id]||{}).done||"").sort().pop()||today();toast("All sub-jobs complete, so the work order is now Complete")}
+  }else if(top==="Complete"){segSet("#f-status","In progress");$("#f-done").value="";toast("A sub-job is open again, so the work order is back In progress")}
+}
+$("#f-wo").addEventListener("input",()=>{if(!$("#mbox").hidden)renderPM()});
 $("#f-wo").addEventListener("input",updateEditBar);
 // Leaving: save straight away
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flushSave()});
@@ -1880,8 +1965,9 @@ function workOrderMarkdown(l){
   if((l.todos||[]).length)md+=`\n## To-do\n\n`+l.todos.map(i=>`- [${i.done?"x":" "}] ${String(i.text||"").replace(/\n/g," ")}`).join("\n")+"\n";
   if(jobIds(l).length>1){
     const names=jobNames(l);
-    jobIds(l).forEach((id,i)=>{const v=pmVal(l,id),mm=moulds.find(x=>x.id===id);
-      md+=`\n## ${names[i]}\n`;
+    jobIds(l).forEach((id,i)=>{const v=pmVal(l,id),mm=moulds.find(x=>x.id===id),sm=subMeta(l,id);
+      md+=`\n## ${sm.no?subLabel(l,id)+" · ":""}${names[i]}\n`;
+      if(sm.no)md+=`\n**Status:** ${sm.status} · **Started:** ${sm.date?fmtDate(sm.date):"–"} · **Completed:** ${sm.dateCompleted?fmtDate(sm.dateCompleted):"–"}\n`;
       if(!(mm&&isGen(mm)))md+=`\n**Shot count:** ${v.shots!=null&&v.shots!==""?fmtNum(v.shots):"–"}\n`;
       md+=`\n### Inspection / faults found\n\n${mdBlock(v.faults)}\n\n### Work done\n\n${mdBlock(v.work)}\n\n### Notes\n\n${mdBlock(v.notes)}\n\n### Parts used\n\n${mdBlock(v.parts)}\n\n### Service checklist\n\n`+mdChecklist(v.checklist,v.shots,"####")});
   }else{
@@ -2070,7 +2156,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-6";
+const APP_VERSION="2026.10.13-7";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -2148,9 +2234,9 @@ $("#import-file").addEventListener("change",async e=>{
   }catch(err){toast("That file couldn't be imported: "+((err&&err.message)||"not a Mould Log export"))}
 });
 $("#exportbtn").onclick=()=>{
-  const cols=["Work order","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Service checklist","To-do"];
+  const cols=["Work order","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Service checklist","To-do","Sub-jobs"];
   const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.status||"",l.date,l.dateCompleted,jobTool(l),isGen(m)?"General job":"Mould",m.part||m.area,l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,l.parts,l.checklist?ckSummary(l.checklist.state||{}):""];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),j("notes"),j("parts"),ids.map((id,i)=>{const c=pmVal(l,id).checklist;return c?n[i]+": "+ckSummary(c.state||{}):""}).filter(Boolean).join(" | ")]})(),(l.todos||[]).map(i=>(i.done?"[x] ":"[ ] ")+i.text).join(" | ")].map(q).join(",")}));
+  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.status||"",l.date,l.dateCompleted,jobTool(l),isGen(m)?"General job":"Mould",m.part||m.area,l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,l.parts,l.checklist?ckSummary(l.checklist.state||{}):""];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),j("notes"),j("parts"),ids.map((id,i)=>{const c=pmVal(l,id).checklist;return c?n[i]+": "+ckSummary(c.state||{}):""}).filter(Boolean).join(" | ")]})(),(l.todos||[]).map(i=>(i.done?"[x] ":"[ ] ")+i.text).join(" | "),jobIds(l).map((id,i)=>{const sm=subMeta(l,id);return sm.no?`${subLabel(l,id)} ${jobNames(l)[i]}: ${sm.status}`:""}).filter(Boolean).join(" | ")].map(q).join(",")}));
   saveFile("mould-maintenance-"+today()+".csv",new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
 };
 $("#backupbtn").onclick=()=>{
