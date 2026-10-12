@@ -684,6 +684,56 @@ const ckBox=makeChecklist($("#b-cklist"),$("#b-ckprog"),()=>boxCk,$("#b-shots"))
 function syncChecklist(){ckMain.sync()}
 syncChecklist();ckBox.sync();
 
+// ---- Pasting lists (Google Docs, Word, web pages) into text boxes ----
+// Text boxes can't hold list formatting, so pasted lists become "• " lines (numbered lists keep their numbers, sub-points are indented)
+const BULLET_RE=/^(\s*)(?:[•●◦▪▫■□‣⁃∙·*]|o(?=\t)|-(?=\s))\s*/;
+function normaliseBullets(text){return text.replace(/\r\n?/g,"\n").split("\n").map(l=>l.replace(BULLET_RE,(m,ind)=>ind.replace(/\t/g,"  ")+"• ")).join("\n")}
+function htmlListToText(html){
+  const doc=new DOMParser().parseFromString(html,"text/html");
+  const lines=[];let line="",prefix="";
+  const flush=()=>{const t=line.replace(/[ \t ]+$/,"");if(t.trim())lines.push(t);line="";prefix=""};
+  const add=txt=>{if(!line){txt=txt.replace(/^[\s ]+/,"");if(!txt)return;line=prefix}line+=txt};
+  const isOrdered=(li,list)=>list&&list.tagName==="OL"||/list-style-type:\s*(decimal|lower-|upper-)/i.test(li.getAttribute("style")||"");
+  function walk(node,depth){
+    for(const n of node.childNodes){
+      if(n.nodeType===3){add(n.nodeValue.replace(/\s+/g," "));continue}
+      if(n.nodeType!==1)continue;
+      const t=n.tagName;
+      if(/^(STYLE|SCRIPT|META|TITLE)$/.test(t))continue;
+      if(t==="BR"){flush();continue}
+      if(t==="UL"||t==="OL"){flush();walk(n,depth+1);flush();continue}
+      if(t==="LI"){
+        flush();
+        const lv=parseInt(n.getAttribute("aria-level"),10)||depth||1;
+        const list=n.parentElement;
+        let mark="• ";
+        if(isOrdered(n,list)){const sibs=[...list.children].filter(x=>x.tagName==="LI"&&(parseInt(x.getAttribute("aria-level"),10)||depth||1)===lv);mark=(sibs.indexOf(n)+1)+". "}
+        prefix="  ".repeat(Math.max(0,lv-1))+mark;
+        walk(n,depth);flush();continue}
+      const block=/^(P|DIV|H[1-6]|TR|TABLE|BLOCKQUOTE|SECTION|ARTICLE|PRE)$/.test(t);
+      if(block){if(line)flush()}
+      if(block&&prefix&&!line){} // keep the bullet for the first paragraph inside a list item
+      walk(n,depth);
+      if(block)flush();
+    }
+  }
+  walk(doc.body,0);flush();
+  return lines.join("\n");
+}
+document.addEventListener("paste",e=>{
+  const ta=e.target;if(!ta||ta.tagName!=="TEXTAREA"||!e.clipboardData)return;
+  const html=e.clipboardData.getData("text/html"),plain=e.clipboardData.getData("text/plain");
+  let text=null;
+  if(html&&/<li[\s>]/i.test(html))text=htmlListToText(html);
+  else if(plain&&BULLET_RE.test(plain.split(/\r?\n/).find(l=>l.trim())||""))text=normaliseBullets(plain);
+  else if(plain&&/^\s*[•●◦▪]/m.test(plain))text=normaliseBullets(plain);
+  if(text==null)return;
+  e.preventDefault();
+  const a=ta.selectionStart,b=ta.selectionEnd;
+  ta.setRangeText(text,a,b,"end");
+  ta.dispatchEvent(new Event("input",{bubbles:true}));
+});
+
 // Text boxes that grow to fit their content
 function grow(el){if(!el.offsetParent)return;el.style.height="auto";el.style.height=(el.scrollHeight+2)+"px"}
 function growAll(){document.querySelectorAll("textarea.autogrow").forEach(grow)}
@@ -1576,7 +1626,8 @@ function scheduleBackup(id){
   clearTimeout(backupTimers[id]);backupTimers[id]=setTimeout(processBackups,4000);
 }
 function mdEsc(v){return String(v??"").replace(/\|/g,"\\|").replace(/\r?\n/g," ")}
-function mdBlock(v){const t=String(v??"").trim();return t?t:"_None recorded_"}
+function mdBlock(v){const t=String(v??"").trim();if(!t)return"_None recorded_";
+  return t.split("\n").map(l=>{const m=l.match(/^(\s*)\u2022\s?(.*)$/);if(m)return m[1]+"- "+m[2];return /^\s*\d+[.)]\s/.test(l)?l:l+"  "}).join("\n")}
 function workOrderMarkdown(l){
   const m=moulds.find(x=>x.id===l.mouldId)||{};
   const name=jobTool(l);
@@ -1780,7 +1831,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-3";
+const APP_VERSION="2026.10.13-4";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
