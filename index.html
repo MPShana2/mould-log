@@ -229,6 +229,7 @@ details.ckhist>summary{cursor:pointer;padding:8px 10px;font-size:13px;font-weigh
 .xchip button:hover{background:var(--line);color:var(--fg)}
 #f-add-wrap{margin-top:8px}
 .addmould{display:block;align-self:flex-start;text-align:left;margin-top:8px;border:0;background:none;padding:6px 0;font:inherit;font-size:14px;font-weight:600;color:var(--fg);text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:4px;cursor:pointer}
+.edesc{font-weight:600;white-space:pre-wrap;margin:0}.edesc.none{font-weight:400;color:var(--muted);font-style:italic}
 .alsoon{font-size:13px;color:var(--muted);margin-top:2px}
 .combo-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:8;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.18);max-height:320px;overflow-y:auto;padding:4px}
 .opt{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 10px;border-radius:6px;cursor:pointer}
@@ -391,11 +392,11 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       </div>
       <div class="field">
         <label class="label" for="f-work">Work done</label>
-        <select id="f-work"></select>
+        <textarea id="f-work" class="autogrow" rows="2" placeholder="e.g. Replaced ejector pin on cavity 3, cleaned vents, flushed water lines"></textarea>
       </div>
       <div class="field">
         <label class="label" for="f-notes">Notes</label>
-        <textarea id="f-notes" class="autogrow" placeholder="Each Work done you pick is added here. Add extra detail, findings or measurements."></textarea>
+        <textarea id="f-notes" class="autogrow" placeholder="Extra detail, findings or measurements"></textarea>
       </div>
       </div>
       <div class="fcol fcol-side">
@@ -580,7 +581,6 @@ function segVal(id){return $(id).querySelector('[aria-pressed="true"]')?.dataset
 function segReset(id){$(id).querySelectorAll("button").forEach((x,i)=>x.setAttribute("aria-pressed",i===0?"true":"false"))}
 segBind("#f-status");
 $("#f-type").innerHTML=JOBTYPES.map(t=>`<option>${esc(t)}</option>`).join("");
-$("#f-work").innerHTML='<option value="">Choose work done (optional)…</option>'+WORKS.map(t=>`<option>${esc(t)}</option>`).join("");
 // ---------- Service checklist ----------
 const CHECKLIST=[
   {sec:"General",items:[
@@ -657,13 +657,6 @@ function grow(el){if(!el.offsetParent)return;el.style.height="auto";el.style.hei
 function growAll(){document.querySelectorAll("textarea.autogrow").forEach(grow)}
 document.querySelectorAll("textarea.autogrow").forEach(el=>el.addEventListener("input",()=>grow(el)));
 window.addEventListener("resize",growAll);
-// Picking a Work done option adds it as a line in Notes (skips "Other" and duplicates)
-$("#f-work").addEventListener("change",e=>{
-  const v=e.target.value;if(!v||v.startsWith("Other"))return;
-  const ta=$("#f-notes");const lines=ta.value.split("\n").map(s=>s.trim());
-  if(lines.includes(v)||lines.includes("• "+v))return;
-  const cur=ta.value.replace(/\s+$/,"");ta.value=(cur?cur+"\n":"")+"• "+v;grow(ta);
-});
 // Setting status to Complete fills Date completed if it's empty
 $("#f-status").addEventListener("click",e=>{const b=e.target.closest("button");if(b&&b.dataset.v==="Complete"&&!$("#f-done").value)$("#f-done").value=today()});
 const STATUSES=["Pending","In progress","On hold","Complete"];
@@ -883,12 +876,7 @@ function renderHist(){
        <button type="button" data-etab="${esc(l.id)}" data-t="att" aria-pressed="${entryTab[l.id]==="att"}">Photos &amp; files</button>
      </div>
      <div class="epanel">${entryTab[l.id]==="att"?attPanel(l):`
-     ${l.description?`<p style="font-weight:600">${esc(l.description)}</p>`:""}
-     ${l.faults?`<p><span class="lbl">Faults found:</span> ${esc(l.faults)}</p>`:""}
-     ${l.work?`<p><span class="lbl">Work done:</span> ${esc(l.work)}</p>`:""}
-     ${l.notes?`<p style="color:var(--muted)">${esc(l.notes)}</p>`:""}
-     ${l.parts?`<div class="small">Parts: ${esc(l.parts)}</div>`:""}
-     ${ckHistory(l)}`}</div>
+     ${l.description?`<p class="edesc">${esc(l.description)}</p>`:`<p class="edesc none">No description</p>`}`}</div>
      <div class="small">${confirmDel===l.id?`<button class="linkish" data-del="${esc(l.id)}" style="color:var(--bad)">Confirm delete</button> · <button class="linkish" data-cancel="1">Keep</button>`:`<button class="linkish" data-edit="${esc(l.id)}" style="color:var(--steel)">Edit</button> · <button class="linkish" data-ask="${esc(l.id)}">Delete</button>`}${woNum(l.wo)?` · ${backupNote(l.id)}`:""}${l.updatedAt?` · <span>edited ${fmtDate(l.updatedAt.slice(0,10))}</span>`:""}</div>
    </div>`).join(""):'<div class="empty"><strong>No history yet</strong>Log the first job on this mould and it will appear here, newest first.</div>';
 }
@@ -1004,8 +992,7 @@ async function startEdit(id){
   $("#f-wo").value=l.wo||"";extraIds=[];setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);$("#f-date").value=l.date||today();
   $("#f-shots").value=l.shots??"";$("#f-parts").value=l.parts||"";$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-desc").value=l.description||"";
   $("#f-type").value=JOBTYPES.includes(l.type)?l.type:JOBTYPES[0];
-  if(WORKS.includes(l.work)){$("#f-work").value=l.work;$("#f-notes").value=l.notes||""}
-  else{$("#f-work").value=l.work?"Other (see notes)":"";$("#f-notes").value=[l.work,l.notes].filter(Boolean).join("\n")}
+  $("#f-work").value=l.work==="Other (see notes)"?"":(l.work||"");$("#f-notes").value=l.notes||"";
   segSet("#f-status",l.status||"Complete");
   ckState={...((l.checklist&&l.checklist.state)||{})};$("#ck-counter").value=l.shots??"";syncChecklist();
   updateEditBar();setSaveState("saved","All changes saved");
@@ -1035,7 +1022,7 @@ function buildEntry(){
   if(!$("#f-date").value)return {error:"enter a start date"};
   if($("#f-done").value&&$("#f-done").value<$("#f-date").value)return {error:"date completed is before date started"};
   const m=moulds.find(x=>x.id===mouldId);const shots=$("#f-shots").value.trim();
-  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:shots===""?null:Number(shots),type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:$("#f-faults").value.trim(),work:$("#f-work").value,notes:$("#f-notes").value.trim(),parts:$("#f-parts").value.trim(),checklist:Object.keys(ckState).length?{state:{...ckState}}:null}};
+  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:shots===""?null:Number(shots),type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:$("#f-faults").value.trim(),work:$("#f-work").value.trim(),notes:$("#f-notes").value.trim(),parts:$("#f-parts").value.trim(),checklist:Object.keys(ckState).length?{state:{...ckState}}:null}};
 }
 function markDirty(delay){
   if(!db)return;
@@ -1634,7 +1621,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-16";
+const APP_VERSION="2026.10.12-17";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
