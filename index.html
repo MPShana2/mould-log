@@ -231,6 +231,55 @@ details.ckhist>summary{cursor:pointer;padding:8px 10px;font-size:13px;font-weigh
 .openjobs{color:var(--steel);font-weight:600}
 details summary{cursor:pointer;font-weight:600;color:var(--steel)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* ---------- Desktop layout (wide windows only; phones keep the layout above) ---------- */
+.fcol{display:flex;flex-direction:column;gap:16px;min-width:0}
+.mpanels,.hside,.hmain{display:flex;flex-direction:column;gap:16px;min-width:0}
+.hgrid{display:flex;flex-direction:column;gap:16px}
+.dsk{display:none}
+@media (min-width:1000px){
+  body{font-size:15px}
+  .wrap{max-width:none;margin:0 0 0 220px;padding:0 32px 48px}
+  .wrap>section{max-width:1320px}
+  header.top{margin:0 -32px 24px;padding-inline:32px;padding-block:18px 14px}
+  h1{font-size:24px}
+  /* Bottom tab bar becomes a left sidebar */
+  nav.tabs{top:0;bottom:0;right:auto;width:220px;flex-direction:column;justify-content:flex-start;gap:4px;padding:20px 12px 16px;border-right:3px solid var(--accent)}
+  nav.tabs::before{content:"Menu";color:var(--bar-muted);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:0 16px 10px}
+  nav.tabs button{flex:none;max-width:none;text-align:left;border-top:0;border-left:3px solid transparent;border-radius:0 8px 8px 0;padding:12px 16px;font-size:15px;display:flex;align-items:center;justify-content:space-between}
+  nav.tabs button:hover{background:#151515;color:var(--bar-fg)}
+  nav.tabs button[aria-current="true"]{border-left-color:var(--accent);background:#1a1a1a}
+  .toast{bottom:calc(24px + env(safe-area-inset-bottom,0px));left:calc(50% + 110px)}
+  .gate{z-index:40}
+  .editbar{top:calc(env(safe-area-inset-top,0px) + 74px)}
+  /* Log job: details on the left, checklist + parts + photos on the right */
+  #logform{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:24px 28px;align-items:start}
+  #logform>#savebtn{grid-column:1/-1;justify-self:start;min-width:220px}
+  .fcol-side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 140px)}
+  .fcol-side details.ck[open] #cklist{max-height:58vh;overflow-y:auto}
+  #v-log>.editbar{max-width:none}
+  /* Open jobs: a full table */
+  .worow2{grid-template-columns:110px minmax(160px,1.2fr) 120px minmax(0,2fr) 120px 90px 120px;padding:12px 18px}
+  .worow2 .dsk{display:block;min-width:0}
+  .worow2 .dsc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+  .worow2 .stpill{justify-self:start}
+  /* Moulds: settings panels in a row, moulds as a card grid */
+  .mpanels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
+  .mpanels>details[open]{grid-column:span 2}
+  #search{max-width:520px}
+  .group{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+  .group>.label,.group>.wotable{grid-column:1/-1}
+  .mould:hover{border-color:var(--accent)}
+  /* Mould history: details on the left, history on the right */
+  .hgrid{display:grid;grid-template-columns:360px minmax(0,1fr);gap:28px;align-items:start}
+  .hside{position:sticky;top:calc(env(safe-area-inset-top,0px) + 96px)}
+  .attgrid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+  .lb-body{padding:0 48px 16px}
+}
+@media (min-width:1400px){
+  .mpanels>details[open]{grid-column:span 2}
+  .group{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+}
+
 /* Standalone app additions */
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html{color-scheme:light}
@@ -274,6 +323,7 @@ img{max-width:100%}
       <button class="btn ghost" id="canceledit" type="button" hidden>Done</button>
     </div>
     <form id="logform" autocomplete="off">
+      <div class="fcol fcol-main">
       <div class="field wo">
         <label class="label" for="f-wo">Work order no.</label>
         <div class="worow">
@@ -323,6 +373,8 @@ img{max-width:100%}
         <label class="label" for="f-notes">Notes</label>
         <textarea id="f-notes" class="autogrow" placeholder="Each Work done you pick is added here. Add extra detail, findings or measurements."></textarea>
       </div>
+      </div>
+      <div class="fcol fcol-side">
       <details class="panel ck" id="ckpanel">
         <summary><span>Service checklist</span><span class="ckprog" id="ckprog">Not started</span></summary>
         <div id="cklist"></div>
@@ -331,6 +383,7 @@ img{max-width:100%}
       <div class="field">
         <span class="label">Photos &amp; files</span>
         <div id="f-att"></div>
+      </div>
       </div>
       <button class="btn" id="savebtn" type="submit">Save job</button>
     </form>
@@ -348,6 +401,7 @@ img{max-width:100%}
       <h2>Moulds &amp; general jobs</h2>
       <button class="btn ghost" id="exportbtn" type="button" hidden>Export CSV</button>
     </div>
+    <div class="mpanels">
     <details class="panel" id="addpanel">
       <summary>Add a mould</summary>
       <form id="mouldform" style="margin-top:14px" autocomplete="off">
@@ -394,6 +448,7 @@ img{max-width:100%}
         </div>
       </div>
     </details>
+    </div>
     <input id="search" type="search" placeholder="Search job no., mould name, part or area">
     <div class="list" id="mouldlist"></div>
   </section>
@@ -401,6 +456,8 @@ img{max-width:100%}
   <!-- HISTORY -->
   <section id="v-hist" class="stackcol" hidden>
     <div><button class="linkish" id="backbtn" type="button">← Back to list</button></div>
+    <div class="hgrid">
+    <div class="hside">
     <div class="panel" id="histhead"></div>
     <form class="panel" id="mouldedit" hidden autocomplete="off">
       <h2 style="font-size:17px">Edit details</h2>
@@ -415,8 +472,12 @@ img{max-width:100%}
       <div class="field" id="e-genfields"><label class="label" for="e-area">Area / location</label><input id="e-area" placeholder="e.g. Tool room"></div>
       <div class="attbtns" style="margin:0"><button class="btn" type="submit">Save details</button><button class="btn ghost" type="button" id="mecancel">Cancel</button></div>
     </form>
+    </div>
+    <div class="hmain">
     <div class="row"><h2>History</h2><button class="btn ghost" id="logthis" type="button">Log a job here</button></div>
     <div id="timeline"></div>
+    </div>
+    </div>
   </section>
 </div>
 
@@ -779,6 +840,7 @@ function refreshWO(){
 }
 $("#wonext").onclick=()=>{suggestedWO=nextWO();$("#f-wo").value=suggestedWO};
 
+function daysOpen(d){if(!d)return"—";const n=Math.floor((Date.now()-new Date(d+"T00:00:00"))/864e5);return n<0?"—":String(n)}
 function renderOpen(){
   const open=logs.filter(l=>l.status&&l.status!=="Complete")
     .sort((a,b)=>String(a.wo||"").localeCompare(String(b.wo||""),undefined,{numeric:true}));
@@ -787,9 +849,9 @@ function renderOpen(){
   const el=$("#openlist");
   if(!loaded.l&&db){el.innerHTML='<div class="empty">Loading work orders…</div>';return}
   if(!n){el.innerHTML='<div class="empty"><strong>No open work orders</strong>Jobs marked Pending, In progress or On hold will show here until they\'re set to Complete.</div>';return}
-  el.innerHTML='<div class="wotable"><div class="worow2 head"><span>Job no.</span><span>Tool</span><span>Status</span></div>'+
+  el.innerHTML='<div class="wotable"><div class="worow2 head"><span>Job no.</span><span>Tool</span><span class="dsk">Type</span><span class="dsk">Description</span><span class="dsk">Started</span><span class="dsk">Days open</span><span>Status</span></div>'+
     open.map(l=>{const m=moulds.find(x=>x.id===l.mouldId);const tool=m?mlabel(m):(l.mouldName||l.mouldNumber||"Unknown mould");
-      return `<button type="button" class="worow2" data-open="${esc(l.id)}" aria-label="Edit ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(tool)}</span><span class="stpill ${stClass(l.status)}">${esc(l.status)}</span></button>`}).join("")+'</div>';
+      return `<button type="button" class="worow2" data-open="${esc(l.id)}" aria-label="Edit ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(tool)}</span><span class="dsk">${esc(l.type||"")}</span><span class="dsk dsc">${esc(l.description||l.faults||"")}</span><span class="dsk mono">${l.date?fmtDate(l.date):"—"}</span><span class="dsk mono">${daysOpen(l.date)}</span><span class="stpill ${stClass(l.status)}">${esc(l.status)}</span></button>`}).join("")+'</div>';
 }
 $("#newjob").onclick=()=>show("log");
 $("#openlist").addEventListener("click",e=>{const r=e.target.closest("[data-open]");if(r)startEdit(r.dataset.open)});
