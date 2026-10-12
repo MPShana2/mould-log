@@ -117,15 +117,17 @@ nav.tabs button[aria-current="true"]{color:var(--bar-fg);border-top-color:var(--
 .st-Inprogress{background:var(--sunk);color:var(--steel);border-color:var(--steel)}
 .st-Onhold{background:var(--warn-bg);color:var(--warn)}
 .st-Complete{background:var(--ok-bg);color:var(--ok)}
-.editbar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--steel);color:var(--bg);border-radius:var(--r);padding:8px 8px 8px 14px;font-weight:600;position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);z-index:4;box-shadow:0 4px 12px rgba(0,0,0,.12)}
-.eb-text{display:flex;flex-direction:column;min-width:0;gap:1px}
-.savestate{font-size:12px;font-weight:500;opacity:.85;display:flex;align-items:center;gap:6px}
+/* Slim status strip under the header while logging/editing a job */
+.editbar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg);color:var(--fg);border-bottom:1px solid var(--line);margin:-16px -16px 0;padding:7px 16px;font-size:13px;position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--hdr-h,63px));z-index:4}
+.eb-text{display:flex;flex-direction:row;align-items:center;min-width:0;gap:10px;flex-wrap:wrap}
+#edittitle{font-weight:700;color:var(--muted)}
+.savestate{font-size:12px;font-weight:500;color:var(--muted);display:flex;align-items:center;gap:6px}
 .savestate::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.5;flex:none}
 .savestate.saved::before{background:var(--ok);opacity:1}
 .savestate.saving::before,.savestate.pending::before{background:var(--accent);opacity:1}
-.savestate.problem{opacity:1}
+.savestate.problem{color:var(--bad)}
 .savestate.problem::before{background:var(--bad);opacity:1}
-.editbar .btn.ghost{color:var(--bg);border-color:var(--bg);padding:6px 12px}
+.editbar .btn.ghost{color:var(--fg);border-color:var(--line);padding:4px 12px;font-size:13px;border-radius:999px;background:var(--surface)}
 .wotable{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .worow2{display:grid;grid-template-columns:minmax(84px,auto) 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-bottom:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
 .worow2:first-child{border-top:0}
@@ -250,7 +252,7 @@ details summary{cursor:pointer;font-weight:600;color:var(--steel)}
   nav.tabs button[aria-current="true"]{border-left-color:var(--accent);background:#1a1a1a}
   .toast{bottom:calc(24px + env(safe-area-inset-bottom,0px));left:calc(50% + 110px)}
   .gate{z-index:40}
-  .editbar{top:calc(env(safe-area-inset-top,0px) + 74px)}
+  .editbar{margin:-24px -32px 0;padding:8px 32px}
   /* Log job: details on the left, checklist + parts + photos on the right */
   #logform{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:24px 28px;align-items:start}
   #logform>#savebtn{grid-column:1/-1;justify-self:start;min-width:220px}
@@ -323,7 +325,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
   <!-- LOG JOB -->
   <section id="v-log" class="stackcol" hidden>
     <div class="editbar" id="editbar">
-      <div class="eb-text"><span id="edittitle">New job</span><span id="savestate" class="savestate" role="status" aria-live="polite">Saves automatically once a mould and work order no. are filled in</span></div>
+      <div class="eb-text"><span id="edittitle">New job</span><span id="savestate" class="savestate" role="status" aria-live="polite">Autosaves once a mould and work order no. are set</span></div>
       <button class="btn ghost" id="canceledit" type="button" hidden>Done</button>
     </div>
     <form id="logform" autocomplete="off">
@@ -641,6 +643,9 @@ function statusSel(l){const cur=l.status||"Complete";return `<select class="stse
 
 $("#f-date").value=today();
 
+// Header height, so the editing strip sits right under it
+function syncHeaderHeight(){const h=document.querySelector("header.top");if(h)document.documentElement.style.setProperty("--hdr-h",h.offsetHeight+"px")}
+window.addEventListener("resize",syncHeaderHeight);setTimeout(syncHeaderHeight,0);
 // ---- Back gesture / back button ----
 // Open jobs is the "home" screen. Any other screen keeps one extra history entry above it,
 // so the phone's back gesture returns to Open jobs (or Moulds from a mould's history) instead of closing the app.
@@ -921,7 +926,7 @@ function endEdit(){
 }
 function updateEditBar(){
   const wo=$("#f-wo").value.trim();
-  $("#edittitle").textContent=editingId?("Editing "+(wo||"job")+" · "+fmtDate($("#f-date").value)):"New job";
+  $("#edittitle").textContent=editingId?("Editing "+(wo||"job")):"New job";
   $("#canceledit").hidden=!editingId;
   $("#savebtn").textContent=editingId?"Done":"Save job";
 }
@@ -930,7 +935,7 @@ function updateEditBar(){
 let dirty=false, saveTimer=null, saving=null, saveAgain=false, busySave=false;
 function setSaveState(kind,text){
   const el=$("#savestate");el.className="savestate "+(kind||"");
-  el.textContent=text||(kind==="idle"?"Saves automatically once a mould and work order no. are filled in":"");
+  el.textContent=text||(kind==="idle"?"Autosaves once a mould and work order no. are set":"");
 }
 function buildEntry(){
   const mouldId=$("#f-mould").value;
@@ -1524,7 +1529,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-10";
+const APP_VERSION="2026.10.12-11";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
