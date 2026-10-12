@@ -237,6 +237,7 @@ details.ck>summary span:first-child{flex:1}
 .subtop{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px 0}
 .subback{border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--fg);padding:8px 0;cursor:pointer;text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:4px}
 .subtitle{margin:0;font-size:22px;font-weight:700}
+.subsec{margin-top:14px;display:flex;flex-direction:column;gap:8px}.subsec[hidden]{display:none}
 .sublist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
 .subrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:12px 14px;border:0;border-top:1px solid var(--line);background:none;font:inherit;text-align:left;cursor:pointer;color:var(--fg);min-height:52px}
 .subrow:first-child{border-top:0}
@@ -403,6 +404,10 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
           <button class="btn ghost" id="wonext" type="button">Next no.</button>
         </div>
         <div class="hint">Filled in automatically. Type over it to use your own number.</div>
+        <div class="subsec" id="subsec" hidden>
+          <span class="label">Sub-jobs</span>
+          <div class="sublist" id="sublist"></div>
+        </div>
       </div>
       <div class="field">
         <span class="label">Status</span>
@@ -439,10 +444,6 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <div class="field">
         <span class="label">To-do</span>
         <div class="cl cl-form" data-cl="form" id="f-todo"></div>
-      </div>
-      <div class="field" id="subsec" hidden>
-        <span class="label">Sub-jobs</span>
-        <div class="sublist" id="sublist"></div>
       </div>
       <div class="pmmain" id="pmmain">
       <div class="field" id="shots-field"><label class="label" for="f-shots">Shot count</label><input id="f-shots" class="mono" type="number" inputmode="numeric" min="0" placeholder="e.g. 412500"></div>
@@ -2194,7 +2195,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-8";
+const APP_VERSION="2026.10.13-9";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
