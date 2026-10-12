@@ -507,6 +507,7 @@ img{max-width:100%}
   <div class="lb-bar">
     <span class="nm" id="lb-name"></span>
     <a id="lb-open" href="#" target="_blank" rel="noopener" hidden>Open</a>
+    <button type="button" id="lb-full" hidden>Full size</button>
     <button type="button" id="lb-save" hidden>Save</button>
     <button type="button" id="lb-close">Close</button>
   </div>
@@ -1202,7 +1203,7 @@ function driveBody(t){
   const items=st.items||[];
   const imgs=items.map((f,i)=>({f,i})).filter(x=>String(x.f.mimeType).startsWith("image/"));
   const others=items.map((f,i)=>({f,i})).filter(x=>!String(x.f.mimeType).startsWith("image/"));
-  const grid=imgs.length?`<div class="attgrid">${imgs.map(({f,i})=>`<button type="button" class="thumb" data-dview="${esc(num)}|${i}" aria-label="View ${esc(f.name)}">${f.thumbnailLink?`<img class="dthumb" src="${esc(f.thumbnailLink)}" referrerpolicy="no-referrer" alt="" loading="lazy">`:""}<span class="ext"${f.thumbnailLink?" hidden":""}>IMG</span></button>`).join("")}</div>`:"";
+  const grid=imgs.length?`<div class="attgrid">${imgs.map(({f,i})=>`<button type="button" class="thumb" data-dview="${esc(num)}|${i}" aria-label="View ${esc(f.name)}">${f.thumbnailLink?`<img class="dthumb" src="${esc(sizedThumb(f.thumbnailLink,400))}" referrerpolicy="no-referrer" alt="" loading="lazy">`:""}<span class="ext"${f.thumbnailLink?" hidden":""}>IMG</span></button>`).join("")}</div>`:"";
   const rows=others.map(({f,i})=>{
     const isDir=f.mimeType===FOLDER_MT;
     const meta=isDir?"Folder":[fmtSize(f.size),f.modifiedTime?fmtDate(String(f.modifiedTime).slice(0,10)):""].filter(Boolean).join(" · ");
@@ -1291,25 +1292,57 @@ document.addEventListener("paste",e=>{
 });
 
 // ---- Photo viewer (loads the full photo from Drive) ----
-let lbList=[],lbIdx=0,lbUrl=null,lbBlob=null;
+// Photos open as a screen-sized copy from Drive (small and fast); the full original loads only when asked for.
+let lbList=[],lbIdx=0,lbUrl=null,lbBlob=null,lbFull=false;
+const fullCache=new Map(); // file id -> object URL of the full original (kept while the app is open)
+const blobCache=new Map(); // file id -> Blob of the full original
+function sizedThumb(link,size){
+  if(!link)return"";
+  if(/[?&]sz=[sw]\d+/i.test(link))return link.replace(/([?&]sz=)[sw]\d+/i,"$1s"+size);
+  if(/=[sw]\d+[^/=?]*$/i.test(link))return link.replace(/=[sw]\d+[^/=?]*$/i,"=s"+size);
+  return link.includes("?")?link:link+"=s"+size;
+}
+function viewerSize(){return Math.min(2400,Math.round(Math.max(screen.width||1200,screen.height||800)*(window.devicePixelRatio||1)))}
 function openViewer(list,i){lbList=list.slice();lbIdx=i;$("#lb").hidden=false;renderViewer();$("#lb-close").focus()}
-function closeViewer(){$("#lb").hidden=true;$("#lb-body").innerHTML="";if(lbUrl){URL.revokeObjectURL(lbUrl);lbUrl=null}lbBlob=null}
-async function renderViewer(){
+function closeViewer(){$("#lb").hidden=true;$("#lb-body").innerHTML="";lbBlob=null}
+function preloadAround(){
+  [lbIdx+1,lbIdx-1,lbIdx+2].forEach(j=>{const f=lbList[(j+lbList.length)%lbList.length];
+    if(f&&f.thumbnailLink&&String(f.mimeType).startsWith("image/")){const im=new Image();im.referrerPolicy="no-referrer";im.src=sizedThumb(f.thumbnailLink,viewerSize())}});
+}
+async function getFull(f){
+  if(blobCache.has(f.id))return blobCache.get(f.id);
+  const blob=await (await driveFetch(DAPI+"files/"+encodeURIComponent(f.id)+"?alt=media&supportsAllDrives=true")).blob();
+  blobCache.set(f.id,blob);fullCache.set(f.id,URL.createObjectURL(blob));
+  if(blobCache.size>12){const k=blobCache.keys().next().value;blobCache.delete(k);const u=fullCache.get(k);if(u)URL.revokeObjectURL(u);fullCache.delete(k)}
+  return blob;
+}
+async function showFull(f,body){
+  const want=f.id;$("#lb-full").disabled=true;$("#lb-full").textContent="Loading…";
+  try{const blob=await getFull(f);if(!lbList[lbIdx]||lbList[lbIdx].id!==want)return;
+    lbBlob=blob;lbFull=true;
+    body.innerHTML=String(f.mimeType).startsWith("video/")?`<video src="${fullCache.get(f.id)}" controls playsinline></video>`:`<img src="${fullCache.get(f.id)}" alt="${esc(f.name)}">`;
+    $("#lb-full").hidden=true;
+  }catch(e){if(lbList[lbIdx]&&lbList[lbIdx].id===want)body.innerHTML=`<div class="doc">${e.code==="needs_token"||e.code==="needs_scope"?"Reconnect Google Drive to view this photo.":esc(e.message||"Couldn't load this file.")}</div>`}
+  finally{$("#lb-full").disabled=false;$("#lb-full").textContent="Full size"}
+}
+function renderViewer(){
   const f=lbList[lbIdx];if(!f)return closeViewer();
   $("#lb-name").textContent=f.name;
   const open=$("#lb-open");open.hidden=!f.webViewLink;open.href=f.webViewLink||"#";open.textContent="Open in Drive";
-  $("#lb-save").hidden=true;
+  $("#lb-save").hidden=false;
   $("#lb-foot").hidden=lbList.length<2;$("#lb-count").textContent=`${lbIdx+1} of ${lbList.length}`;
-  const body=$("#lb-body");body.innerHTML=`<div class="doc">Loading…</div>`;
-  if(lbUrl){URL.revokeObjectURL(lbUrl);lbUrl=null}lbBlob=null;
-  const want=f.id;
-  try{
-    const blob=await (await driveFetch(DAPI+"files/"+encodeURIComponent(f.id)+"?alt=media&supportsAllDrives=true")).blob();
-    if(!lbList[lbIdx]||lbList[lbIdx].id!==want)return;
-    lbBlob=blob;lbUrl=URL.createObjectURL(blob);$("#lb-save").hidden=false;
-    body.innerHTML=String(f.mimeType).startsWith("video/")?`<video src="${lbUrl}" controls playsinline></video>`:`<img src="${lbUrl}" alt="${esc(f.name)}">`;
-  }catch(e){body.innerHTML=`<div class="doc">${e.code==="needs_token"?"Reconnect Google Drive to view this photo.":esc(e.message||"Couldn't load this file.")}</div>`}
+  const body=$("#lb-body");lbBlob=blobCache.get(f.id)||null;lbFull=false;
+  const isImg=String(f.mimeType).startsWith("image/");
+  if(fullCache.has(f.id)){showFull(f,body);preloadAround();return}
+  if(isImg&&f.thumbnailLink){
+    $("#lb-full").hidden=false;
+    body.innerHTML=`<img id="lb-img" src="${esc(sizedThumb(f.thumbnailLink,viewerSize()))}" referrerpolicy="no-referrer" alt="${esc(f.name)}">`;
+    // If Drive's screen-sized copy can't be loaded, fall back to the original
+    $("#lb-img").addEventListener("error",()=>showFull(f,body),{once:true});
+    preloadAround();
+  }else{$("#lb-full").hidden=true;body.innerHTML=`<div class="doc">Loading…</div>`;showFull(f,body)}
 }
+$("#lb-full").onclick=()=>{const f=lbList[lbIdx];if(f)showFull(f,$("#lb-body"))};
 $("#lb-close").onclick=closeViewer;
 // Swipe in the viewer: left/right for next/previous photo, down to close. The photo follows the finger.
 (function(){
@@ -1338,7 +1371,10 @@ $("#lb-close").onclick=closeViewer;
 $("#lb-prev").onclick=()=>{lbIdx=(lbIdx-1+lbList.length)%lbList.length;renderViewer()};
 $("#lb-next").onclick=()=>{lbIdx=(lbIdx+1)%lbList.length;renderViewer()};
 document.addEventListener("keydown",e=>{if($("#lb").hidden)return;if(e.key==="Escape")closeViewer();else if(e.key==="ArrowLeft"&&lbList.length>1)$("#lb-prev").click();else if(e.key==="ArrowRight"&&lbList.length>1)$("#lb-next").click()});
-$("#lb-save").onclick=()=>{const f=lbList[lbIdx];if(f&&lbBlob)saveFile(f.name,lbBlob)};
+$("#lb-save").onclick=async()=>{const f=lbList[lbIdx];if(!f)return;
+  const btn=$("#lb-save");btn.disabled=true;btn.textContent="Saving…";
+  try{saveFile(f.name,lbBlob||await getFull(f))}catch(e){toast(e.code==="needs_token"?"Reconnect Google Drive to save this photo":"Couldn't save this file")}
+  finally{btn.disabled=false;btn.textContent="Save"}};
 
 // Settings: which Drive folder holds the work order folders
 function parseFolderId(s){s=String(s||"").trim();const m=s.match(/folders\/([A-Za-z0-9_-]{10,})/)||s.match(/[?&]id=([A-Za-z0-9_-]{10,})/);if(m)return m[1];return /^[A-Za-z0-9_-]{10,}$/.test(s)?s:""}
@@ -1353,7 +1389,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-5";
+const APP_VERSION="2026.10.12-6";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
