@@ -294,6 +294,10 @@ img{max-width:100%}
 .gate-msg{color:var(--accent);font-weight:600;min-height:1.4em}
 .gate code{background:#1d1d1d;padding:2px 6px;border-radius:4px;color:#fff}
 .gate-mark{width:64px;height:64px;border-radius:16px}
+.cambanner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 8px;padding:10px 12px;border-radius:10px;background:var(--accent);color:var(--accent-ink);font-weight:600}
+.cambanner .btn{background:var(--bar);color:var(--bar-fg);border-color:var(--bar)}
+.cambanner .btn.ghost{background:transparent;color:var(--accent-ink);border-color:var(--accent-ink)}
+a.btn{text-decoration:none;display:inline-flex;align-items:center}
 .qlist{display:flex;flex-direction:column;gap:6px;margin:4px 0 6px}
 .qrow{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px dashed var(--accent);border-radius:8px;background:var(--surface)}
 .qrow.qerr{border-color:var(--bad)}
@@ -502,7 +506,8 @@ img{max-width:100%}
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
 <input type="file" id="pick-photo" class="vh" tabindex="-1" aria-hidden="true" accept="image/*" capture="environment">
-<input type="file" id="pick-file" class="vh" tabindex="-1" aria-hidden="true" accept="image/*,application/pdf,video/mp4,video/webm,.pdf,.csv,.txt,.md,.json" multiple>
+<input type="file" id="pick-file" class="vh" tabindex="-1" aria-hidden="true" multiple>
+<input type="file" id="pick-gallery" class="vh" tabindex="-1" aria-hidden="true" accept="image/*,video/*" multiple>
 <div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Attachment viewer">
   <div class="lb-bar">
     <span class="nm" id="lb-name"></span>
@@ -1022,6 +1027,9 @@ $("#mouldform").addEventListener("submit",async e=>{
 // Photos and files live in Google Drive, in the work order's folder inside the Work Orders folder
 // (named like "#2549 - Biax 215 Pod Gen 2"). New uploads wait in an on-device queue until they reach Drive.
 let pickTarget=null, uploading=0, driveRoot=null, currentUser=null;
+const IS_ANDROID=/Android/i.test(navigator.userAgent);
+const CAMERA_INTENT="intent:#Intent;action=android.media.action.STILL_IMAGE_CAMERA;end";
+let camPending=null, camReturn=null;
 const entryTab={};
 const FOLDER_MT="application/vnd.google-apps.folder";
 const DAPI="https://www.googleapis.com/drive/v3/";
@@ -1236,7 +1244,10 @@ function driveBody(t){
     (st.next?`<button type="button" class="btn ghost" style="margin-top:8px" data-dmore="${esc(num)}"${st.loadingMore?" disabled":""}>${st.loadingMore?"Loading…":"Load more"}</button>`:"");
 }
 function drivePanelFor(t){
-  const btns=`<div class="attbtns"><label class="btn ghost" for="pick-photo" data-addnum="${esc(t.num)}" data-addlabel="${esc(t.label)}" role="button" tabindex="0">Take photo</label><label class="btn ghost" for="pick-file" data-addnum="${esc(t.num)}" data-addlabel="${esc(t.label)}" role="button" tabindex="0">Attach file</label></div>`;
+  const da=`data-addnum="${esc(t.num)}" data-addlabel="${esc(t.label)}"`;
+  const camApp=IS_ANDROID?`<a class="btn ghost" href="${CAMERA_INTENT}" data-camapp="1" ${da}>Camera app</a>`:"";
+  const btns=`<div class="attbtns"><label class="btn ghost" for="pick-photo" ${da} role="button" tabindex="0">Take photo</label>${camApp}<label class="btn ghost" for="pick-file" ${da} role="button" tabindex="0">Attach file</label></div>`+
+    (camReturn&&camReturn.num===t.num?`<div class="cambanner"><span>Add the photos you just took to <b>#${esc(t.num)}</b>?</span><span class="attbtns" style="margin:0"><label class="btn" for="pick-gallery" ${da} role="button" tabindex="0">Choose photos</label><button type="button" class="btn ghost" data-camdismiss="1">Not now</button></span></div>`:"");
   const pend=queueCache.filter(q=>q.num===t.num);
   const waitWhy=!navigator.onLine?"Waiting for internet":!hasToken()?"Waiting for Google Drive connection":"Uploading…";
   const pendHTML=pend.length?`<div class="qlist">${pend.map(q=>`<div class="qrow${q.err?" qerr":""}"><span class="ico">${q.err?"!":"↑"}</span><span class="dn">${esc(q.name)}<span class="dm">${q.err?esc(q.err):waitWhy}</span></span>${q.err?`<span><button type="button" class="linkish" data-qretry="${esc(q.id)}">Retry</button> · <button type="button" class="linkish" data-qdel="${esc(q.id)}">Remove</button></span>`:""}</div>`).join("")}</div>`:"";
@@ -1300,6 +1311,15 @@ async function handlePicked(input,fromCamera){
 }
 $("#pick-photo").addEventListener("change",e=>handlePicked(e.target,true));
 $("#pick-file").addEventListener("change",e=>handlePicked(e.target,false));
+$("#pick-gallery").addEventListener("change",e=>{camReturn=null;camPending=null;handlePicked(e.target,false)});
+// "Camera app" (Android): opens the phone's full camera app. Photos taken there are offered back when you return.
+document.addEventListener("click",e=>{
+  const a=e.target.closest("[data-camapp]");if(a){camPending={num:a.dataset.addnum,label:a.dataset.addlabel,at:Date.now()};camReturn=null;return}
+  if(e.target.closest("[data-camdismiss]")){camReturn=null;camPending=null;renderAttViews()}
+});
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&camPending&&Date.now()-camPending.at<30*60000){camReturn=camPending;camPending=null;renderAttViews()}
+});
 // Drag files onto the job form, or paste a screenshot while on the Log job tab
 const dropZone=$("#logform");
 ["dragover","dragenter"].forEach(ev=>dropZone.addEventListener(ev,e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes("Files")){e.preventDefault();dropZone.classList.add("dropping")}}));
@@ -1414,7 +1434,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-7";
+const APP_VERSION="2026.10.12-8";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
