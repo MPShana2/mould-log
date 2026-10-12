@@ -223,6 +223,13 @@ details.ckhist>summary{cursor:pointer;padding:8px 10px;font-size:13px;font-weigh
 .ckm.ok{color:var(--ok)} .ckm.na{color:var(--muted)} .ckm.no{color:var(--bad)}
 #mouldedit [hidden]{display:none!important}
 .combo{position:relative}
+.xchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.xchips:empty{display:none}
+.xchip{display:inline-flex;align-items:center;gap:2px;background:var(--sunk);border-radius:999px;padding:4px 4px 4px 12px;font-size:14px;font-weight:600}
+.xchip button{border:0;background:none;color:var(--muted);font-size:18px;line-height:1;width:28px;height:28px;border-radius:50%;cursor:pointer}
+.xchip button:hover{background:var(--line);color:var(--fg)}
+#f-add-wrap{margin-top:8px}
+.addmould{display:block;align-self:flex-start;text-align:left;margin-top:8px;border:0;background:none;padding:6px 0;font:inherit;font-size:14px;font-weight:600;color:var(--fg);text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:4px;cursor:pointer}
+.alsoon{font-size:13px;color:var(--muted);margin-top:2px}
 .combo-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:8;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.18);max-height:320px;overflow-y:auto;padding:4px}
 .opt{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 10px;border-radius:6px;cursor:pointer}
 .opt[aria-selected="true"],.opt:hover{background:var(--sunk)}
@@ -359,6 +366,12 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
           <input type="hidden" id="f-mould">
           <div class="combo-list" id="f-mould-list" role="listbox" hidden></div>
         </div>
+        <div class="xchips" id="f-extras"></div>
+        <div class="combo" id="f-add-wrap" hidden>
+          <input id="f-add-q" type="text" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="f-add-list" aria-label="Add another mould or job" placeholder="Type another mould or job name">
+          <div class="combo-list" id="f-add-list" role="listbox" hidden></div>
+        </div>
+        <button type="button" class="addmould" id="f-addbtn">+ Add another mould</button>
       </div>
       <div class="grid2">
         <div class="field"><label class="label" for="f-date">Date started</label><input id="f-date" type="date" required></div>
@@ -703,72 +716,99 @@ document.querySelector("nav.tabs").addEventListener("click",e=>{
 });
 
 function summary(m){
-  const ml=logs.filter(l=>l.mouldId===m.id);
+  const ml=logs.filter(l=>hasMould(l,m.id));
   const last=ml[0];
-  const shots=ml.reduce((a,l)=>Math.max(a,Number(l.shots)||0),0);
+  const shots=ml.filter(l=>l.mouldId===m.id).reduce((a,l)=>Math.max(a,Number(l.shots)||0),0);
   const open=ml.filter(l=>l.status&&l.status!=="Complete").length;
   return {count:ml.length,last,shots:shots||null,st:last?(last.status||"Complete"):"",open};
 }
 
 // ---- Mould / job search box (type to find, or create new) ----
 const mq=()=>$("#f-mould-q"), mlist=()=>$("#f-mould-list");
-let comboItems=[], comboIdx=-1;
+let comboItems=[], comboIdx=-1, comboMode="main", extraIds=[];
+const cIn=()=>comboMode==="extra"?$("#f-add-q"):mq(), cList=()=>comboMode==="extra"?$("#f-add-list"):mlist();
+// Every mould/job on a work order: the main one first, then any extras
+const jobIds=l=>[l.mouldId,...(l.extraMouldIds||[])].filter(Boolean);
+const hasMould=(l,id)=>jobIds(l).includes(id);
+function jobNames(l){return jobIds(l).map((id,i)=>{const m=moulds.find(x=>x.id===id);return m?mlabel(m):((i===0?(l.mouldName||l.mouldNumber):(l.extraMouldNames||[])[i-1])||"Unknown mould")})}
+function jobTool(l){const n=jobNames(l);return n.length?n.join(", "):(l.mouldName||l.mouldNumber||"Unknown mould")}
 function setMould(id,label){
   $("#f-mould").value=id||"";
   const m=moulds.find(x=>x.id===id);
   mq().value=m?mlabel(m):(label||"");
-  closeCombo();
+  if(id&&extraIds.includes(id)){extraIds=extraIds.filter(x=>x!==id)}
+  closeCombo();renderExtras();
 }
-function closeCombo(){mlist().hidden=true;mq().setAttribute("aria-expanded","false");comboIdx=-1}
+function setExtras(ids){extraIds=(ids||[]).filter(Boolean);hideAdd();renderExtras()}
+function renderExtras(){
+  $("#f-extras").innerHTML=extraIds.map(id=>{const m=moulds.find(x=>x.id===id);const n=m?mlabel(m):"Unknown mould";
+    return `<span class="xchip">${esc(n)}<button type="button" data-xrm="${esc(id)}" aria-label="Remove ${esc(n)}">×</button></span>`}).join("");
+}
+function addExtra(id){
+  if(!id||id===$("#f-mould").value||extraIds.includes(id)){hideAdd();return}
+  extraIds.push(id);hideAdd();renderExtras();markDirty(250);
+}
+function hideAdd(){$("#f-add-q").value="";$("#f-add-list").hidden=true;$("#f-add-wrap").hidden=true;$("#f-addbtn").hidden=false}
+$("#f-addbtn").onclick=()=>{$("#f-addbtn").hidden=true;$("#f-add-wrap").hidden=false;$("#f-add-q").focus()};
+$("#f-extras").addEventListener("click",e=>{const b=e.target.closest("[data-xrm]");if(!b)return;
+  extraIds=extraIds.filter(x=>x!==b.dataset.xrm);renderExtras();markDirty(250)});
+function closeCombo(){for(const [i,l] of [[mq(),mlist()],[$("#f-add-q"),$("#f-add-list")]]){l.hidden=true;i.setAttribute("aria-expanded","false")}comboIdx=-1}
 function renderCombo(){
-  const q=mq().value.trim(),ql=q.toLowerCase();
-  const hits=moulds.filter(m=>!ql||[mlabel(m),m.part,m.area].join(" ").toLowerCase().includes(ql))
+  const inp=cIn(),list=cList(),extra=comboMode==="extra";
+  const q=inp.value.trim(),ql=q.toLowerCase();
+  const skip=extra?new Set([$("#f-mould").value,...extraIds]):new Set();
+  const hits=moulds.filter(m=>!skip.has(m.id)&&(!ql||[mlabel(m),m.part,m.area].join(" ").toLowerCase().includes(ql)))
     .sort((a,b)=>{const as=mlabel(a).toLowerCase().startsWith(ql)?0:1,bs=mlabel(b).toLowerCase().startsWith(ql)?0:1;return as-bs}).slice(0,8);
   const exact=moulds.some(m=>mlabel(m).toLowerCase()===ql);
   comboItems=hits.map(m=>({type:"pick",id:m.id}));
   if(q&&!exact){comboItems.push({type:"new",kind:"mould",name:q},{type:"new",kind:"generic",name:q})}
-  if(!comboItems.length){mlist().innerHTML=`<div class="opt muted">No moulds or jobs yet. Start typing a name to create one.</div>`}
-  else mlist().innerHTML=comboItems.map((it,i)=>{
+  const pre=extra?"xopt-":"opt-";
+  if(!comboItems.length){list.innerHTML=`<div class="opt muted">${extra?"No other moulds or jobs. Type a name to create one.":"No moulds or jobs yet. Start typing a name to create one."}</div>`}
+  else list.innerHTML=comboItems.map((it,i)=>{
     if(it.type==="pick"){const m=moulds.find(x=>x.id===it.id);const sub=m.part||m.area;
-      return `<div class="opt" role="option" id="opt-${i}" data-i="${i}" aria-selected="${i===comboIdx}"><span class="on">${esc(mlabel(m))}${sub?` <span class="os">· ${esc(sub)}</span>`:""}</span><span class="ok">${isGen(m)?"General":"Mould"}</span></div>`}
-    return `<div class="opt create" role="option" id="opt-${i}" data-i="${i}" aria-selected="${i===comboIdx}"><span class="on">+ Create ${it.kind==="mould"?"mould":"general job"} “${esc(it.name)}”</span></div>`;
+      return `<div class="opt" role="option" id="${pre}${i}" data-i="${i}" aria-selected="${i===comboIdx}"><span class="on">${esc(mlabel(m))}${sub?` <span class="os">· ${esc(sub)}</span>`:""}</span><span class="ok">${isGen(m)?"General":"Mould"}</span></div>`}
+    return `<div class="opt create" role="option" id="${pre}${i}" data-i="${i}" aria-selected="${i===comboIdx}"><span class="on">+ Create ${it.kind==="mould"?"mould":"general job"} “${esc(it.name)}”</span></div>`;
   }).join("");
-  mlist().hidden=false;mq().setAttribute("aria-expanded","true");
-  if(comboIdx>=0)mq().setAttribute("aria-activedescendant","opt-"+comboIdx);else mq().removeAttribute("aria-activedescendant");
+  list.hidden=false;inp.setAttribute("aria-expanded","true");
+  if(comboIdx>=0)inp.setAttribute("aria-activedescendant",pre+comboIdx);else inp.removeAttribute("aria-activedescendant");
 }
 async function chooseCombo(i){
-  const it=comboItems[i];if(!it)return;
-  if(it.type==="pick"){setMould(it.id);markDirty(250);renderFormDriveSoon();return}
+  const it=comboItems[i];if(!it)return;const extra=comboMode==="extra";
+  const pick=(id,name)=>{if(extra)addExtra(id);else{setMould(id,name);markDirty(250);renderFormDriveSoon()}};
+  if(it.type==="pick"){pick(it.id);return}
   if(!db){toast("Saving isn't available in this view");return}
   const name=it.name, gen=it.kind==="generic";
   const id=(gen?"gen_":"")+slug(name);
-  if(moulds.some(m=>m.id===id)){setMould(id);return}
+  if(moulds.some(m=>m.id===id)){pick(id,name);return}
   const doc=gen?{kind:"generic",name,area:"",createdAt:new Date().toISOString()}
                :{name,part:"",cavities:"",material:"",createdAt:new Date().toISOString()};
-  try{await db.collection("moulds").doc(id).set(doc);setMould(id,name);markDirty(250);renderFormDriveSoon();toast(`Created ${gen?"general job":"mould"} “${name}”`)}
+  try{await db.collection("moulds").doc(id).set(doc);pick(id,name);toast(`Created ${gen?"general job":"mould"} “${name}”`)}
   catch(err){toast("Couldn't create: "+(err.message||err.code))}
 }
-mq().addEventListener("input",()=>{
-  const ql=mq().value.trim().toLowerCase();
-  const m=moulds.find(x=>mlabel(x).toLowerCase()===ql);
-  $("#f-mould").value=m?m.id:"";comboIdx=-1;renderCombo();
-});
-mq().addEventListener("focus",()=>{renderCombo()});
-mq().addEventListener("blur",()=>setTimeout(()=>{closeCombo();
-  // tidy the text back to the chosen item's name
-  const m=moulds.find(x=>x.id===$("#f-mould").value);if(m)mq().value=mlabel(m);},150));
-mq().addEventListener("keydown",e=>{
-  if(e.key==="ArrowDown"){e.preventDefault();if(mlist().hidden)renderCombo();comboIdx=Math.min(comboIdx+1,comboItems.length-1);renderCombo()}
-  else if(e.key==="ArrowUp"){e.preventDefault();comboIdx=Math.max(comboIdx-1,0);renderCombo()}
-  else if(e.key==="Enter"&&!mlist().hidden&&comboItems.length){e.preventDefault();chooseCombo(comboIdx>=0?comboIdx:0)}
-  else if(e.key==="Escape"){closeCombo()}
-});
-mlist().addEventListener("mousedown",e=>e.preventDefault());
-mlist().addEventListener("click",e=>{const o=e.target.closest("[data-i]");if(o)chooseCombo(+o.dataset.i)});
+function wireCombo(inp,list,mode){
+  inp.addEventListener("input",()=>{comboMode=mode;
+    if(mode==="main"){const ql=inp.value.trim().toLowerCase();const m=moulds.find(x=>mlabel(x).toLowerCase()===ql);$("#f-mould").value=m?m.id:""}
+    comboIdx=-1;renderCombo()});
+  inp.addEventListener("focus",()=>{comboMode=mode;comboIdx=-1;renderCombo()});
+  inp.addEventListener("blur",()=>setTimeout(()=>{if(document.activeElement===inp)return;
+    list.hidden=true;inp.setAttribute("aria-expanded","false");
+    if(mode==="main"){const m=moulds.find(x=>x.id===$("#f-mould").value);if(m)inp.value=mlabel(m)} // tidy back to the chosen name
+    else if(!inp.value.trim())hideAdd();},150));
+  inp.addEventListener("keydown",e=>{comboMode=mode;
+    if(e.key==="ArrowDown"){e.preventDefault();if(list.hidden)renderCombo();comboIdx=Math.min(comboIdx+1,comboItems.length-1);renderCombo()}
+    else if(e.key==="ArrowUp"){e.preventDefault();comboIdx=Math.max(comboIdx-1,0);renderCombo()}
+    else if(e.key==="Enter"&&!list.hidden&&comboItems.length){e.preventDefault();chooseCombo(comboIdx>=0?comboIdx:0)}
+    else if(e.key==="Escape"){closeCombo();if(mode==="extra")hideAdd()}
+  });
+  list.addEventListener("mousedown",e=>e.preventDefault());
+  list.addEventListener("click",e=>{const o=e.target.closest("[data-i]");if(o){comboMode=mode;chooseCombo(+o.dataset.i)}});
+}
+wireCombo(mq(),mlist(),"main");wireCombo($("#f-add-q"),$("#f-add-list"),"extra");
 
 function renderSelect(){
   const id=$("#f-mould").value, m=moulds.find(x=>x.id===id);
-  if(document.activeElement===mq()){renderCombo();return}
+  renderExtras();
+  if(document.activeElement===mq()||document.activeElement===$("#f-add-q")){renderCombo();return}
   if(m)mq().value=mlabel(m);
 }
 
@@ -779,15 +819,15 @@ function renderList(){
   const qn=norm(q).replace(/^wo/,"");
   const jobHits=q&&qn?logs.filter(l=>norm(l.wo).replace(/^wo/,"").includes(qn))
     .sort((a,b)=>String(a.wo).localeCompare(String(b.wo),undefined,{numeric:true})):[];
-  const jobMoulds=new Set(jobHits.map(l=>l.mouldId));
+  const jobMoulds=new Set(jobHits.flatMap(jobIds));
   const rows=moulds.filter(m=>!q||jobMoulds.has(m.id)||[m.name,m.number,m.part,m.material,m.area].join(" ").toLowerCase().includes(q));
   const el=$("#mouldlist");
   if(!loaded.m){el.innerHTML='<div class="empty">Loading…</div>';return}
   if(!moulds.length){el.innerHTML='<div class="empty"><strong>Nothing registered yet</strong>Open “Add a mould” or “Add a general job” above. Each one keeps its own maintenance history.</div>';return}
   if(!rows.length&&!jobHits.length){el.innerHTML='<div class="empty">Nothing matches “'+esc(q)+'”.</div>';return}
   const jobsHTML=jobHits.length?`<div class="group"><span class="label">Work orders · ${jobHits.length}</span><div class="wotable">`+
-    jobHits.slice(0,30).map(l=>{const m=moulds.find(x=>x.id===l.mouldId);const st=l.status||"Complete";
-      return `<button type="button" class="worow2" data-jobopen="${esc(l.id)}" aria-label="Open ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(m?mlabel(m):(l.mouldName||"Unknown"))}<br><span style="font-size:12px;color:var(--muted)">${esc(l.type||"")} · ${fmtDate(l.date)}</span></span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`}).join("")+
+    jobHits.slice(0,30).map(l=>{const st=l.status||"Complete";
+      return `<button type="button" class="worow2" data-jobopen="${esc(l.id)}" aria-label="Open ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(jobTool(l))}<br><span style="font-size:12px;color:var(--muted)">${esc(l.type||"")} · ${fmtDate(l.date)}</span></span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`}).join("")+
     `</div></div>`:"";
   const card=m=>{const s=summary(m);const sub=m.part||m.area;
     return `<button class="mould b-${stClass(s.st).slice(3)}" data-id="${esc(m.id)}" type="button">
@@ -831,11 +871,12 @@ function renderHist(){
    <div class="facts">${isGen(m)?`<div><span>Area</span><b>${esc(m.area||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`:
    `<div><span>Cavities</span><b>${esc(m.cavities||"—")}</b></div><div><span>Material</span><b>${esc(m.material||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div>
    <div><span>Latest shots</span><b>${fmtNum(s.shots)}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`}</div>`;
-  const ml=logs.filter(l=>l.mouldId===m.id);
+  const ml=logs.filter(l=>hasMould(l,m.id));
+  const alsoOn=l=>{const o=jobIds(l).map((id,i)=>[id,jobNames(l)[i]]).filter(([id])=>id!==m.id).map(x=>x[1]);return o.length?`<div class="alsoon">Also on: ${esc(o.join(", "))}</div>`:""};
   $("#timeline").innerHTML=ml.length?ml.map(l=>`<div class="entry e-${stClass(l.status||"Complete").slice(3)}">
      <div class="ehead">
        <div class="row"><div class="type">${l.wo?`<span class="wotag">${esc(l.wo)}</span>`:""}${esc(l.type)}</div>${statusSel(l)}</div>
-       <div class="when">Started ${fmtDate(l.date)}${l.dateCompleted?" · Completed "+fmtDate(l.dateCompleted):""}${l.shots?" · "+fmtNum(l.shots)+" shots":""}</div>
+       <div class="when">Started ${fmtDate(l.date)}${l.dateCompleted?" · Completed "+fmtDate(l.dateCompleted):""}${l.shots?" · "+fmtNum(l.shots)+" shots":""}</div>${alsoOn(l)}
      </div>
      <div class="etabs" role="group" aria-label="Work order sections">
        <button type="button" data-etab="${esc(l.id)}" data-t="details" aria-pressed="${entryTab[l.id]!=="att"}">Details</button>
@@ -894,7 +935,7 @@ $("#wonext").onclick=()=>{suggestedWO=nextWO();$("#f-wo").value=suggestedWO};
 const woSortNum=l=>{const n=parseInt(woNum(l.wo),10);return isNaN(n)?-1:n};
 function jobTable(list){
   return '<div class="wotable"><div class="worow2 head"><span>Job no.</span><span>Tool</span><span class="dsk">Type</span><span class="dsk">Description</span><span class="dsk">Started</span><span>Status</span></div>'+
-    list.map(l=>{const m=moulds.find(x=>x.id===l.mouldId);const tool=m?mlabel(m):(l.mouldName||l.mouldNumber||"Unknown mould");const st=l.status||"Complete";
+    list.map(l=>{const tool=jobTool(l);const st=l.status||"Complete";
       return `<button type="button" class="worow2" data-open="${esc(l.id)}" aria-label="Edit ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(tool)}</span><span class="dsk">${esc(l.type||"")}</span><span class="dsk dsc">${esc(l.description||l.faults||"")}</span><span class="dsk mono">${l.date?fmtDate(l.date):"—"}</span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`}).join("")+'</div>';
 }
 function renderOpen(){
@@ -917,9 +958,9 @@ function renderAllJobs(){
   const fs=$("#allstatus").value;
   let list=logs.slice();
   if(fs)list=list.filter(l=>(l.status||"Complete")===fs);
-  if(q)list=list.filter(l=>{const m=moulds.find(x=>x.id===l.mouldId);
+  if(q)list=list.filter(l=>{
     return (qn&&String(l.wo||"").toLowerCase().replace(/[^a-z0-9]/g,"").replace(/^wo/,"").includes(qn))||
-      [m?mlabel(m):l.mouldName,l.description,l.faults,l.type].join(" ").toLowerCase().includes(q)});
+      [jobTool(l),l.description,l.faults,l.type].join(" ").toLowerCase().includes(q)});
   list.sort((a,b)=>woSortNum(b)-woSortNum(a)||String(b.wo||"").localeCompare(String(a.wo||""),undefined,{numeric:true}));
   $("#allcount").textContent=`${list.length} of ${logs.length} work order${logs.length===1?"":"s"}`;
   if(!list.length){el.innerHTML=`<div class="empty">${logs.length?"No work orders match.":"<strong>No work orders yet</strong>Log your first job and it will appear here."}</div>`;return}
@@ -946,6 +987,7 @@ let editingId=null;
 function segSet(id,v){const bs=[...$(id).querySelectorAll("button")];const hit=bs.find(b=>b.dataset.v===v)||bs[0];bs.forEach(b=>b.setAttribute("aria-pressed",b===hit?"true":"false"))}
 function clearForm(){
   $("#f-shots").value="";$("#f-work").value="";$("#f-notes").value="";$("#f-desc").value="";$("#f-parts").value="";$("#f-done").value="";
+  setExtras([]);
   $("#f-type").selectedIndex=0;$("#f-faults").value="";segReset("#f-status");$("#f-date").value=today();
   ckState={};$("#ck-counter").value="";syncChecklist();
   suggestedWO=nextWO();$("#f-wo").value=suggestedWO;
@@ -958,7 +1000,7 @@ async function startEdit(id){
   returnTab=currentView()==="all"?"all":"open";
   await flushSave();
   editingId=id;dirty=false;
-  $("#f-wo").value=l.wo||"";setMould(l.mouldId,l.mouldName);$("#f-date").value=l.date||today();
+  $("#f-wo").value=l.wo||"";extraIds=[];setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);$("#f-date").value=l.date||today();
   $("#f-shots").value=l.shots??"";$("#f-parts").value=l.parts||"";$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-desc").value=l.description||"";
   $("#f-type").value=JOBTYPES.includes(l.type)?l.type:JOBTYPES[0];
   if(WORKS.includes(l.work)){$("#f-work").value=l.work;$("#f-notes").value=l.notes||""}
@@ -992,7 +1034,7 @@ function buildEntry(){
   if(!$("#f-date").value)return {error:"enter a start date"};
   if($("#f-done").value&&$("#f-done").value<$("#f-date").value)return {error:"date completed is before date started"};
   const m=moulds.find(x=>x.id===mouldId);const shots=$("#f-shots").value.trim();
-  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:shots===""?null:Number(shots),type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:$("#f-faults").value.trim(),work:$("#f-work").value,notes:$("#f-notes").value.trim(),parts:$("#f-parts").value.trim(),checklist:Object.keys(ckState).length?{state:{...ckState}}:null}};
+  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:shots===""?null:Number(shots),type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:$("#f-faults").value.trim(),work:$("#f-work").value,notes:$("#f-notes").value.trim(),parts:$("#f-parts").value.trim(),checklist:Object.keys(ckState).length?{state:{...ckState}}:null}};
 }
 function markDirty(delay){
   if(!db)return;
@@ -1032,8 +1074,8 @@ async function flushSave(){
   return !dirty;
 }
 // Any change in the form marks it dirty: typing waits a moment, taps and picks save quickly
-$("#logform").addEventListener("input",e=>{if(e.target.id==="f-mould-q")return;markDirty(e.target.matches("select,input[type=date]")?250:900)});
-$("#logform").addEventListener("change",e=>{if(e.target.id==="f-mould-q")return;markDirty(250)});
+$("#logform").addEventListener("input",e=>{if(e.target.id==="f-mould-q"||e.target.id==="f-add-q")return;markDirty(e.target.matches("select,input[type=date]")?250:900)});
+$("#logform").addEventListener("change",e=>{if(e.target.id==="f-mould-q"||e.target.id==="f-add-q")return;markDirty(250)});
 $("#f-status").addEventListener("click",e=>{if(e.target.closest("button"))markDirty(250)});
 $("#f-wo").addEventListener("input",updateEditBar);
 // Leaving: save straight away
@@ -1309,12 +1351,12 @@ function drivePanelFor(t){
 function attPanel(l){
   const num=woNum(l.wo);
   if(!num)return `<div class="small">This job has no work order number, so it has no Drive folder.</div>`;
-  const m=moulds.find(x=>x.id===l.mouldId);
-  return drivePanelFor({num,label:m?mlabel(m):(l.mouldName||"Job")});
+  return drivePanelFor({num,label:jobTool(l)});
 }
 function formTarget(){
   const num=woNum($("#f-wo").value);const m=moulds.find(x=>x.id===$("#f-mould").value);
-  return num&&m?{num,label:mlabel(m)}:null;
+  if(!num||!m)return null;
+  return {num,label:[m,...extraIds.map(id=>moulds.find(x=>x.id===id))].filter(Boolean).map(mlabel).join(", ")};
 }
 function renderFormDrive(){
   const el=$("#f-att");if(!el)return;
@@ -1404,9 +1446,9 @@ function mdEsc(v){return String(v??"").replace(/\|/g,"\\|").replace(/\r?\n/g," "
 function mdBlock(v){const t=String(v??"").trim();return t?t:"_None recorded_"}
 function workOrderMarkdown(l){
   const m=moulds.find(x=>x.id===l.mouldId)||{};
-  const name=m.id?mlabel(m):(l.mouldName||"");
+  const name=jobTool(l);
   const rows=[
-    ["Work order",l.wo],["Status",l.status||"Complete"],["Mould / job",name],["Category",isGen(m)?"General job":"Mould"],
+    ["Work order",l.wo],["Status",l.status||"Complete"],[jobIds(l).length>1?"Moulds / jobs":"Mould / job",name],["Category",isGen(m)?"General job":"Mould"],
     [isGen(m)?"Area":"Part / product",m.part||m.area||""],["Job type",l.type],["Date started",l.date?fmtDate(l.date):""],
     ["Date completed",l.dateCompleted?fmtDate(l.dateCompleted):""],["Shot count",l.shots!=null&&l.shots!==""?fmtNum(l.shots):""],
     ["Created",l.createdAt?new Date(l.createdAt).toLocaleString():""],["Last updated",l.updatedAt?new Date(l.updatedAt).toLocaleString():""]
@@ -1437,8 +1479,7 @@ function workOrderMarkdown(l){
 const backupFileIds={}; // work order number -> Drive file id of its backup
 async function writeBackup(l){
   const num=woNum(l.wo);if(!num)return;
-  const m=moulds.find(x=>x.id===l.mouldId);
-  const folder=(await findWoFolder(num))||(await createWoFolder(num,m?mlabel(m):(l.mouldName||"Job")));
+  const folder=(await findWoFolder(num))||(await createWoFolder(num,jobTool(l)));
   const name=`#${num} Work order.md`;
   const blob=new Blob([workOrderMarkdown(l)],{type:"text/markdown"});
   let id=backupFileIds[num];
@@ -1592,7 +1633,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-14";
+const APP_VERSION="2026.10.12-15";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -1660,7 +1701,7 @@ $("#import-file").addEventListener("change",async e=>{
       const n=woNum(doc.wo);
       if((n&&haveWo.has(n))||logs.some(l=>l.id===id)){skip++;continue}
       if(n)haveWo.add(n);
-      writes.push(["logs",id,{...doc,mouldId:idMap[doc.mouldId]||doc.mouldId}]);nl++;
+      writes.push(["logs",id,{...doc,mouldId:idMap[doc.mouldId]||doc.mouldId,...(doc.extraMouldIds?{extraMouldIds:doc.extraMouldIds.map(x=>idMap[x]||x)}:{})}]);nl++;
     }
     for(const [id,doc] of Object.entries(cols.settings||{})){if(!(id==="drive"&&driveRoot))writes.push(["settings",id,doc])}
     toast(`Importing ${nl} work orders…`);
@@ -1671,7 +1712,7 @@ $("#import-file").addEventListener("change",async e=>{
 $("#exportbtn").onclick=()=>{
   const cols=["Work order","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Service checklist"];
   const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.status||"",l.date,l.dateCompleted,m.id?mlabel(m):(l.mouldName||l.mouldNumber),isGen(m)?"General job":"Mould",m.part||m.area,l.type,l.shots,l.description,l.faults,l.work,l.notes,l.parts,l.checklist?ckSummary(l.checklist.state||{}):""].map(q).join(",")}));
+  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.status||"",l.date,l.dateCompleted,jobTool(l),isGen(m)?"General job":"Mould",m.part||m.area,l.type,l.shots,l.description,l.faults,l.work,l.notes,l.parts,l.checklist?ckSummary(l.checklist.state||{}):""].map(q).join(",")}));
   saveFile("mould-maintenance-"+today()+".csv",new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
 };
 $("#backupbtn").onclick=()=>{
