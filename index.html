@@ -1,0 +1,1398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mould Log</title>
+<meta name="description" content="Mould and toolroom maintenance work orders, synced across your devices.">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: phone-first single column app; black sticky header + black bottom tab bar (Holloway style), amber accent, white cards */
+:root{
+  --bg:#f4f3f0; --surface:#ffffff; --sunk:#eeebe5; --line:#dedad2;
+  --fg:#111111; --muted:#68635b; --accent:#e5970f; --accent-ink:#111111; --steel:#1c1c1c;
+  --bar:#000000; --bar-fg:#ffffff; --bar-muted:#a8a8a8;
+  --ok:#23804f; --ok-bg:#e1f2e8; --warn:#b4530a; --warn-bg:#fbe9da; --bad:#b3261e; --bad-bg:#f8e0de;
+  --display:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:12px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b0b0b; --surface:#171717; --sunk:#202020; --line:#323232;
+  --fg:#f2f2f2; --muted:#a39e96; --accent:#f0a21c; --accent-ink:#111111; --steel:#ececec;
+  --bar:#000000; --bar-fg:#ffffff; --bar-muted:#9a9a9a;
+  --ok:#5fcf95; --ok-bg:#16301f; --warn:#f2924f; --warn-bg:#3a2314; --bad:#ff8f86; --bad-bg:#3d1c1a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b0b0b; --surface:#171717; --sunk:#202020; --line:#323232;
+  --fg:#f2f2f2; --muted:#a39e96; --accent:#f0a21c; --accent-ink:#111111; --steel:#ececec;
+  --bar:#000000; --bar-fg:#ffffff; --bar-muted:#9a9a9a;
+  --ok:#5fcf95; --ok-bg:#16301f; --warn:#f2924f; --warn-bg:#3a2314; --bad:#ff8f86; --bad-bg:#3d1c1a; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:640px;margin:0 auto;padding:0 16px 96px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bar);color:var(--bar-fg);padding-block:16px 12px;border-bottom:3px solid var(--accent);margin:0 -16px 16px;padding-inline:16px;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+header.top .sub{color:var(--bar-muted)}
+h1{font-family:var(--display);font-size:22px;font-weight:800;letter-spacing:-.01em;margin:0}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);font-size:13px}
+h2{font-family:var(--display);font-size:19px;margin:0;text-wrap:balance}
+.label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:block;margin-bottom:6px}
+.field{display:flex;flex-direction:column}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:420px){.grid2.stack{grid-template-columns:1fr}}
+form,.stackcol{display:flex;flex-direction:column;gap:16px}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:11px 12px;width:100%;min-width:0}
+textarea{min-height:88px;resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button,.chip{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:8px 13px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--steel);border-color:var(--steel);color:var(--bg)}
+.chip{font-size:13px;padding:6px 11px;background:var(--sunk);border-color:transparent}
+.chip:active{transform:scale(.97)}
+.seg.cond button[data-v="OK"][aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:var(--bg)}
+.seg.cond button[data-v="Monitor"][aria-pressed="true"]{background:var(--warn);border-color:var(--warn);color:var(--bg)}
+.seg.cond button[data-v="Out of service"][aria-pressed="true"]{background:var(--bad);border-color:var(--bad);color:var(--bg)}
+.btn{font:inherit;font-weight:600;border:0;border-radius:var(--r);padding:14px 16px;cursor:pointer;background:var(--accent);color:var(--accent-ink);font-size:16px}
+.btn.ghost{background:transparent;color:var(--steel);border:1px solid var(--line);font-size:14px;padding:9px 13px;font-weight:500}
+.btn.danger{background:var(--bad);color:var(--bg);font-size:14px;padding:9px 13px}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.list{display:flex;flex-direction:column;gap:8px}
+.mould{display:grid;grid-template-columns:1fr auto;gap:4px 12px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:12px 14px;text-align:left;font:inherit;color:inherit;cursor:pointer;width:100%}
+.mould.s-OK{border-left-color:var(--ok)} .mould.s-Monitor{border-left-color:var(--warn)} .mould.s-Out{border-left-color:var(--bad)}
+.mould .num{font-family:var(--mono);font-weight:600;font-size:16px}
+.mould .mname{font-weight:600}
+.mould .meta{grid-column:1/-1;color:var(--muted);font-size:13px;display:flex;gap:4px 14px;flex-wrap:wrap}
+.pill{font-size:12px;font-weight:600;border-radius:999px;padding:3px 9px;white-space:nowrap;align-self:start}
+.pill.OK{background:var(--ok-bg);color:var(--ok)} .pill.Monitor{background:var(--warn-bg);color:var(--warn)} .pill.Out{background:var(--bad-bg);color:var(--bad)} .pill.none{background:var(--sunk);color:var(--muted)}
+#timeline{display:flex;flex-direction:column;gap:14px}
+.entry{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--muted);border-radius:var(--r);padding:0 14px 12px;box-shadow:0 1px 3px rgba(0,0,0,.08);min-width:0}
+.entry.e-Complete{border-left-color:var(--ok)}
+.entry.e-Inprogress{border-left-color:var(--steel)}
+.entry.e-Onhold{border-left-color:var(--warn)}
+.entry.e-Pending{border-left-color:var(--muted)}
+.ehead{background:var(--sunk);margin:0 -14px;padding:10px 14px 9px;border-radius:0 calc(var(--r) - 1px) 0 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.entry .when{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.entry .type{font-weight:600;font-size:15px}
+.entry .wotag{font-size:14px;background:var(--surface);border:1px solid var(--line);padding:2px 8px}
+.entry p{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.entry .small{font-size:13px;color:var(--muted);margin-top:4px}
+.linkish{background:none;border:0;color:var(--muted);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:0}
+.empty{text-align:center;padding:28px 16px;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
+.empty strong{display:block;color:var(--fg);font-family:var(--display);font-size:18px;margin-bottom:4px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:12px}
+.facts div{background:var(--sunk);border-radius:8px;padding:8px 10px;min-width:0}
+.facts b{display:block;font-family:var(--mono);font-size:15px;overflow-wrap:anywhere}
+.facts span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--bar);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.tabs button{flex:1;max-width:213px;font:inherit;font-weight:600;font-size:14px;background:none;border:0;color:var(--bar-muted);padding:14px 8px;cursor:pointer;border-top:3px solid transparent}
+nav.tabs button[aria-current="true"]{color:var(--bar-fg);border-top-color:var(--accent)}
+.toast{position:fixed;left:50%;bottom:calc(72px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;z-index:9;max-width:calc(100% - 32px)}
+.notice{background:var(--warn-bg);color:var(--warn);padding:10px 12px;border-radius:8px;font-size:14px}
+.field.wo{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:var(--r);padding:12px 14px}
+.worow{display:flex;gap:8px}
+.worow input{flex:1;font-size:18px;font-weight:600;letter-spacing:.02em}
+.worow .btn{white-space:nowrap}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+.hint a{color:var(--steel);font-weight:600}
+.wotag{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--steel);background:var(--sunk);border-radius:4px;padding:2px 6px;margin-right:6px}
+.seg.status button[data-v="Pending"][aria-pressed="true"]{background:var(--muted);border-color:var(--muted);color:var(--bg)}
+.seg.status button[data-v="In progress"][aria-pressed="true"]{background:var(--steel);border-color:var(--steel);color:var(--bg)}
+.seg.status button[data-v="On hold"][aria-pressed="true"]{background:var(--warn);border-color:var(--warn);color:var(--bg)}
+.seg.status button[data-v="Complete"][aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:var(--bg)}
+.stsel{width:auto;padding:5px 10px;font-size:13px;font-weight:600;border-radius:999px;border:1px solid transparent;cursor:pointer}
+.st-Pending{background:var(--sunk);color:var(--muted)}
+.st-Inprogress{background:var(--sunk);color:var(--steel);border-color:var(--steel)}
+.st-Onhold{background:var(--warn-bg);color:var(--warn)}
+.st-Complete{background:var(--ok-bg);color:var(--ok)}
+.editbar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--steel);color:var(--bg);border-radius:var(--r);padding:8px 8px 8px 14px;font-weight:600;position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);z-index:4;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.eb-text{display:flex;flex-direction:column;min-width:0;gap:1px}
+.savestate{font-size:12px;font-weight:500;opacity:.85;display:flex;align-items:center;gap:6px}
+.savestate::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.5;flex:none}
+.savestate.saved::before{background:var(--ok);opacity:1}
+.savestate.saving::before,.savestate.pending::before{background:var(--accent);opacity:1}
+.savestate.problem{opacity:1}
+.savestate.problem::before{background:var(--bad);opacity:1}
+.editbar .btn.ghost{color:var(--bg);border-color:var(--bg);padding:6px 12px}
+.wotable{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.worow2{display:grid;grid-template-columns:minmax(84px,auto) 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-bottom:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.worow2:first-child{border-top:0}
+.worow2:hover{background:var(--sunk)}
+.worow2.head{cursor:default;background:var(--sunk);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-block:8px}
+.worow2 .wo{font-family:var(--mono);font-weight:600}
+.worow2 .tool{min-width:0;overflow-wrap:anywhere}
+.stpill{font-size:12px;font-weight:600;border-radius:999px;padding:4px 10px;white-space:nowrap;border:1px solid transparent}
+.tabcount{display:inline-block;margin-left:6px;min-width:20px;padding:1px 6px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:12px;font-family:var(--mono)}
+textarea.autogrow{resize:none;overflow:hidden}
+#f-desc{min-height:46px}
+#f-faults{min-height:70px}
+.mould.b-Complete{border-left-color:var(--ok)} .mould.b-Onhold{border-left-color:var(--warn)} .mould.b-Inprogress,.mould.b-Pending{border-left-color:var(--steel)}
+.stpill.none{background:var(--sunk);color:var(--muted)}
+.entry .lbl{font-weight:600;color:var(--fg)}
+.attbtns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.attbtns label{display:inline-flex;align-items:center;cursor:pointer;user-select:none;-webkit-user-select:none}
+.attbtns label:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#logform.dropping{outline:2px dashed var(--accent);outline-offset:6px;border-radius:var(--r)}
+.vh{position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;overflow:hidden;clip-path:inset(50%);pointer-events:none}
+.attgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.attgrid:empty{display:none}
+.thumbwrap{position:relative;min-width:0}
+.thumb{position:relative;width:100%;aspect-ratio:1;max-width:100%;border-radius:8px;overflow:hidden;background:var(--sunk);border:1px solid var(--line);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;font:inherit;color:var(--muted)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .ext{font-family:var(--mono);font-weight:600;font-size:14px;color:var(--steel)}
+.thumb .fn{font-size:10px;padding:0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.thumb.busy{cursor:default;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.5}}
+.rm{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.62);color:#fff;cursor:pointer;font-size:15px;line-height:26px;padding:0}
+.etabs{display:flex;gap:4px;margin-top:10px;border-bottom:1px solid var(--line)}
+.etabs button{font:inherit;font-size:13px;font-weight:600;background:none;border:0;border-bottom:2px solid transparent;padding:6px 10px;color:var(--muted);cursor:pointer;margin-bottom:-1px}
+.etabs button[aria-pressed="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+.epanel{padding-top:8px}
+.epanel .attbtns{margin:10px 0 0}
+.lb{position:fixed;inset:0;z-index:20;background:rgba(8,12,16,.95);color:#f2f5f7;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.lb-bar,.lb-foot{display:flex;align-items:center;gap:8px;padding:10px 16px}
+.lb-foot{justify-content:center}
+.lb-bar .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.lb button,.lb a{font:inherit;font-size:14px;color:#f2f5f7;background:rgba(255,255,255,.14);border:0;border-radius:999px;padding:8px 14px;cursor:pointer;text-decoration:none}
+.lb-body{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 16px 8px}
+.lb-body img,.lb-body video{max-width:100%;max-height:100%;object-fit:contain}
+.lb-body .doc{text-align:center;color:#c9d3da;max-width:320px}
+.lb-body .doc b{display:block;font-family:var(--mono);font-size:32px;color:#f2f5f7;margin-bottom:8px}
+.drive{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.drive a{color:var(--steel);font-weight:600}
+.dhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.dhead .small{margin:0}
+.dlist{display:flex;flex-direction:column;margin-top:6px}
+a.drow,button.drow{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 2px;border:0;border-top:1px solid var(--line);background:none;font:inherit;color:var(--fg);text-align:left;width:100%;cursor:pointer;text-decoration:none;font-weight:400}
+.drow:hover{background:var(--sunk)}
+.drow .ico{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--steel);background:var(--sunk);border-radius:6px;padding:6px 0;text-align:center}
+.drow .dn{min-width:0;overflow-wrap:anywhere;font-size:14px}
+.drow .dm{font-size:12px;color:var(--muted);white-space:nowrap}
+/* Service checklist */
+details.ck{padding:0;overflow:hidden}
+details.ck>summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;font-weight:700;color:var(--fg)}
+details.ck>summary::-webkit-details-marker{display:none}
+details.ck>summary::after{content:"▾";color:var(--muted);transition:transform .15s}
+details.ck[open]>summary::after{transform:rotate(180deg)}
+details.ck>summary span:first-child{flex:1}
+.ckprog{font-size:12px;font-weight:600;color:var(--muted);background:var(--sunk);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.ckprog.done{background:var(--ok-bg);color:var(--ok)}
+#cklist{border-top:1px solid var(--line);padding:4px 16px 14px}
+.cksec{padding-top:12px}
+.cksechead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:4px}
+.cksechead .linkish{text-transform:none;letter-spacing:0;font-weight:600}
+.ckrow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)}
+.ckrow label,.ckparent{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;cursor:pointer}
+.ckrow input[type=checkbox],.ckparent input[type=checkbox]{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--ok);padding:0}
+.ckrow.isdone label span{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
+.ckrow.isna label{opacity:.45}
+.ckcount{width:110px;flex:none;padding:7px 9px}
+.na{font:inherit;font-size:11px;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:4px 9px;cursor:pointer;flex:none}
+.na[aria-pressed="true"]{background:var(--steel);border-color:var(--steel);color:var(--bg)}
+.ckgroup{border-bottom:1px solid var(--line);padding:7px 0 2px}
+.ckparent{font-weight:700}
+.ckn{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:600;margin-left:auto;padding-left:8px}
+.ckkids{padding-left:30px}
+.ckkids .ckrow:last-child{border-bottom:0}
+@media (max-width:420px){.ckrow{flex-wrap:wrap}.ckcount{margin-left:30px}}
+details.ckhist{margin-top:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+details.ckhist>summary{cursor:pointer;padding:8px 10px;font-size:13px;font-weight:700}
+.ckhbody{padding:0 10px 10px;font-size:13px}
+.ckhsec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-top:8px}
+.ckhrow{display:flex;gap:8px;align-items:baseline;padding:2px 0}
+.ckhpar{font-weight:700;margin-top:4px}
+.ckhkid{padding-left:16px}
+.ckm{font-family:var(--mono);font-size:11px;font-weight:700;min-width:28px}
+.ckm.ok{color:var(--ok)} .ckm.na{color:var(--muted)} .ckm.no{color:var(--bad)}
+#mouldedit [hidden]{display:none!important}
+.combo{position:relative}
+.combo-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:8;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.18);max-height:320px;overflow-y:auto;padding:4px}
+.opt{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 10px;border-radius:6px;cursor:pointer}
+.opt[aria-selected="true"],.opt:hover{background:var(--sunk)}
+.opt .on{min-width:0;overflow-wrap:anywhere}
+.opt .os{color:var(--muted)}
+.opt .ok{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);white-space:nowrap}
+.opt.create{color:var(--accent);font-weight:600}
+.opt.muted{color:var(--muted);cursor:default}
+.group{display:flex;flex-direction:column;gap:8px}
+.group+.group{margin-top:14px}
+.openjobs{color:var(--steel);font-weight:600}
+details summary{cursor:pointer;font-weight:600;color:var(--steel)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* Standalone app additions */
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{color-scheme:light}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+.gate{position:fixed;inset:0;z-index:30;background:var(--bar);color:var(--bar-fg);display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.gate-card{max-width:380px;width:100%;display:flex;flex-direction:column;gap:16px}
+.gate h1{font-size:34px}
+.gate p{margin:0;color:var(--bar-muted);line-height:1.5}
+.gate .btn{width:100%;padding:15px}
+.gate-msg{color:var(--accent);font-weight:600;min-height:1.4em}
+.gate code{background:#1d1d1d;padding:2px 6px;border-radius:4px;color:#fff}
+.gate-mark{width:64px;height:64px;border-radius:16px}
+.qlist{display:flex;flex-direction:column;gap:6px;margin:4px 0 6px}
+.qrow{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px dashed var(--accent);border-radius:8px;background:var(--surface)}
+.qrow.qerr{border-color:var(--bad)}
+.qrow .ico{font-weight:800;color:var(--accent);text-align:center}
+.qrow.qerr .ico{color:var(--bad)}
+.qrow .dn{display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere;font-size:14px}
+.qrow .dm{font-size:12px;color:var(--muted)}
+#f-att .drive{margin-top:12px}
+.acct{font-size:14px;color:var(--muted);line-height:1.5}
+.acct b{color:var(--fg)}
+.offline-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-right:6px;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Mould <span>Log</span></h1>
+    <div class="sub" id="countline">Loading…</div>
+  </header>
+
+
+  <!-- LOG JOB -->
+  <section id="v-log" class="stackcol" hidden>
+    <div class="editbar" id="editbar">
+      <div class="eb-text"><span id="edittitle">New job</span><span id="savestate" class="savestate" role="status" aria-live="polite">Saves automatically once a mould and work order no. are filled in</span></div>
+      <button class="btn ghost" id="canceledit" type="button" hidden>Done</button>
+    </div>
+    <form id="logform" autocomplete="off">
+      <div class="field wo">
+        <label class="label" for="f-wo">Work order no.</label>
+        <div class="worow">
+          <input id="f-wo" class="mono" required placeholder="e.g. 2551" autocapitalize="characters" inputmode="text">
+          <button class="btn ghost" id="wonext" type="button">Next no.</button>
+        </div>
+        <div class="hint">Filled in automatically. Type over it to use your own number.</div>
+      </div>
+      <div class="field">
+        <span class="label">Status</span>
+        <div class="seg status" id="f-status" role="group" aria-label="Status">
+          <button type="button" data-v="Pending" aria-pressed="true">Pending</button>
+          <button type="button" data-v="In progress" aria-pressed="false">In progress</button>
+          <button type="button" data-v="On hold" aria-pressed="false">On hold</button>
+          <button type="button" data-v="Complete" aria-pressed="false">Complete</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="f-mould-q">Mould / general job</label>
+        <div class="combo">
+          <input id="f-mould-q" type="text" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="f-mould-list" placeholder="Start typing a mould or job name">
+          <input type="hidden" id="f-mould">
+          <div class="combo-list" id="f-mould-list" role="listbox" hidden></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label class="label" for="f-date">Date started</label><input id="f-date" type="date" required></div>
+        <div class="field"><label class="label" for="f-done">Date completed</label><input id="f-done" type="date"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label class="label" for="f-type">Job type</label><select id="f-type" required></select></div>
+        <div class="field"><label class="label" for="f-shots">Shot count</label><input id="f-shots" class="mono" type="number" inputmode="numeric" min="0" placeholder="e.g. 412500"></div>
+      </div>
+      <div class="field">
+        <label class="label" for="f-desc">Description</label>
+        <textarea id="f-desc" class="autogrow" rows="1" placeholder="e.g. Short shots on cavity 3, flash on parting line"></textarea>
+      </div>
+      <div class="field">
+        <label class="label" for="f-faults">Inspection / faults found</label>
+        <textarea id="f-faults" class="autogrow" rows="2" placeholder="e.g. Worn ejector pin on cavity 3, blocked vent, water leak at B-side manifold"></textarea>
+      </div>
+      <div class="field">
+        <label class="label" for="f-work">Work done</label>
+        <select id="f-work"></select>
+      </div>
+      <div class="field">
+        <label class="label" for="f-notes">Notes</label>
+        <textarea id="f-notes" class="autogrow" placeholder="Each Work done you pick is added here. Add extra detail, findings or measurements."></textarea>
+      </div>
+      <details class="panel ck" id="ckpanel">
+        <summary><span>Service checklist</span><span class="ckprog" id="ckprog">Not started</span></summary>
+        <div id="cklist"></div>
+      </details>
+      <div class="field"><label class="label" for="f-parts">Parts used</label><input id="f-parts" placeholder="e.g. 2× O-ring 20mm"></div>
+      <div class="field">
+        <span class="label">Photos &amp; files</span>
+        <div id="f-att"></div>
+      </div>
+      <button class="btn" id="savebtn" type="submit">Save job</button>
+    </form>
+  </section>
+
+  <!-- OPEN JOBS -->
+  <section id="v-open" class="stackcol">
+    <div class="row"><div><h2>Open work orders</h2><span class="sub" id="opencount"></span></div><button class="btn ghost" id="newjob" type="button">+ New job</button></div>
+    <div id="openlist"></div>
+  </section>
+
+  <!-- MOULDS -->
+  <section id="v-moulds" class="stackcol" hidden>
+    <div class="row">
+      <h2>Moulds &amp; general jobs</h2>
+      <button class="btn ghost" id="exportbtn" type="button" hidden>Export CSV</button>
+    </div>
+    <details class="panel" id="addpanel">
+      <summary>Add a mould</summary>
+      <form id="mouldform" style="margin-top:14px" autocomplete="off">
+        <div class="field"><label class="label" for="m-name">Mould name</label><input id="m-name" required placeholder="e.g. Flip-top cap 4-cav"></div>
+        <div class="field"><label class="label" for="m-part">Part / product</label><input id="m-part" placeholder="e.g. 38mm flip-top cap"></div>
+        <div class="grid2">
+          <div class="field"><label class="label" for="m-cav">Cavities</label><input id="m-cav" type="number" inputmode="numeric" min="1" placeholder="e.g. 4"></div>
+          <div class="field"><label class="label" for="m-mat">Material</label><input id="m-mat" placeholder="e.g. PP"></div>
+        </div>
+        <button class="btn" type="submit">Add mould</button>
+      </form>
+    </details>
+    <details class="panel" id="genpanel">
+      <summary>Add a general job</summary>
+      <form id="genform" style="margin-top:14px" autocomplete="off">
+        <div class="hint" style="margin-top:0">For work that isn't on a mould, like presses, chillers, robots or the workshop. It gets its own history and work orders, just like a mould.</div>
+        <div class="field"><label class="label" for="g-name">Job / equipment name</label><input id="g-name" required placeholder="e.g. Press 6 hydraulics"></div>
+        <div class="field"><label class="label" for="g-area">Area / location</label><input id="g-area" placeholder="e.g. Moulding hall, Tool room"></div>
+        <button class="btn" type="submit">Add general job</button>
+      </form>
+    </details>
+    <details class="panel" id="drivepanel">
+      <summary>Google Drive folder</summary>
+      <form id="driveform" style="margin-top:14px" autocomplete="off">
+        <div class="hint" style="margin-top:0" id="drivecur">Loading…</div>
+        <div class="field"><label class="label" for="d-link">Folder link</label><input id="d-link" placeholder="Paste the Drive link to your Work Orders folder"></div>
+        <div class="field"><label class="label" for="d-name">Name to show</label><input id="d-name" placeholder="Work Orders"></div>
+        <button class="btn" type="submit">Use this folder</button>
+      </form>
+    </details>
+    <details class="panel" id="acctpanel">
+      <summary>Account, sync &amp; backup</summary>
+      <div class="stackcol" style="margin-top:14px">
+        <div class="acct" id="acct">Not signed in.</div>
+        <div class="attbtns" style="margin:0">
+          <button class="btn ghost" id="acct-drive" type="button">Connect Google Drive</button>
+          <button class="btn ghost" id="backupbtn" type="button">Download backup</button>
+          <button class="btn ghost" id="acct-signout" type="button">Sign out</button>
+        </div>
+        <div class="field">
+          <label class="label" for="import-file">Import a backup or export</label>
+          <input id="import-file" type="file" accept=".json,application/json">
+          <div class="hint" id="import-hint" hidden>Your log is empty. Import the export file from the previous version to bring your work orders across.</div>
+        </div>
+      </div>
+    </details>
+    <input id="search" type="search" placeholder="Search job no., mould name, part or area">
+    <div class="list" id="mouldlist"></div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="v-hist" class="stackcol" hidden>
+    <div><button class="linkish" id="backbtn" type="button">← Back to list</button></div>
+    <div class="panel" id="histhead"></div>
+    <form class="panel" id="mouldedit" hidden autocomplete="off">
+      <h2 style="font-size:17px">Edit details</h2>
+      <div class="field"><label class="label" for="e-name">Name</label><input id="e-name" required></div>
+      <div class="stackcol" id="e-mouldfields">
+        <div class="field"><label class="label" for="e-part">Part / product</label><input id="e-part" placeholder="e.g. 38mm flip-top cap"></div>
+        <div class="grid2">
+          <div class="field"><label class="label" for="e-cav">Cavities</label><input id="e-cav" type="number" inputmode="numeric" min="1" placeholder="e.g. 4"></div>
+          <div class="field"><label class="label" for="e-mat">Material</label><input id="e-mat" placeholder="e.g. PP"></div>
+        </div>
+      </div>
+      <div class="field" id="e-genfields"><label class="label" for="e-area">Area / location</label><input id="e-area" placeholder="e.g. Tool room"></div>
+      <div class="attbtns" style="margin:0"><button class="btn" type="submit">Save details</button><button class="btn ghost" type="button" id="mecancel">Cancel</button></div>
+    </form>
+    <div class="row"><h2>History</h2><button class="btn ghost" id="logthis" type="button">Log a job here</button></div>
+    <div id="timeline"></div>
+  </section>
+</div>
+
+<nav class="tabs" aria-label="Sections">
+  <button type="button" data-tab="open" aria-current="true">Open jobs<span class="tabcount" id="tabcount" hidden></span></button>
+  <button type="button" data-tab="log" aria-current="false">Log job</button>
+  <button type="button" data-tab="moulds" aria-current="false">Moulds</button>
+</nav>
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <img class="gate-mark" src="icons/icon-192.png" alt="">
+    <h1>Mould <span>Log</span></h1>
+    <div id="gate-signin" hidden>
+      <p>Sign in with the Google account you set up for Mould Log. Your work orders sync across every device you sign in on, and photos are saved to your Drive work order folders.</p>
+      <p style="margin-top:16px"><button class="btn" id="signin" type="button">Sign in with Google</button></p>
+    </div>
+    <div id="gate-setup" hidden>
+      <p>This copy of Mould Log hasn't been set up yet. Add your Firebase settings and Google client ID to <code>config.js</code>.</p>
+    </div>
+    <div class="gate-msg" id="gate-msg" role="status" aria-live="polite"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+<input type="file" id="pick-photo" class="vh" tabindex="-1" aria-hidden="true" accept="image/*" capture="environment">
+<input type="file" id="pick-file" class="vh" tabindex="-1" aria-hidden="true" accept="image/*,application/pdf,video/mp4,video/webm,.pdf,.csv,.txt,.md,.json" multiple>
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Attachment viewer">
+  <div class="lb-bar">
+    <span class="nm" id="lb-name"></span>
+    <a id="lb-open" href="#" target="_blank" rel="noopener" hidden>Open</a>
+    <button type="button" id="lb-save" hidden>Save</button>
+    <button type="button" id="lb-close">Close</button>
+  </div>
+  <div class="lb-body" id="lb-body"></div>
+  <div class="lb-foot" id="lb-foot" hidden>
+    <button type="button" id="lb-prev">‹ Prev</button>
+    <span id="lb-count"></span>
+    <button type="button" id="lb-next">Next ›</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const JOBTYPES=["Preventive","Service","Repair","Clean","Inspection","Insert change","Modification"];
+const WORKS=["Cleaned vents","Greased ejector pins","Flushed water lines","Replaced O-rings","Checked slides/lifters","Cleaned parting line","Polished cavity","Replaced ejector pin","Checked hot runner / heaters","Checked guide pins & bushes","Full strip & clean","Other (see notes)"];
+const store=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}};
+let db=null, moulds=[], logs=[], loaded={m:false,l:false}, current=null, confirmDel=null;
+
+function today(){const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)}
+function fmtDate(s){if(!s)return"—";const d=new Date(s+"T00:00:00");return isNaN(d)?s:d.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
+function fmtNum(n){return (n===null||n===undefined||n==="")?"—":Number(n).toLocaleString()}
+function slug(s){return s.trim().replace(/[^A-Za-z0-9_\-.~:@+]/g,"_").slice(0,120)||"mould"}
+function isGen(m){return m&&m.kind==="generic"}
+function mlabel(m){return m.name||m.number||"Unnamed mould"}
+function pillClass(c){return c==="OK"?"OK":c==="Monitor"?"Monitor":c==="Out of service"?"Out":"none"}
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
+
+function segBind(id){$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;$(id).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"))})}
+function segVal(id){return $(id).querySelector('[aria-pressed="true"]')?.dataset.v}
+function segReset(id){$(id).querySelectorAll("button").forEach((x,i)=>x.setAttribute("aria-pressed",i===0?"true":"false"))}
+segBind("#f-status");
+$("#f-type").innerHTML=JOBTYPES.map(t=>`<option>${esc(t)}</option>`).join("");
+$("#f-work").innerHTML='<option value="">Choose work done (optional)…</option>'+WORKS.map(t=>`<option>${esc(t)}</option>`).join("");
+// ---------- Service checklist ----------
+const CHECKLIST=[
+  {sec:"General",items:[
+    {id:"counter",t:"Counter in functional condition & reading recorded",counter:true},
+    {id:"datestamp",t:"Date stamp current & set to correct date"}]},
+  {sec:"Moving side",items:[
+    {id:"m_eject",t:"Clean & inspect ejection system",sub:[
+      {id:"m_eject_pins",t:"Ejection pins"},{id:"m_eject_pads",t:"Ejection pads"},{id:"m_eject_holes",t:"Ejection holes & pockets"}]},
+    {id:"m_lines",t:"Inspect water & air lines",sub:[
+      {id:"m_flow",t:"Flow and pressure test each water line"},{id:"m_hoses",t:"Inspect hoses and clamps"},{id:"m_popper",t:"Test air popper functionality"}]},
+    {id:"m_surface",t:"Clean molding surface & air vents"}]},
+  {sec:"Fixed side",items:[
+    {id:"f_hr",t:"Inspect hot runner system",sub:[
+      {id:"f_hr_plugs",t:"Multimeter the plugs"},{id:"f_hr_leaks",t:"Visual inspection for any plastic and water leaks"},
+      {id:"f_hr_wires",t:"Visual inspection of wires, connections and hoses"},{id:"f_hr_drain",t:"Heat up and drain system"}]},
+    {id:"f_lines",t:"Inspect water & air lines",sub:[
+      {id:"f_flow",t:"Flow and pressure test each line"},{id:"f_hoses",t:"Inspect hoses and clamps"},{id:"f_popper",t:"Test air popper functionality"}]},
+    {id:"f_surface",t:"Clean molding surface & air vents"}]}
+];
+const ckLeaves=sec=>sec.items.flatMap(it=>it.sub?it.sub:[it]);
+const CK_ALL=CHECKLIST.flatMap(ckLeaves);
+let ckState={};
+function ckCounts(st){let d=0,n=0;CK_ALL.forEach(x=>{if(st[x.id]==="done")d++;else if(st[x.id]==="na")n++});return {d,n,total:CK_ALL.length-n}}
+function ckSummary(st){const c=ckCounts(st);if(!c.d&&!c.n)return"Not started";return (c.d>=c.total&&c.total>0?"All done":`${c.d} of ${c.total} done`)+(c.n?` · ${c.n} N/A`:"")}
+function leafRow(x){
+  return `<div class="ckrow" data-row="${x.id}"><label><input type="checkbox" data-ckid="${x.id}"><span>${esc(x.t)}</span></label>`+
+    (x.counter?`<input id="ck-counter" class="mono ckcount" type="number" inputmode="numeric" min="0" placeholder="Reading" aria-label="Counter reading">`:"")+
+    `<button type="button" class="na" data-na="${x.id}" aria-pressed="false" aria-label="Not applicable">N/A</button></div>`;
+}
+function renderChecklist(){
+  $("#cklist").innerHTML=CHECKLIST.map((s,si)=>`<div class="cksec"><div class="cksechead"><span>${esc(s.sec)}</span><button type="button" class="linkish" data-ckall="${si}">Mark all done</button></div>`+
+    s.items.map(it=>it.sub?`<div class="ckgroup"><label class="ckparent"><input type="checkbox" data-ckparent="${it.id}"><span>${esc(it.t)}</span><span class="ckn" id="ckn-${it.id}"></span></label><div class="ckkids">${it.sub.map(leafRow).join("")}</div></div>`:leafRow(it)).join("")+`</div>`).join("");
+}
+function syncChecklist(){
+  CK_ALL.forEach(x=>{
+    const v=ckState[x.id],cb=$(`[data-ckid="${x.id}"]`),na=$(`[data-na="${x.id}"]`),row=$(`[data-row="${x.id}"]`);
+    cb.checked=v==="done";cb.disabled=v==="na";na.setAttribute("aria-pressed",v==="na"?"true":"false");row.classList.toggle("isna",v==="na");row.classList.toggle("isdone",v==="done");
+  });
+  CHECKLIST.forEach(s=>s.items.forEach(it=>{if(!it.sub)return;
+    const kids=it.sub.filter(k=>ckState[k.id]!=="na"),done=kids.filter(k=>ckState[k.id]==="done").length;
+    const p=$(`[data-ckparent="${it.id}"]`);p.checked=kids.length>0&&done===kids.length;p.indeterminate=done>0&&done<kids.length;p.disabled=!kids.length;
+    $("#ckn-"+it.id).textContent=kids.length?`${done}/${kids.length}`:"N/A";
+  }));
+  const c=ckCounts(ckState);
+  const pr=$("#ckprog");pr.textContent=ckSummary(ckState);pr.classList.toggle("done",c.d>=c.total&&c.total>0);
+}
+renderChecklist();syncChecklist();
+$("#cklist").addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset.ckid){if(t.checked)ckState[t.dataset.ckid]="done";else delete ckState[t.dataset.ckid];syncChecklist()}
+  else if(t.dataset.ckparent){const it=CHECKLIST.flatMap(s=>s.items).find(i=>i.id===t.dataset.ckparent);
+    it.sub.forEach(k=>{if(ckState[k.id]==="na")return;if(t.checked)ckState[k.id]="done";else delete ckState[k.id]});syncChecklist()}
+});
+$("#cklist").addEventListener("click",e=>{
+  const n=e.target.closest("[data-na]");
+  if(n){const id=n.dataset.na;if(ckState[id]==="na")delete ckState[id];else ckState[id]="na";syncChecklist();markDirty(250);return}
+  const a=e.target.closest("[data-ckall]");
+  if(a){ckLeaves(CHECKLIST[+a.dataset.ckall]).forEach(x=>{if(ckState[x.id]!=="na")ckState[x.id]="done"});syncChecklist();markDirty(250)}
+});
+// Counter reading and Shot count are the same number
+$("#cklist").addEventListener("input",e=>{if(e.target.id==="ck-counter")$("#f-shots").value=e.target.value});
+$("#f-shots").addEventListener("input",()=>{$("#ck-counter").value=$("#f-shots").value});
+function ckHistory(l){
+  const st=l.checklist&&l.checklist.state;if(!st||!Object.keys(st).length)return"";
+  const mark=id=>st[id]==="done"?`<span class="ckm ok">✓</span>`:st[id]==="na"?`<span class="ckm na">N/A</span>`:`<span class="ckm no">–</span>`;
+  const body=CHECKLIST.map(s=>`<div class="ckhsec">${esc(s.sec)}</div>`+s.items.map(it=>it.sub
+    ?`<div class="ckhrow ckhpar">${esc(it.t)}</div>`+it.sub.map(k=>`<div class="ckhrow ckhkid">${mark(k.id)}<span>${esc(k.t)}</span></div>`).join("")
+    :`<div class="ckhrow">${mark(it.id)}<span>${esc(it.t)}${it.counter&&l.shots?` <span class="mono">(${fmtNum(l.shots)})</span>`:""}</span></div>`).join("")).join("");
+  return `<details class="ckhist"><summary>Service checklist · ${esc(ckSummary(st))}</summary><div class="ckhbody">${body}</div></details>`;
+}
+
+// Text boxes that grow to fit their content
+function grow(el){if(!el.offsetParent)return;el.style.height="auto";el.style.height=(el.scrollHeight+2)+"px"}
+function growAll(){document.querySelectorAll("textarea.autogrow").forEach(grow)}
+document.querySelectorAll("textarea.autogrow").forEach(el=>el.addEventListener("input",()=>grow(el)));
+window.addEventListener("resize",growAll);
+// Picking a Work done option adds it as a line in Notes (skips "Other" and duplicates)
+$("#f-work").addEventListener("change",e=>{
+  const v=e.target.value;if(!v||v.startsWith("Other"))return;
+  const ta=$("#f-notes");const lines=ta.value.split("\n").map(s=>s.trim());
+  if(lines.includes(v)||lines.includes("• "+v))return;
+  const cur=ta.value.replace(/\s+$/,"");ta.value=(cur?cur+"\n":"")+"• "+v;grow(ta);
+});
+// Setting status to Complete fills Date completed if it's empty
+$("#f-status").addEventListener("click",e=>{const b=e.target.closest("button");if(b&&b.dataset.v==="Complete"&&!$("#f-done").value)$("#f-done").value=today()});
+const STATUSES=["Pending","In progress","On hold","Complete"];
+const stClass=s=>"st-"+String(s||"").replace(/\s+/g,"");
+function statusSel(l){const cur=l.status||"Complete";return `<select class="stsel ${stClass(cur)}" data-st="${esc(l.id)}" aria-label="Job status">${STATUSES.map(s=>`<option${s===cur?" selected":""}>${s}</option>`).join("")}</select>`}
+
+
+$("#f-date").value=today();
+
+function show(view){
+  ["log","open","moulds","hist"].forEach(v=>$("#v-"+v).hidden=v!==view);
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current",(b.dataset.tab===view||(view==="hist"&&b.dataset.tab==="moulds"))?"true":"false"));
+  window.scrollTo(0,0);
+  if(view==="log"){growAll();renderFormDrive()}
+}
+document.querySelector("nav.tabs").addEventListener("click",async e=>{
+  const b=e.target.closest("button");if(!b)return;
+  const leavingLog=!$("#v-log").hidden&&b.dataset.tab!=="log";
+  if(leavingLog&&(dirty||saving||editingId)){
+    const ok=await flushSave();
+    if(ok&&editingId){const wo=$("#f-wo").value.trim();endEdit();toast((wo||"Job")+" saved")}
+    else if(!ok){const be=buildEntry();toast(be.error?"Not saved yet: "+be.error+". Your entries are kept on the Log job tab.":"Not saved yet. Check your connection.")}
+  }
+  show(b.dataset.tab);
+});
+
+function summary(m){
+  const ml=logs.filter(l=>l.mouldId===m.id);
+  const last=ml[0];
+  const shots=ml.reduce((a,l)=>Math.max(a,Number(l.shots)||0),0);
+  const open=ml.filter(l=>l.status&&l.status!=="Complete").length;
+  return {count:ml.length,last,shots:shots||null,st:last?(last.status||"Complete"):"",open};
+}
+
+// ---- Mould / job search box (type to find, or create new) ----
+const mq=()=>$("#f-mould-q"), mlist=()=>$("#f-mould-list");
+let comboItems=[], comboIdx=-1;
+function setMould(id,label){
+  $("#f-mould").value=id||"";
+  const m=moulds.find(x=>x.id===id);
+  mq().value=m?mlabel(m):(label||"");
+  closeCombo();
+}
+function closeCombo(){mlist().hidden=true;mq().setAttribute("aria-expanded","false");comboIdx=-1}
+function renderCombo(){
+  const q=mq().value.trim(),ql=q.toLowerCase();
+  const hits=moulds.filter(m=>!ql||[mlabel(m),m.part,m.area].join(" ").toLowerCase().includes(ql))
+    .sort((a,b)=>{const as=mlabel(a).toLowerCase().startsWith(ql)?0:1,bs=mlabel(b).toLowerCase().startsWith(ql)?0:1;return as-bs}).slice(0,8);
+  const exact=moulds.some(m=>mlabel(m).toLowerCase()===ql);
+  comboItems=hits.map(m=>({type:"pick",id:m.id}));
+  if(q&&!exact){comboItems.push({type:"new",kind:"mould",name:q},{type:"new",kind:"generic",name:q})}
+  if(!comboItems.length){mlist().innerHTML=`<div class="opt muted">No moulds or jobs yet. Start typing a name to create one.</div>`}
+  else mlist().innerHTML=comboItems.map((it,i)=>{
+    if(it.type==="pick"){const m=moulds.find(x=>x.id===it.id);const sub=m.part||m.area;
+      return `<div class="opt" role="option" id="opt-${i}" data-i="${i}" aria-selected="${i===comboIdx}"><span class="on">${esc(mlabel(m))}${sub?` <span class="os">· ${esc(sub)}</span>`:""}</span><span class="ok">${isGen(m)?"General":"Mould"}</span></div>`}
+    return `<div class="opt create" role="option" id="opt-${i}" data-i="${i}" aria-selected="${i===comboIdx}"><span class="on">+ Create ${it.kind==="mould"?"mould":"general job"} “${esc(it.name)}”</span></div>`;
+  }).join("");
+  mlist().hidden=false;mq().setAttribute("aria-expanded","true");
+  if(comboIdx>=0)mq().setAttribute("aria-activedescendant","opt-"+comboIdx);else mq().removeAttribute("aria-activedescendant");
+}
+async function chooseCombo(i){
+  const it=comboItems[i];if(!it)return;
+  if(it.type==="pick"){setMould(it.id);markDirty(250);renderFormDriveSoon();return}
+  if(!db){toast("Saving isn't available in this view");return}
+  const name=it.name, gen=it.kind==="generic";
+  const id=(gen?"gen_":"")+slug(name);
+  if(moulds.some(m=>m.id===id)){setMould(id);return}
+  const doc=gen?{kind:"generic",name,area:"",createdAt:new Date().toISOString()}
+               :{name,part:"",cavities:"",material:"",createdAt:new Date().toISOString()};
+  try{await db.collection("moulds").doc(id).set(doc);setMould(id,name);markDirty(250);renderFormDriveSoon();toast(`Created ${gen?"general job":"mould"} “${name}”`)}
+  catch(err){toast("Couldn't create: "+(err.message||err.code))}
+}
+mq().addEventListener("input",()=>{
+  const ql=mq().value.trim().toLowerCase();
+  const m=moulds.find(x=>mlabel(x).toLowerCase()===ql);
+  $("#f-mould").value=m?m.id:"";comboIdx=-1;renderCombo();
+});
+mq().addEventListener("focus",()=>{renderCombo()});
+mq().addEventListener("blur",()=>setTimeout(()=>{closeCombo();
+  // tidy the text back to the chosen item's name
+  const m=moulds.find(x=>x.id===$("#f-mould").value);if(m)mq().value=mlabel(m);},150));
+mq().addEventListener("keydown",e=>{
+  if(e.key==="ArrowDown"){e.preventDefault();if(mlist().hidden)renderCombo();comboIdx=Math.min(comboIdx+1,comboItems.length-1);renderCombo()}
+  else if(e.key==="ArrowUp"){e.preventDefault();comboIdx=Math.max(comboIdx-1,0);renderCombo()}
+  else if(e.key==="Enter"&&!mlist().hidden&&comboItems.length){e.preventDefault();chooseCombo(comboIdx>=0?comboIdx:0)}
+  else if(e.key==="Escape"){closeCombo()}
+});
+mlist().addEventListener("mousedown",e=>e.preventDefault());
+mlist().addEventListener("click",e=>{const o=e.target.closest("[data-i]");if(o)chooseCombo(+o.dataset.i)});
+
+function renderSelect(){
+  const id=$("#f-mould").value, m=moulds.find(x=>x.id===id);
+  if(document.activeElement===mq()){renderCombo();return}
+  if(m)mq().value=mlabel(m);
+}
+
+function renderList(){
+  const q=$("#search").value.trim().toLowerCase();
+  // Work order numbers match ignoring "#", "WO-", spaces etc.
+  const norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+  const qn=norm(q).replace(/^wo/,"");
+  const jobHits=q&&qn?logs.filter(l=>norm(l.wo).replace(/^wo/,"").includes(qn))
+    .sort((a,b)=>String(a.wo).localeCompare(String(b.wo),undefined,{numeric:true})):[];
+  const jobMoulds=new Set(jobHits.map(l=>l.mouldId));
+  const rows=moulds.filter(m=>!q||jobMoulds.has(m.id)||[m.name,m.number,m.part,m.material,m.area].join(" ").toLowerCase().includes(q));
+  const el=$("#mouldlist");
+  if(!loaded.m){el.innerHTML='<div class="empty">Loading…</div>';return}
+  if(!moulds.length){el.innerHTML='<div class="empty"><strong>Nothing registered yet</strong>Open “Add a mould” or “Add a general job” above. Each one keeps its own maintenance history.</div>';return}
+  if(!rows.length&&!jobHits.length){el.innerHTML='<div class="empty">Nothing matches “'+esc(q)+'”.</div>';return}
+  const jobsHTML=jobHits.length?`<div class="group"><span class="label">Work orders · ${jobHits.length}</span><div class="wotable">`+
+    jobHits.slice(0,30).map(l=>{const m=moulds.find(x=>x.id===l.mouldId);const st=l.status||"Complete";
+      return `<button type="button" class="worow2" data-jobopen="${esc(l.id)}" aria-label="Open ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(m?mlabel(m):(l.mouldName||"Unknown"))}<br><span style="font-size:12px;color:var(--muted)">${esc(l.type||"")} · ${fmtDate(l.date)}</span></span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`}).join("")+
+    `</div></div>`:"";
+  const card=m=>{const s=summary(m);const sub=m.part||m.area;
+    return `<button class="mould b-${stClass(s.st).slice(3)}" data-id="${esc(m.id)}" type="button">
+      <span><span class="mname">${esc(mlabel(m))}</span>${sub?` <span style="color:var(--muted)">· ${esc(sub)}</span>`:""}</span>
+      <span class="stpill ${s.st?stClass(s.st):"none"}" style="align-self:start">${s.st?esc(s.st):"No jobs"}</span>
+      <span class="meta"><span>Last: ${s.last?(s.last.wo?esc(s.last.wo)+" · ":"")+fmtDate(s.last.date)+" · "+esc(s.last.type):"—"}</span><span class="mono">${s.shots?fmtNum(s.shots)+" shots":""}</span>${s.open?`<span class="openjobs">${s.open} open job${s.open===1?"":"s"}</span>`:""}</span>
+    </button>`};
+  const mo=rows.filter(m=>!isGen(m)),ge=rows.filter(isGen);
+  el.innerHTML=jobsHTML+(mo.length?`<div class="group"><span class="label">Moulds · ${mo.length}</span>${mo.map(card).join("")}</div>`:"")+
+    (ge.length?`<div class="group"><span class="label">General jobs · ${ge.length}</span>${ge.map(card).join("")}</div>`:"");
+}
+$("#mouldlist").addEventListener("click",e=>{
+  const j=e.target.closest("[data-jobopen]");if(j){startEdit(j.dataset.jobopen);return}
+  const b=e.target.closest(".mould");if(b)openMould(b.dataset.id)});
+$("#search").addEventListener("input",renderList);
+
+function openMould(id){current=id;$("#mouldedit").hidden=true;renderHist();show("hist")}
+// ---- Edit mould / general job details ----
+$("#histhead").addEventListener("click",e=>{if(e.target.closest("#meditbtn"))openMouldEdit()});
+function openMouldEdit(){
+  const m=moulds.find(x=>x.id===current);if(!m)return;const gen=isGen(m);
+  $("#e-name").value=mlabel(m);$("#e-part").value=m.part||"";$("#e-cav").value=m.cavities||"";$("#e-mat").value=m.material||"";$("#e-area").value=m.area||"";
+  $("#e-mouldfields").hidden=gen;$("#e-genfields").hidden=!gen;
+  $("#mouldedit").hidden=false;$("#e-name").focus();
+}
+$("#mecancel").onclick=()=>{$("#mouldedit").hidden=true};
+$("#mouldedit").addEventListener("submit",async e=>{
+  e.preventDefault();if(!db){toast("Saving isn't available in this view");return}
+  const m=moulds.find(x=>x.id===current);if(!m)return;
+  const name=$("#e-name").value.trim();if(!name){toast("Enter a name");return}
+  if(moulds.some(x=>x.id!==m.id&&mlabel(x).toLowerCase()===name.toLowerCase())){toast(name+" is already used by another mould or job");return}
+  const patch=isGen(m)?{name,area:$("#e-area").value.trim()}:{name,part:$("#e-part").value.trim(),cavities:$("#e-cav").value.trim(),material:$("#e-mat").value.trim()};
+  try{await db.collection("moulds").doc(m.id).update({...patch,updatedAt:new Date().toISOString()});$("#mouldedit").hidden=true;toast("Details saved")}
+  catch(err){toast("Couldn't save: "+(err.message||err.code))}
+});
+function renderHist(){
+  const m=moulds.find(x=>x.id===current);if(!m)return;
+  const s=summary(m);
+  $("#histhead").innerHTML=`<div class="row"><div><div style="font-family:var(--display);font-size:22px;font-weight:700">${esc(mlabel(m))}</div><div style="color:var(--muted)">${isGen(m)?"General job"+(m.area?" · "+esc(m.area):""):esc(m.part||"No part recorded")}</div></div><span class="stpill ${s.open?"st-Inprogress":s.count?"st-Complete":"none"}">${s.open?s.open+" open job"+(s.open===1?"":"s"):s.count?"All complete":"No jobs"}</span></div>
+   <div style="margin-top:10px"><button type="button" class="btn ghost" id="meditbtn">Edit details</button></div>
+   <div class="facts">${isGen(m)?`<div><span>Area</span><b>${esc(m.area||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`:
+   `<div><span>Cavities</span><b>${esc(m.cavities||"—")}</b></div><div><span>Material</span><b>${esc(m.material||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div>
+   <div><span>Latest shots</span><b>${fmtNum(s.shots)}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`}</div>`;
+  const ml=logs.filter(l=>l.mouldId===m.id);
+  $("#timeline").innerHTML=ml.length?ml.map(l=>`<div class="entry e-${stClass(l.status||"Complete").slice(3)}">
+     <div class="ehead">
+       <div class="row"><div class="type">${l.wo?`<span class="wotag">${esc(l.wo)}</span>`:""}${esc(l.type)}</div>${statusSel(l)}</div>
+       <div class="when">Started ${fmtDate(l.date)}${l.dateCompleted?" · Completed "+fmtDate(l.dateCompleted):""}${l.shots?" · "+fmtNum(l.shots)+" shots":""}</div>
+     </div>
+     <div class="etabs" role="group" aria-label="Work order sections">
+       <button type="button" data-etab="${esc(l.id)}" data-t="details" aria-pressed="${entryTab[l.id]!=="att"}">Details</button>
+       <button type="button" data-etab="${esc(l.id)}" data-t="att" aria-pressed="${entryTab[l.id]==="att"}">Photos &amp; files</button>
+     </div>
+     <div class="epanel">${entryTab[l.id]==="att"?attPanel(l):`
+     ${l.description?`<p style="font-weight:600">${esc(l.description)}</p>`:""}
+     ${l.faults?`<p><span class="lbl">Faults found:</span> ${esc(l.faults)}</p>`:""}
+     ${l.work?`<p><span class="lbl">Work done:</span> ${esc(l.work)}</p>`:""}
+     ${l.notes?`<p style="color:var(--muted)">${esc(l.notes)}</p>`:""}
+     ${l.parts?`<div class="small">Parts: ${esc(l.parts)}</div>`:""}
+     ${ckHistory(l)}`}</div>
+     <div class="small">${confirmDel===l.id?`<button class="linkish" data-del="${esc(l.id)}" style="color:var(--bad)">Confirm delete</button> · <button class="linkish" data-cancel="1">Keep</button>`:`<button class="linkish" data-edit="${esc(l.id)}" style="color:var(--steel)">Edit</button> · <button class="linkish" data-ask="${esc(l.id)}">Delete</button>`}${l.updatedAt?` · <span>edited ${fmtDate(l.updatedAt.slice(0,10))}</span>`:""}</div>
+   </div>`).join(""):'<div class="empty"><strong>No history yet</strong>Log the first job on this mould and it will appear here, newest first.</div>';
+}
+$("#timeline").addEventListener("click",async e=>{
+  const t=e.target;
+  const tab=t.closest("[data-etab]");if(tab){entryTab[tab.dataset.etab]=tab.dataset.t;renderHist();return}
+  if(t.dataset.edit){startEdit(t.dataset.edit)}
+  else if(t.dataset.ask){confirmDel=t.dataset.ask;renderHist()}
+  else if(t.dataset.cancel){confirmDel=null;renderHist()}
+  else if(t.dataset.del){
+    try{await db.collection("logs").doc(t.dataset.del).delete();toast("Entry deleted. Its Drive folder was left in place.")}catch(err){toast("Couldn't delete: "+(err.message||err.code))}confirmDel=null}
+});
+$("#timeline").addEventListener("change",async e=>{
+  const s=e.target.closest(".stsel");if(!s||!db)return;
+  const status=s.value;s.className="stsel "+stClass(status);
+  const l=logs.find(x=>x.id===s.dataset.st);
+  const patch={status,statusUpdatedAt:new Date().toISOString()};
+  if(status==="Complete"&&l&&!l.dateCompleted)patch.dateCompleted=today();
+  try{await db.collection("logs").doc(s.dataset.st).update(patch);toast("Status set to "+status)}
+  catch(err){toast("Couldn't update status: "+(err.message||err.code));renderHist()}
+});
+$("#backbtn").onclick=()=>show("moulds");
+$("#logthis").onclick=()=>{setMould(current);show("log")};
+
+let suggestedWO="";
+// Next number follows the format already in use: plain numbers (2549 → 2551) or WO-0001 style
+function nextWO(){
+  let plain=0,pref=0;
+  logs.forEach(l=>{const w=String(l.wo||"").trim();let m;
+    if((m=/^#?(\d+)$/.exec(w)))plain=Math.max(plain,+m[1]);
+    else if((m=/^WO-(\d+)$/i.exec(w)))pref=Math.max(pref,+m[1]);});
+  if(plain||!pref)return String(plain?plain+1:1);
+  return "WO-"+String(pref+1).padStart(4,"0");
+}
+function refreshWO(){
+  const el=$("#f-wo");
+  // Leave the number alone while a job is being edited or is part-way through its first save
+  if(editingId||saving||busySave||dirty)return;
+  const n=nextWO();if(!el.value||el.value===suggestedWO)el.value=n;suggestedWO=n;
+}
+$("#wonext").onclick=()=>{suggestedWO=nextWO();$("#f-wo").value=suggestedWO};
+
+function renderOpen(){
+  const open=logs.filter(l=>l.status&&l.status!=="Complete")
+    .sort((a,b)=>String(a.wo||"").localeCompare(String(b.wo||""),undefined,{numeric:true}));
+  const n=open.length,tc=$("#tabcount");tc.textContent=n;tc.hidden=!n;
+  $("#opencount").textContent=n?`${n} open`:"";
+  const el=$("#openlist");
+  if(!loaded.l&&db){el.innerHTML='<div class="empty">Loading work orders…</div>';return}
+  if(!n){el.innerHTML='<div class="empty"><strong>No open work orders</strong>Jobs marked Pending, In progress or On hold will show here until they\'re set to Complete.</div>';return}
+  el.innerHTML='<div class="wotable"><div class="worow2 head"><span>Job no.</span><span>Tool</span><span>Status</span></div>'+
+    open.map(l=>{const m=moulds.find(x=>x.id===l.mouldId);const tool=m?mlabel(m):(l.mouldName||l.mouldNumber||"Unknown mould");
+      return `<button type="button" class="worow2" data-open="${esc(l.id)}" aria-label="Edit ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(tool)}</span><span class="stpill ${stClass(l.status)}">${esc(l.status)}</span></button>`}).join("")+'</div>';
+}
+$("#newjob").onclick=()=>show("log");
+$("#openlist").addEventListener("click",e=>{const r=e.target.closest("[data-open]");if(r)startEdit(r.dataset.open)});
+
+function renderAll(){
+  renderOpen();
+  if(loaded.l||!db)refreshWO();
+  const nm=moulds.filter(m=>!isGen(m)).length,ng=moulds.length-nm;
+  $("#countline").textContent=loaded.m?`${nm} mould${nm===1?"":"s"}${ng?` · ${ng} general`:""} · ${logs.length} entr${logs.length===1?"y":"ies"}`:"Loading…";
+  renderSelect();renderList();if(!$("#v-hist").hidden)renderHist();if(!$("#v-log").hidden&&document.activeElement!==$("#f-wo"))renderFormDrive();
+}
+
+let editingId=null;
+function segSet(id,v){const bs=[...$(id).querySelectorAll("button")];const hit=bs.find(b=>b.dataset.v===v)||bs[0];bs.forEach(b=>b.setAttribute("aria-pressed",b===hit?"true":"false"))}
+function clearForm(){
+  $("#f-shots").value="";$("#f-work").value="";$("#f-notes").value="";$("#f-desc").value="";$("#f-parts").value="";$("#f-done").value="";
+  $("#f-type").selectedIndex=0;$("#f-faults").value="";segReset("#f-status");$("#f-date").value=today();
+  ckState={};$("#ck-counter").value="";syncChecklist();
+  suggestedWO=nextWO();$("#f-wo").value=suggestedWO;
+  renderFormDrive();
+  dirty=false;clearTimeout(saveTimer);
+  growAll();
+}
+async function startEdit(id){
+  const l=logs.find(x=>x.id===id);if(!l)return;
+  await flushSave();
+  editingId=id;dirty=false;
+  $("#f-wo").value=l.wo||"";setMould(l.mouldId,l.mouldName);$("#f-date").value=l.date||today();
+  $("#f-shots").value=l.shots??"";$("#f-parts").value=l.parts||"";$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-desc").value=l.description||"";
+  $("#f-type").value=JOBTYPES.includes(l.type)?l.type:JOBTYPES[0];
+  if(WORKS.includes(l.work)){$("#f-work").value=l.work;$("#f-notes").value=l.notes||""}
+  else{$("#f-work").value=l.work?"Other (see notes)":"";$("#f-notes").value=[l.work,l.notes].filter(Boolean).join("\n")}
+  segSet("#f-status",l.status||"Complete");
+  ckState={...((l.checklist&&l.checklist.state)||{})};$("#ck-counter").value=l.shots??"";syncChecklist();
+  updateEditBar();setSaveState("saved","All changes saved");
+  show("log");growAll();renderFormDrive();
+}
+function endEdit(){
+  editingId=null;
+  clearForm();updateEditBar();setSaveState("idle");
+}
+function updateEditBar(){
+  const wo=$("#f-wo").value.trim();
+  $("#edittitle").textContent=editingId?("Editing "+(wo||"job")+" · "+fmtDate($("#f-date").value)):"New job";
+  $("#canceledit").hidden=!editingId;
+  $("#savebtn").textContent=editingId?"Done":"Save job";
+}
+
+// ---------- Autosave ----------
+let dirty=false, saveTimer=null, saving=null, saveAgain=false, busySave=false;
+function setSaveState(kind,text){
+  const el=$("#savestate");el.className="savestate "+(kind||"");
+  el.textContent=text||(kind==="idle"?"Saves automatically once a mould and work order no. are filled in":"");
+}
+function buildEntry(){
+  const mouldId=$("#f-mould").value;
+  if(!mouldId)return {error:mq().value.trim()?"pick a mould or job from the list":"choose a mould or general job"};
+  const wo=$("#f-wo").value.trim().toUpperCase();if(!wo)return {error:"enter a work order number"};
+  if(!$("#f-date").value)return {error:"enter a start date"};
+  if($("#f-done").value&&$("#f-done").value<$("#f-date").value)return {error:"date completed is before date started"};
+  const m=moulds.find(x=>x.id===mouldId);const shots=$("#f-shots").value.trim();
+  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:shots===""?null:Number(shots),type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:$("#f-faults").value.trim(),work:$("#f-work").value,notes:$("#f-notes").value.trim(),parts:$("#f-parts").value.trim(),checklist:Object.keys(ckState).length?{state:{...ckState}}:null}};
+}
+function markDirty(delay){
+  if(!db)return;
+  dirty=true;setSaveState("pending","Unsaved changes…");
+  clearTimeout(saveTimer);saveTimer=setTimeout(autosave,delay??900);
+}
+async function autosave(){
+  clearTimeout(saveTimer);
+  if(saving){saveAgain=true;return saving}
+  if(!dirty||!db)return;
+  if(uploading){saveTimer=setTimeout(autosave,700);setSaveState("saving","Waiting for attachments to upload…");return}
+  const b=buildEntry();
+  if(b.error){setSaveState("problem","Not saved yet: "+b.error);return}
+  dirty=false;setSaveState("saving","Saving…");busySave=true;
+  saving=(async()=>{
+    try{
+      const now=new Date().toISOString();
+      if(editingId){await db.collection("logs").doc(editingId).update({...b.entry,updatedAt:now})}
+      else{const ref=await db.collection("logs").add({...b.entry,createdAt:now});editingId=ref.id;updateEditBar()}
+      if(!dirty)setSaveState("saved","All changes saved");
+      updateEditBar();
+    }catch(err){
+      dirty=true;
+      setSaveState("problem",err&&err.code==="quota_exceeded"?"Not saved: storage is full":"Not saved: "+(err&&(err.message||err.code)||"connection problem")+". Retrying…");
+      clearTimeout(saveTimer);saveTimer=setTimeout(autosave,4000);
+    }
+  })();
+  await saving;saving=null;busySave=false;
+  if(saveAgain||dirty){saveAgain=false;if(dirty)return autosave()}
+}
+async function flushSave(){
+  clearTimeout(saveTimer);
+  if(saving)await saving;
+  if(dirty)await autosave();
+  if(saving)await saving;
+  return !dirty;
+}
+// Any change in the form marks it dirty: typing waits a moment, taps and picks save quickly
+$("#logform").addEventListener("input",e=>{if(e.target.id==="f-mould-q")return;markDirty(e.target.matches("select,input[type=date]")?250:900)});
+$("#logform").addEventListener("change",e=>{if(e.target.id==="f-mould-q")return;markDirty(250)});
+$("#f-status").addEventListener("click",e=>{if(e.target.closest("button"))markDirty(250)});
+$("#f-wo").addEventListener("input",updateEditBar);
+// Leaving: save straight away
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flushSave()});
+window.addEventListener("pagehide",()=>{flushSave()});
+
+async function finishEditing(){
+  const ok=await flushSave();
+  if(!ok){const b=buildEntry();toast(b.error?"Can't save yet: "+b.error:"Changes not saved yet. Check your connection.");return false}
+  const mid=$("#f-mould").value, was=editingId, wo=$("#f-wo").value.trim();
+  if(!was){return false}
+  endEdit();toast((wo||"Job")+" saved");if(mid)openMould(mid);else show("open");
+  return true;
+}
+$("#canceledit").onclick=finishEditing;
+$("#logform").addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!db){toast("Saving isn't available in this view");return}
+  if(!editingId){const b=buildEntry();if(b.error){toast("Can't save yet: "+b.error);if(b.error.includes("mould"))mq().focus();return}dirty=true}
+  await finishEditing();
+});
+
+$("#genform").addEventListener("submit",async e=>{
+  e.preventDefault();if(!db){toast("Saving isn't available in this view");return}
+  const name=$("#g-name").value.trim();if(!name)return;
+  const id="gen_"+slug(name);
+  if(moulds.some(m=>m.id===id||mlabel(m).toLowerCase()===name.toLowerCase())){toast(name+" is already registered");return}
+  const doc={kind:"generic",name,area:$("#g-area").value.trim(),createdAt:new Date().toISOString()};
+  try{await db.collection("moulds").doc(id).set(doc);["#g-name","#g-area"].forEach(s=>$(s).value="");$("#genpanel").open=false;toast("Added "+name)}
+  catch(err){toast("Couldn't add: "+(err.message||err.code))}
+});
+
+$("#mouldform").addEventListener("submit",async e=>{
+  e.preventDefault();if(!db){toast("Saving isn't available in this view");return}
+  const name=$("#m-name").value.trim();if(!name)return;
+  const id=slug(name);
+  if(moulds.some(m=>m.id===id||mlabel(m).toLowerCase()===name.toLowerCase())){toast(name+" is already registered");return}
+  const doc={name,part:$("#m-part").value.trim(),cavities:$("#m-cav").value.trim(),material:$("#m-mat").value.trim(),createdAt:new Date().toISOString()};
+  try{await db.collection("moulds").doc(id).set(doc);["#m-name","#m-part","#m-cav","#m-mat"].forEach(s=>$(s).value="");$("#addpanel").open=false;toast("Added "+name)}
+  catch(err){toast("Couldn't add: "+(err.message||err.code))}
+});
+
+
+// ---------- Google Drive: work order folders, photos & files ----------
+// Photos and files live in Google Drive, in the work order's folder inside the Work Orders folder
+// (named like "#2549 - Biax 215 Pod Gen 2"). New uploads wait in an on-device queue until they reach Drive.
+let pickTarget=null, uploading=0, driveRoot=null, currentUser=null;
+const entryTab={};
+const FOLDER_MT="application/vnd.google-apps.folder";
+const DAPI="https://www.googleapis.com/drive/v3/";
+const TYPE_BY_EXT={jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",gif:"image/gif",webp:"image/webp",heic:"image/heic",pdf:"application/pdf",mp4:"video/mp4",mov:"video/quicktime",webm:"video/webm",csv:"text/csv",txt:"text/plain",doc:"application/msword",docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",xls:"application/vnd.ms-excel",xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",step:"application/octet-stream",stp:"application/octet-stream",dwg:"application/octet-stream"};
+const extOf=n=>(String(n).split(".").pop()||"").toLowerCase();
+const dq=s=>String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+const woNum=wo=>{const m=String(wo||"").match(/\d+/);return m?m[0]:""};
+function stamp(){const d=new Date(),p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`}
+function fmtSize(n){n=Number(n);if(!n)return"";const u=["B","KB","MB","GB"];let i=0;while(n>=1024&&i<3){n/=1024;i++}return (i?n.toFixed(n<10?1:0):n)+" "+u[i]}
+function driveIcon(mt){mt=String(mt||"");
+  if(mt===FOLDER_MT)return"DIR";if(mt.startsWith("image/"))return"IMG";if(mt.startsWith("video/"))return"VID";
+  if(mt==="application/pdf")return"PDF";if(mt.includes("spreadsheet")||mt.includes("excel"))return"XLS";
+  if(mt.includes("document")||mt.includes("word"))return"DOC";if(mt.includes("presentation"))return"PPT";return"FILE"}
+function saveFile(name,blob){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
+
+// ---- Google sign-in token for Drive (Google Identity Services) ----
+const CFG=window.MOULDLOG_CONFIG||{};
+const SCOPES="openid email profile https://www.googleapis.com/auth/drive";
+let gToken=null,gExp=0,tokenClient=null,tokenWaiters=[];
+try{const t=JSON.parse(localStorage.getItem("ml_tok")||"null");if(t&&t.exp>Date.now()+60000){gToken=t.token;gExp=t.exp}}catch(e){}
+function hasToken(){return !!gToken&&gExp>Date.now()+60000}
+function dropToken(){gToken=null;gExp=0;try{localStorage.removeItem("ml_tok")}catch(e){}}
+function ensureTokenClient(){
+  if(tokenClient)return tokenClient;
+  if(!(window.google&&google.accounts&&google.accounts.oauth2))throw {code:"gis_not_loaded",message:"Google sign-in hasn't loaded yet. Check your connection and try again."};
+  tokenClient=google.accounts.oauth2.initTokenClient({client_id:CFG.googleClientId,scope:SCOPES,
+    callback:r=>{
+      const w=tokenWaiters;tokenWaiters=[];
+      if(!r||r.error||!r.access_token){w.forEach(x=>x.reject({code:"auth_error",message:(r&&(r.error_description||r.error))||"Sign-in failed"}));return}
+      gToken=r.access_token;gExp=Date.now()+(Number(r.expires_in)||3600)*1000;
+      try{localStorage.setItem("ml_tok",JSON.stringify({token:gToken,exp:gExp}))}catch(e){}
+      w.forEach(x=>x.resolve(gToken));onDriveConnected();
+    },
+    error_callback:e=>{const w=tokenWaiters;tokenWaiters=[];w.forEach(x=>x.reject({code:"popup_closed",message:(e&&e.type)||"Sign-in window closed"}))}
+  });
+  return tokenClient;
+}
+// Must be called from a tap (it may open a Google window)
+function requestToken(prompt){
+  return new Promise((resolve,reject)=>{
+    tokenWaiters.push({resolve,reject});
+    try{const o={prompt:prompt??""};if(currentUser&&currentUser.email)o.login_hint=currentUser.email;ensureTokenClient().requestAccessToken(o)}
+    catch(e){tokenWaiters=[];reject(e)}
+  });
+}
+async function driveFetch(url,opts={}){
+  if(!hasToken())throw {code:"needs_token"};
+  let res;
+  try{res=await fetch(url,{...opts,headers:{...(opts.headers||{}),Authorization:"Bearer "+gToken}})}
+  catch(e){throw {code:"offline",message:"Can't reach Google Drive. Check your connection."}}
+  if(res.status===401){dropToken();renderAccount();throw {code:"needs_token"}}
+  if(!res.ok){let msg="";try{msg=(await res.json()).error.message}catch(e){}throw {code:"drive_error",status:res.status,message:msg||("Google Drive error "+res.status)}}
+  return res;
+}
+async function dList(q,pageToken){
+  const p=new URLSearchParams({q,pageSize:"100",fields:"nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,thumbnailLink)",orderBy:"folder,name",supportsAllDrives:"true",includeItemsFromAllDrives:"true"});
+  if(pageToken)p.set("pageToken",pageToken);
+  return (await driveFetch(DAPI+"files?"+p)).json();
+}
+const folderCache={};
+async function findWoFolder(num){
+  if(folderCache[num])return folderCache[num];
+  const r=await dList(`'${dq(driveRoot.id)}' in parents and mimeType='${FOLDER_MT}' and trashed=false and name contains '${dq(num)}'`);
+  const re=new RegExp(`(^|[^0-9])${num}([^0-9]|$)`);
+  const f=(r.files||[]).find(x=>re.test(x.name||""));
+  if(f)folderCache[num]=f;
+  return f||null;
+}
+async function createWoFolder(num,label){
+  const name=`#${num} - ${label||"Job"}`.replace(/[\\/]/g,"-").slice(0,120);
+  const res=await driveFetch(DAPI+"files?fields=id,name,mimeType,webViewLink&supportsAllDrives=true",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,mimeType:FOLDER_MT,parents:[driveRoot.id]})});
+  const f=await res.json();folderCache[num]=f;return f;
+}
+async function dUpload(folderId,blob,name,type){
+  const meta={name,parents:[folderId],mimeType:type};
+  const fields="fields=id,name,mimeType,size,webViewLink,thumbnailLink,modifiedTime&supportsAllDrives=true";
+  if(blob.size<=5*1024*1024){
+    const b="mouldlog"+Math.random().toString(36).slice(2);
+    const body=new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: ${type}\r\n\r\n`,blob,`\r\n--${b}--`]);
+    return (await driveFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&"+fields,{method:"POST",headers:{"Content-Type":`multipart/related; boundary=${b}`},body})).json();
+  }
+  const init=await driveFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&"+fields,{method:"POST",headers:{"Content-Type":"application/json; charset=UTF-8","X-Upload-Content-Type":type,"X-Upload-Content-Length":String(blob.size)},body:JSON.stringify(meta)});
+  const loc=init.headers.get("Location");if(!loc)throw {code:"drive_error",message:"Google Drive didn't accept the upload"};
+  return (await driveFetch(loc,{method:"PUT",headers:{"Content-Type":type},body:blob})).json();
+}
+
+// ---- Upload queue (kept on this device until the file reaches Drive) ----
+let memQ=[], queueCache=[], qRunning=false;
+let qDbP=null;
+function qOpen(){
+  if(qDbP)return qDbP;
+  qDbP=new Promise((res,rej)=>{try{const r=indexedDB.open("mouldlog-uploads",1);r.onupgradeneeded=()=>r.result.createObjectStore("q",{keyPath:"id"});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}});
+  return qDbP;
+}
+function qTx(mode,fn){return qOpen().then(d=>new Promise((res,rej)=>{const t=d.transaction("q",mode);const s=t.objectStore("q");const r=fn(s);t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error)}))}
+async function qAll(){try{return (await qTx("readonly",s=>s.getAll()))||[]}catch(e){return memQ.slice()}}
+async function qPut(item){try{await qTx("readwrite",s=>s.put(item))}catch(e){memQ=memQ.filter(x=>x.id!==item.id).concat(item)}}
+async function qDel(id){try{await qTx("readwrite",s=>s.delete(id))}catch(e){}memQ=memQ.filter(x=>x.id!==id)}
+async function refreshQueue(){queueCache=(await qAll()).sort((a,b)=>String(a.addedAt).localeCompare(String(b.addedAt)));renderAttViews()}
+
+async function shrinkImage(file){
+  const bmp=await createImageBitmap(file);
+  const max=2560, k=Math.min(1,max/Math.max(bmp.width,bmp.height));
+  const cv=document.createElement("canvas");cv.width=Math.round(bmp.width*k);cv.height=Math.round(bmp.height*k);
+  cv.getContext("2d").drawImage(bmp,0,0,cv.width,cv.height);
+  return await new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error("encode")),"image/jpeg",0.86));
+}
+async function prepFile(file,fromCamera,num){
+  let type=file.type||TYPE_BY_EXT[extOf(file.name)]||"application/octet-stream";
+  if(type.startsWith("image/")&&type!=="image/gif"){
+    const small=["image/jpeg","image/png","image/webp"].includes(type)&&file.size<=2.5e6;
+    if(!small){
+      try{const b=await shrinkImage(file);const base=(fromCamera||!file.name)?`${num}_photo_${stamp()}`:file.name.replace(/\.[^.]+$/,"");return {blob:b,type:"image/jpeg",name:base+".jpg"}}
+      catch(e){/* keep the original if the browser can't read it */}
+    }
+  }
+  const name=(fromCamera||!file.name)?`${num}_photo_${stamp()}.${extOf(file.name)||"jpg"}`:file.name;
+  return {blob:file,type,name};
+}
+async function enqueue(files,t,fromCamera){
+  if(!files.length)return;
+  if(!driveRoot){toast("Set your Drive Work Orders folder on the Moulds tab first");return}
+  uploading++;
+  try{
+    for(const f of files){
+      if(f.size>200*1024*1024){toast(`${f.name} is over 200 MB`);continue}
+      const p=await prepFile(f,fromCamera,t.num);
+      await qPut({id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),num:t.num,label:t.label,name:p.name,type:p.type,blob:p.blob,size:p.blob.size,addedAt:new Date().toISOString(),err:""});
+    }
+  }finally{uploading--}
+  await refreshQueue();
+  if(!hasToken())toast("Saved on this device. Connect Google Drive to upload.");
+  else if(!navigator.onLine)toast("Saved on this device. It will upload when you're back online.");
+  processQueue();
+}
+async function processQueue(){
+  if(qRunning)return;qRunning=true;
+  try{
+    const items=await qAll();
+    for(const it of items){
+      if(!driveRoot||!hasToken()||!navigator.onLine)break;
+      if(it.err&&!it.retry)continue;
+      try{
+        const folder=(await findWoFolder(it.num))||(await createWoFolder(it.num,it.label));
+        await dUpload(folder.id,it.blob,it.name,it.type);
+        await qDel(it.id);
+        delete driveState[it.num];
+        toast(`Uploaded ${it.name} to #${it.num}`);
+      }catch(err){
+        if(err&&(err.code==="needs_token"||err.code==="offline"))break;
+        it.err=(err&&err.message)||"Upload failed";it.retry=false;await qPut(it);
+      }
+      await refreshQueue();
+    }
+  }finally{qRunning=false;await refreshQueue()}
+}
+window.addEventListener("online",()=>{renderAll();processQueue()});
+window.addEventListener("offline",()=>renderAll());
+setInterval(()=>{if(queueCache.length)processQueue()},60000);
+
+// ---- Drive folder browsing ----
+const driveState={}; // per work order number: {status, stack:[{id,name,url}], items, next, err, label}
+async function driveLoad(num,more){
+  const st=driveState[num]||(driveState[num]={stack:[]});
+  if(!driveRoot)return;
+  st.status=more?"ready":"loading";st.loadingMore=!!more;renderAttViews();
+  try{
+    if(!st.stack.length){
+      const f=await findWoFolder(num);
+      if(!f){st.status="nofolder";st.loadingMore=false;renderAttViews();return}
+      st.stack=[{id:f.id,name:f.name,url:f.webViewLink}];
+    }
+    const cur=st.stack[st.stack.length-1];
+    const p=await dList(`'${dq(cur.id)}' in parents and trashed=false`,more?st.next:undefined);
+    st.items=more?[...(st.items||[]),...(p.files||[])]:(p.files||[]);
+    st.next=p.nextPageToken||null;st.status="ready";
+  }catch(err){st.status=err&&err.code==="needs_token"?"needs_token":"error";st.err=err}
+  st.loadingMore=false;renderAttViews();
+}
+function driveBody(t){
+  const num=t.num;
+  if(!driveRoot)return `<div class="small">Set your Drive Work Orders folder on the Moulds tab to see Drive files here.</div>`;
+  if(!hasToken())return `<div class="small">Connect Google Drive to see this work order's folder.</div><button type="button" class="btn ghost" data-dconnect="1" style="margin-top:8px">Connect Google Drive</button>`;
+  let st=driveState[num];
+  if(!st){st=driveState[num]={stack:[],status:"loading",label:t.label};setTimeout(()=>driveLoad(num),0)}
+  if(st.status==="loading")return `<div class="small">Looking in Google Drive…</div>`;
+  if(st.status==="needs_token")return `<div class="small">Your Google Drive connection has timed out.</div><button type="button" class="btn ghost" data-dconnect="1" style="margin-top:8px">Reconnect Google Drive</button>`;
+  if(st.status==="nofolder")return `<div class="small">No Drive folder for #${esc(num)} yet. It's created automatically with your first photo or file. <button type="button" class="linkish" data-dcreate="${esc(num)}" data-dlabel="${esc(t.label)}">Create it now</button> · <button type="button" class="linkish" data-dretry="${esc(num)}">Check again</button></div>`;
+  if(st.status==="error")return `<div class="small">${esc((st.err&&st.err.message)||"Couldn't load Google Drive files.")} <button type="button" class="linkish" data-dretry="${esc(num)}" style="color:var(--steel)">Try again</button></div>`;
+  const cur=st.stack[st.stack.length-1];
+  const crumbs=st.stack.length>1?`<button type="button" class="linkish" data-dback="${esc(num)}">← Back</button> · `:"";
+  const items=st.items||[];
+  const imgs=items.map((f,i)=>({f,i})).filter(x=>String(x.f.mimeType).startsWith("image/"));
+  const others=items.map((f,i)=>({f,i})).filter(x=>!String(x.f.mimeType).startsWith("image/"));
+  const grid=imgs.length?`<div class="attgrid">${imgs.map(({f,i})=>`<button type="button" class="thumb" data-dview="${esc(num)}|${i}" aria-label="View ${esc(f.name)}">${f.thumbnailLink?`<img class="dthumb" src="${esc(f.thumbnailLink)}" referrerpolicy="no-referrer" alt="" loading="lazy">`:""}<span class="ext"${f.thumbnailLink?" hidden":""}>IMG</span></button>`).join("")}</div>`:"";
+  const rows=others.map(({f,i})=>{
+    const isDir=f.mimeType===FOLDER_MT;
+    const meta=isDir?"Folder":[fmtSize(f.size),f.modifiedTime?fmtDate(String(f.modifiedTime).slice(0,10)):""].filter(Boolean).join(" · ");
+    const inner=`<span class="ico">${driveIcon(f.mimeType)}</span><span class="dn">${esc(f.name||"Untitled")}</span><span class="dm">${esc(meta)}</span>`;
+    return isDir?`<button type="button" class="drow" data-dfolder="${esc(num)}|${i}">${inner}</button>`
+      :`<a class="drow" href="${esc(f.webViewLink||"#")}" target="_blank" rel="noopener">${inner}</a>`;
+  }).join("");
+  return `<div class="dhead"><span class="small">${crumbs}<b>${esc(cur.name)}</b></span><a class="small" href="${esc(cur.url||("https://drive.google.com/drive/folders/"+cur.id))}" target="_blank" rel="noopener">Open in Drive ↗</a></div>`+
+    (items.length?grid+(rows?`<div class="dlist">${rows}</div>`:""):`<div class="small">This folder is empty.</div>`)+
+    (st.next?`<button type="button" class="btn ghost" style="margin-top:8px" data-dmore="${esc(num)}"${st.loadingMore?" disabled":""}>${st.loadingMore?"Loading…":"Load more"}</button>`:"");
+}
+function drivePanelFor(t){
+  const btns=`<div class="attbtns"><label class="btn ghost" for="pick-photo" data-addnum="${esc(t.num)}" data-addlabel="${esc(t.label)}" role="button" tabindex="0">Take photo</label><label class="btn ghost" for="pick-file" data-addnum="${esc(t.num)}" data-addlabel="${esc(t.label)}" role="button" tabindex="0">Attach file</label></div>`;
+  const pend=queueCache.filter(q=>q.num===t.num);
+  const waitWhy=!navigator.onLine?"Waiting for internet":!hasToken()?"Waiting for Google Drive connection":"Uploading…";
+  const pendHTML=pend.length?`<div class="qlist">${pend.map(q=>`<div class="qrow${q.err?" qerr":""}"><span class="ico">${q.err?"!":"↑"}</span><span class="dn">${esc(q.name)}<span class="dm">${q.err?esc(q.err):waitWhy}</span></span>${q.err?`<span><button type="button" class="linkish" data-qretry="${esc(q.id)}">Retry</button> · <button type="button" class="linkish" data-qdel="${esc(q.id)}">Remove</button></span>`:""}</div>`).join("")}</div>`:"";
+  return btns+pendHTML+`<div class="drive">${driveBody(t)}</div>`;
+}
+function attPanel(l){
+  const num=woNum(l.wo);
+  if(!num)return `<div class="small">This job has no work order number, so it has no Drive folder.</div>`;
+  const m=moulds.find(x=>x.id===l.mouldId);
+  return drivePanelFor({num,label:m?mlabel(m):(l.mouldName||"Job")});
+}
+function formTarget(){
+  const num=woNum($("#f-wo").value);const m=moulds.find(x=>x.id===$("#f-mould").value);
+  return num&&m?{num,label:mlabel(m)}:null;
+}
+function renderFormDrive(){
+  const el=$("#f-att");if(!el)return;
+  const t=formTarget();
+  el.innerHTML=t?drivePanelFor(t):`<div class="small">Fill in the mould and work order no. to add photos and files. They're saved to the work order's Drive folder.</div>`;
+}
+let formDriveTimer=null;
+function renderFormDriveSoon(){clearTimeout(formDriveTimer);formDriveTimer=setTimeout(renderFormDrive,500)}
+$("#f-wo").addEventListener("input",renderFormDriveSoon);
+function renderAttViews(){if(!$("#v-hist").hidden)renderHist();if(!$("#v-log").hidden)renderFormDrive()}
+function onDriveConnected(){for(const k in driveState){if(driveState[k].status!=="ready")delete driveState[k]}renderAttViews();renderAccount();processQueue()}
+async function connectDrive(){
+  try{await requestToken("");toast("Google Drive connected")}
+  catch(e){toast((e&&e.message&&e.code!=="popup_closed")?e.message:"Google Drive wasn't connected")}
+}
+
+// Thumbnails that fail to load fall back to a file label
+document.addEventListener("error",e=>{const im=e.target;if(im&&im.classList&&im.classList.contains("dthumb")){im.hidden=true;if(im.nextElementSibling)im.nextElementSibling.hidden=false}},true);
+
+// One click handler for every Drive panel (history and job form)
+document.addEventListener("click",async e=>{
+  const t=e.target;
+  const lab=t.closest("label[data-addnum]");if(lab){pickTarget={num:lab.dataset.addnum,label:lab.dataset.addlabel};return}
+  if(t.closest("[data-dconnect]")){connectDrive();return}
+  const r=t.closest("[data-dretry]");if(r){delete driveState[r.dataset.dretry];delete folderCache[r.dataset.dretry];renderAttViews();return}
+  const c=t.closest("[data-dcreate]");if(c){try{await createWoFolder(c.dataset.dcreate,c.dataset.dlabel);delete driveState[c.dataset.dcreate];toast("Folder created");renderAttViews()}catch(err){toast(err.code==="needs_token"?"Connect Google Drive first":(err.message||"Couldn't create the folder"))}return}
+  const f=t.closest("[data-dfolder]");if(f){const[num,i]=f.dataset.dfolder.split("|");const st=driveState[num];const it=st&&st.items[+i];if(it){st.stack.push({id:it.id,name:it.name,url:it.webViewLink});st.items=[];driveLoad(num)}return}
+  const b=t.closest("[data-dback]");if(b){const st=driveState[b.dataset.dback];if(st&&st.stack.length>1){st.stack.pop();st.items=[];driveLoad(b.dataset.dback)}return}
+  const m=t.closest("[data-dmore]");if(m){driveLoad(m.dataset.dmore,true);return}
+  const v=t.closest("[data-dview]");if(v){const[num,i]=v.dataset.dview.split("|");const st=driveState[num];if(!st)return;const imgs=st.items.filter(x=>String(x.mimeType).startsWith("image/"));openViewer(imgs,Math.max(0,imgs.indexOf(st.items[+i])));return}
+  const qr=t.closest("[data-qretry]");if(qr){const it=queueCache.find(x=>x.id===qr.dataset.qretry);if(it){it.err="";it.retry=true;await qPut(it);await refreshQueue();if(!hasToken())connectDrive();processQueue()}return}
+  const qd=t.closest("[data-qdel]");if(qd){await qDel(qd.dataset.qdel);await refreshQueue();toast("Removed from upload list");return}
+});
+// Keyboard: Enter/Space on a picker label
+document.addEventListener("keydown",e=>{
+  const lb=e.target.closest&&e.target.closest("label[for^='pick-']");if(!lb||(e.key!=="Enter"&&e.key!==" "))return;
+  e.preventDefault();pickTarget={num:lb.dataset.addnum,label:lb.dataset.addlabel};$("#"+lb.htmlFor).click();
+});
+async function handlePicked(input,fromCamera){
+  const files=[...input.files];input.value="";
+  const t=(pickTarget&&pickTarget.num)?pickTarget:formTarget();pickTarget=null;
+  if(!t){toast("Fill in the mould and work order no. first");return}
+  await enqueue(files,t,fromCamera);
+}
+$("#pick-photo").addEventListener("change",e=>handlePicked(e.target,true));
+$("#pick-file").addEventListener("change",e=>handlePicked(e.target,false));
+// Drag files onto the job form, or paste a screenshot while on the Log job tab
+const dropZone=$("#logform");
+["dragover","dragenter"].forEach(ev=>dropZone.addEventListener(ev,e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes("Files")){e.preventDefault();dropZone.classList.add("dropping")}}));
+["dragleave","drop"].forEach(ev=>dropZone.addEventListener(ev,()=>dropZone.classList.remove("dropping")));
+dropZone.addEventListener("drop",e=>{if(!e.dataTransfer||!e.dataTransfer.files.length)return;e.preventDefault();const t=formTarget();if(!t){toast("Fill in the mould and work order no. first");return}enqueue([...e.dataTransfer.files],t,false)});
+document.addEventListener("paste",e=>{
+  if($("#v-log").hidden)return;
+  const files=[...(e.clipboardData?.files||[])];if(!files.length)return;
+  const t=formTarget();if(!t)return;e.preventDefault();enqueue(files,t,false);
+});
+
+// ---- Photo viewer (loads the full photo from Drive) ----
+let lbList=[],lbIdx=0,lbUrl=null,lbBlob=null;
+function openViewer(list,i){lbList=list.slice();lbIdx=i;$("#lb").hidden=false;renderViewer();$("#lb-close").focus()}
+function closeViewer(){$("#lb").hidden=true;$("#lb-body").innerHTML="";if(lbUrl){URL.revokeObjectURL(lbUrl);lbUrl=null}lbBlob=null}
+async function renderViewer(){
+  const f=lbList[lbIdx];if(!f)return closeViewer();
+  $("#lb-name").textContent=f.name;
+  const open=$("#lb-open");open.hidden=!f.webViewLink;open.href=f.webViewLink||"#";open.textContent="Open in Drive";
+  $("#lb-save").hidden=true;
+  $("#lb-foot").hidden=lbList.length<2;$("#lb-count").textContent=`${lbIdx+1} of ${lbList.length}`;
+  const body=$("#lb-body");body.innerHTML=`<div class="doc">Loading…</div>`;
+  if(lbUrl){URL.revokeObjectURL(lbUrl);lbUrl=null}lbBlob=null;
+  const want=f.id;
+  try{
+    const blob=await (await driveFetch(DAPI+"files/"+encodeURIComponent(f.id)+"?alt=media&supportsAllDrives=true")).blob();
+    if(!lbList[lbIdx]||lbList[lbIdx].id!==want)return;
+    lbBlob=blob;lbUrl=URL.createObjectURL(blob);$("#lb-save").hidden=false;
+    body.innerHTML=String(f.mimeType).startsWith("video/")?`<video src="${lbUrl}" controls playsinline></video>`:`<img src="${lbUrl}" alt="${esc(f.name)}">`;
+  }catch(e){body.innerHTML=`<div class="doc">${e.code==="needs_token"?"Reconnect Google Drive to view this photo.":esc(e.message||"Couldn't load this file.")}</div>`}
+}
+$("#lb-close").onclick=closeViewer;
+$("#lb-prev").onclick=()=>{lbIdx=(lbIdx-1+lbList.length)%lbList.length;renderViewer()};
+$("#lb-next").onclick=()=>{lbIdx=(lbIdx+1)%lbList.length;renderViewer()};
+document.addEventListener("keydown",e=>{if($("#lb").hidden)return;if(e.key==="Escape")closeViewer();else if(e.key==="ArrowLeft"&&lbList.length>1)$("#lb-prev").click();else if(e.key==="ArrowRight"&&lbList.length>1)$("#lb-next").click()});
+$("#lb-save").onclick=()=>{const f=lbList[lbIdx];if(f&&lbBlob)saveFile(f.name,lbBlob)};
+
+// Settings: which Drive folder holds the work order folders
+function parseFolderId(s){s=String(s||"").trim();const m=s.match(/folders\/([A-Za-z0-9_-]{10,})/)||s.match(/[?&]id=([A-Za-z0-9_-]{10,})/);if(m)return m[1];return /^[A-Za-z0-9_-]{10,}$/.test(s)?s:""}
+function renderDriveSettings(){
+  $("#drivecur").innerHTML=driveRoot?`Using <a href="https://drive.google.com/drive/folders/${esc(driveRoot.id)}" target="_blank" rel="noopener">${esc(driveRoot.name||"Work Orders")}</a>. Work order folders inside it are matched by number, e.g. “#2549 - …”.`:"No folder set yet.";
+}
+$("#driveform").addEventListener("submit",async e=>{
+  e.preventDefault();if(!db){toast("Saving isn't available in this view");return}
+  const id=parseFolderId($("#d-link").value);if(!id){toast("Paste a Google Drive folder link");return}
+  try{await db.doc("settings/drive").set({rootId:id,rootName:$("#d-name").value.trim()||"Work Orders",updatedAt:new Date().toISOString()});
+    $("#d-link").value="";$("#d-name").value="";$("#drivepanel").open=false;toast("Drive folder saved")}
+  catch(err){toast("Couldn't save: "+(err.message||err.code))}
+});
+
+// ---------- Account, sign-in and sync start-up ----------
+let authApi=null, unsubs=[];
+function showGate(kind,msg){
+  const g=$("#gate");g.hidden=false;
+  $("#gate-setup").hidden=kind!=="setup";
+  $("#gate-signin").hidden=kind!=="signin";
+  $("#gate-msg").textContent=msg||"";
+}
+function hideGate(){$("#gate").hidden=true}
+$("#signin").addEventListener("click",async()=>{
+  const btn=$("#signin");btn.disabled=true;$("#gate-msg").textContent="";
+  try{
+    const tok=await requestToken("select_account");
+    if(!authApi)throw {message:"The app is still loading. Try again in a moment."};
+    await authApi.signInWithToken(tok);
+  }catch(e){$("#gate-msg").textContent=(e&&e.code==="popup_closed")?"Sign-in was cancelled.":((e&&e.message)||"Sign-in failed. Try again.")}
+  btn.disabled=false;
+});
+function stopData(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[];moulds=[];logs=[];loaded={m:false,l:false};driveRoot=null}
+function dataError(err){
+  if(err&&err.code==="permission-denied"){
+    stopData();
+    showGate("signin",`${currentUser&&currentUser.email?currentUser.email:"This account"} doesn't have access to this Mould Log. Sign in with the Google account set up for it.`);
+    if(authApi)authApi.signOut();
+  }
+}
+function startData(){
+  stopData();
+  unsubs.push(db.collection("moulds").onSnapshot(s=>{moulds=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>mlabel(a).localeCompare(mlabel(b),undefined,{numeric:true,sensitivity:"base"}));loaded.m=true;renderAll();renderImportHint()},e=>{loaded.m=true;renderAll();dataError(e)}));
+  unsubs.push(db.collection("logs").orderBy("date","desc").limit(2000).onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint()},e=>dataError(e)));
+  unsubs.push(db.doc("settings/drive").onSnapshot(s=>{
+    const d=s.exists?s.data():null;const nr=d&&d.rootId?{id:d.rootId,name:d.rootName}:null;
+    if(JSON.stringify(nr)!==JSON.stringify(driveRoot)){driveRoot=nr;for(const k in driveState)delete driveState[k];for(const k in folderCache)delete folderCache[k];renderAttViews()}
+    renderDriveSettings();
+  },e=>dataError(e)));
+}
+function renderAccount(){
+  const el=$("#acct");if(!el)return;
+  el.innerHTML=currentUser?`Signed in as <b>${esc(currentUser.email||"")}</b>. Google Drive: ${hasToken()?"<b>connected</b>":"not connected"}. ${navigator.onLine?"Online":"Offline: changes are kept on this device and sync when you reconnect"}.`:"Not signed in.";
+  $("#acct-drive").hidden=hasToken();
+}
+function renderImportHint(){
+  const h=$("#import-hint");if(!h)return;
+  h.hidden=!(loaded.m&&loaded.l&&!moulds.length&&!logs.length);
+}
+$("#acct-drive").onclick=connectDrive;
+$("#acct-signout").onclick=async()=>{dropToken();try{if(window.google&&google.accounts&&google.accounts.oauth2&&gToken)google.accounts.oauth2.revoke(gToken,()=>{})}catch(e){}if(authApi)await authApi.signOut()};
+$("#import-file").addEventListener("change",async e=>{
+  const file=e.target.files[0];e.target.value="";if(!file||!db)return;
+  try{
+    const data=JSON.parse(await file.text());
+    const cols=(data&&data.collections)||{};
+    let n=0;
+    for(const col of ["moulds","logs","settings"]){
+      for(const [id,doc] of Object.entries(cols[col]||{})){await db.collection(col).doc(id).set(doc);n++}
+    }
+    toast(`Imported ${n} records`);
+  }catch(err){toast("That file couldn't be imported: "+((err&&err.message)||"not a Mould Log export"))}
+});
+$("#exportbtn").onclick=()=>{
+  const cols=["Work order","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Service checklist"];
+  const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.status||"",l.date,l.dateCompleted,m.id?mlabel(m):(l.mouldName||l.mouldNumber),isGen(m)?"General job":"Mould",m.part||m.area,l.type,l.shots,l.description,l.faults,l.work,l.notes,l.parts,l.checklist?ckSummary(l.checklist.state||{}):""].map(q).join(",")}));
+  saveFile("mould-maintenance-"+today()+".csv",new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
+};
+$("#backupbtn").onclick=()=>{
+  const out={format:"mould-log-export",version:1,exportedAt:new Date().toISOString(),collections:{moulds:{},logs:{},settings:{}}};
+  moulds.forEach(({id,...d})=>out.collections.moulds[id]=d);
+  logs.forEach(({id,...d})=>out.collections.logs[id]=d);
+  if(driveRoot)out.collections.settings.drive={rootId:driveRoot.id,rootName:driveRoot.name};
+  saveFile("mould-log-backup-"+today()+".json",new Blob([JSON.stringify(out,null,1)],{type:"application/json"}));
+};
+window.addEventListener("online",renderAccount);window.addEventListener("offline",renderAccount);
+
+window.MouldApp={
+  notConfigured(){showGate("setup")},
+  bindAuth(api){authApi=api},
+  signedOut(){currentUser=null;stopData();renderAll();showGate("signin")},
+  start(adapter,user){
+    currentUser=user;db=adapter;hideGate();
+    $("#exportbtn").hidden=false;
+    startData();renderAccount();refreshQueue().then(processQueue);
+  },
+  writeError(e){
+    if(e&&e.code==="permission-denied")dataError(e);
+    else toast("Couldn't sync a change: "+((e&&(e.message||e.code))||"unknown error"));
+  }
+};
+renderAll();
+const CONFIGURED=!!(window.MOULDLOG_CONFIG&&window.MOULDLOG_CONFIG.firebase&&window.MOULDLOG_CONFIG.firebase.apiKey&&window.MOULDLOG_CONFIG.googleClientId);
+if(!CONFIGURED)showGate("setup");
+else{
+  showGate("loading","Starting…");
+  setTimeout(()=>{if(!currentUser&&!$("#gate").hidden&&$("#gate-signin").hidden)showGate("signin","Can't reach the sign-in service yet. Check your connection, then sign in.")},10000);
+}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
+</script>
+<script type="module">
+// Firebase: Google sign-in + Firestore (synced across devices, works offline)
+const FB="https://www.gstatic.com/firebasejs/10.12.2/";
+const cfg=window.MOULDLOG_CONFIG;
+if(!(cfg&&cfg.firebase&&cfg.firebase.apiKey&&cfg.googleClientId)){window.MouldApp.notConfigured()}
+else{
+  const [{initializeApp},A,F]=await Promise.all([import(FB+"firebase-app.js"),import(FB+"firebase-auth.js"),import(FB+"firebase-firestore.js")]);
+  const app=initializeApp(cfg.firebase);
+  const auth=A.getAuth(app);
+  let fs;
+  try{fs=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()}),ignoreUndefinedProperties:true})}
+  catch(e){fs=F.initializeFirestore(app,{ignoreUndefinedProperties:true})}
+  // Writes apply on this device straight away; the server confirms later (or when back online)
+  const settle=p=>{p.catch(e=>window.MouldApp.writeError(e));return Promise.race([p,new Promise(r=>setTimeout(()=>r("pending"),2500))])};
+  const snapDoc=s=>({id:s.id,exists:s.exists(),data:()=>s.data(),metadata:s.metadata});
+  const wrapQ=q=>({
+    orderBy:(f,d)=>wrapQ(F.query(q,F.orderBy(f,d||"asc"))),
+    limit:n=>wrapQ(F.query(q,F.limit(n))),
+    onSnapshot:(n,e)=>F.onSnapshot(q,s=>n({docs:s.docs.map(d=>({id:d.id,exists:true,data:()=>d.data()})),size:s.size,empty:s.empty,metadata:s.metadata}),e)
+  });
+  const wrapDoc=ref=>({id:ref.id,path:ref.path,
+    set:d=>settle(F.setDoc(ref,d)),
+    update:d=>settle(F.updateDoc(ref,d)),
+    delete:()=>settle(F.deleteDoc(ref)),
+    get:async()=>snapDoc(await F.getDoc(ref)),
+    onSnapshot:(n,e)=>F.onSnapshot(ref,s=>n(snapDoc(s)),e),
+    collection:p=>wrapCol(F.collection(ref,p))
+  });
+  const wrapCol=c=>({...wrapQ(c),path:c.path,
+    doc:id=>wrapDoc(id?F.doc(c,id):F.doc(c)),
+    add:async d=>{const r=F.doc(c);await settle(F.setDoc(r,d));return {id:r.id}}
+  });
+  const adapter={collection:p=>wrapCol(F.collection(fs,p)),doc:p=>wrapDoc(F.doc(fs,p))};
+  window.MouldApp.bindAuth({
+    signInWithToken:async t=>{await A.signInWithCredential(auth,A.GoogleAuthProvider.credential(null,t))},
+    signOut:()=>A.signOut(auth)
+  });
+  A.onAuthStateChanged(auth,u=>{if(u)window.MouldApp.start(adapter,{email:u.email,name:u.displayName});else window.MouldApp.signedOut()});
+}
+</script>
+</body>
+</html>
