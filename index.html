@@ -170,6 +170,7 @@ textarea.autogrow{resize:none;overflow:hidden}
 .lb-foot{justify-content:center}
 .lb-bar .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .lb button,.lb a{font:inherit;font-size:14px;color:#f2f5f7;background:rgba(255,255,255,.14);border:0;border-radius:999px;padding:8px 14px;cursor:pointer;text-decoration:none}
+.lb button.lb-del{background:rgba(255,255,255,.14)}.lb button.lb-del.armed{background:#c0392b;color:#fff}
 .lb-body{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 16px 8px;overflow:hidden;touch-action:pinch-zoom}
 .lb-body img,.lb-body video{max-width:100%;max-height:100%;object-fit:contain}
 .lb-body .doc{text-align:center;color:#c9d3da;max-width:320px}
@@ -530,6 +531,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <span class="nm" id="lb-name"></span>
     <a id="lb-open" href="#" target="_blank" rel="noopener" hidden>Open</a>
     <button type="button" id="lb-full" hidden>Full size</button>
+    <button type="button" id="lb-del" class="lb-del">Delete</button>
     <button type="button" id="lb-save" hidden>Save</button>
     <button type="button" id="lb-close">Close</button>
   </div>
@@ -1345,7 +1347,7 @@ document.addEventListener("click",async e=>{
   const f=t.closest("[data-dfolder]");if(f){const[num,i]=f.dataset.dfolder.split("|");const st=driveState[num];const it=st&&st.items[+i];if(it){st.stack.push({id:it.id,name:it.name,url:it.webViewLink});st.items=[];driveLoad(num)}return}
   const b=t.closest("[data-dback]");if(b){const st=driveState[b.dataset.dback];if(st&&st.stack.length>1){st.stack.pop();st.items=[];driveLoad(b.dataset.dback)}return}
   const m=t.closest("[data-dmore]");if(m){driveLoad(m.dataset.dmore,true);return}
-  const v=t.closest("[data-dview]");if(v){const[num,i]=v.dataset.dview.split("|");const st=driveState[num];if(!st)return;const imgs=st.items.filter(x=>String(x.mimeType).startsWith("image/"));openViewer(imgs,Math.max(0,imgs.indexOf(st.items[+i])));return}
+  const v=t.closest("[data-dview]");if(v){const[num,i]=v.dataset.dview.split("|");const st=driveState[num];if(!st)return;const imgs=st.items.filter(x=>String(x.mimeType).startsWith("image/"));lbNum=num;openViewer(imgs,Math.max(0,imgs.indexOf(st.items[+i])));return}
   const qr=t.closest("[data-qretry]");if(qr){const it=queueCache.find(x=>x.id===qr.dataset.qretry);if(it){it.err="";it.retry=true;await qPut(it);await refreshQueue();if(!hasToken())connectDrive();processQueue()}return}
   const qd=t.closest("[data-qdel]");if(qd){await qDel(qd.dataset.qdel);await refreshQueue();toast("Removed from upload list");return}
 });
@@ -1512,7 +1514,7 @@ async function showFull(f,body){
   finally{$("#lb-full").disabled=false;$("#lb-full").textContent="Full size"}
 }
 function renderViewer(){
-  const f=lbList[lbIdx];if(!f)return closeViewer();
+  const f=lbList[lbIdx];if(!f)return closeViewer();resetDel();
   $("#lb-name").textContent=f.name;
   const open=$("#lb-open");open.hidden=!f.webViewLink;open.href=f.webViewLink||"#";open.textContent="Open in Drive";
   $("#lb-save").hidden=false;
@@ -1529,6 +1531,21 @@ function renderViewer(){
   }else{$("#lb-full").hidden=true;body.innerHTML=`<div class="doc">Loading…</div>`;showFull(f,body)}
 }
 $("#lb-full").onclick=()=>{const f=lbList[lbIdx];if(f)showFull(f,$("#lb-body"))};
+let lbNum=null,delArmed=null;
+function resetDel(){const b=$("#lb-del");delArmed=null;b.textContent="Delete";b.classList.remove("armed");b.disabled=false}
+$("#lb-del").onclick=async()=>{
+  const f=lbList[lbIdx];if(!f)return;const b=$("#lb-del");
+  if(delArmed!==f.id){delArmed=f.id;b.textContent="Tap again to delete";b.classList.add("armed");setTimeout(()=>{if(delArmed===f.id)resetDel()},4000);return}
+  b.disabled=true;b.textContent="Deleting…";
+  try{
+    await driveFetch(DAPI+"files/"+encodeURIComponent(f.id)+"?supportsAllDrives=true",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({trashed:true})});
+    const st=lbNum&&driveState[lbNum];if(st&&st.items)st.items=st.items.filter(x=>x.id!==f.id);
+    lbList.splice(lbIdx,1);resetDel();
+    toast(`Deleted ${f.name}. Restore it from the Bin in Google Drive if needed.`);
+    if(!lbList.length){closeViewer()}else{if(lbIdx>=lbList.length)lbIdx=lbList.length-1;renderViewer()}
+    renderAttViews();
+  }catch(e){resetDel();toast(e.code==="needs_token"||e.code==="needs_scope"?"Reconnect Google Drive, then try again":(e.message||"Couldn't delete this photo"))}
+};
 $("#lb-close").onclick=()=>closeViewer();
 // Swipe in the viewer: left/right for next/previous photo, down to close. The photo follows the finger.
 (function(){
@@ -1575,7 +1592,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-13";
+const APP_VERSION="2026.10.12-14";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
