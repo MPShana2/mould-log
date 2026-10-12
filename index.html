@@ -1329,6 +1329,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
+const APP_VERSION="2026.10.12-4";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -1367,7 +1368,7 @@ function startData(){
 }
 function renderAccount(){
   const el=$("#acct");if(!el)return;
-  el.innerHTML=currentUser?`Signed in as <b>${esc(currentUser.email||"")}</b>. Google Drive: ${hasToken()?"<b>connected</b>":"not connected"}. ${navigator.onLine?"Online":"Offline: changes are kept on this device and sync when you reconnect"}.`:"Not signed in.";
+  el.innerHTML=(currentUser?`Signed in as <b>${esc(currentUser.email||"")}</b>. Google Drive: ${hasToken()?"<b>connected</b>":"not connected"}. ${navigator.onLine?"Online":"Offline: changes are kept on this device and sync when you reconnect"}.`:"Not signed in.")+`<br>App version ${APP_VERSION} · ${window.innerWidth}px wide (${window.innerWidth>=1000?"desktop":"phone"} layout)`;
   $("#acct-drive").hidden=hasToken();
 }
 function renderImportHint(){
@@ -1401,7 +1402,7 @@ $("#backupbtn").onclick=()=>{
   if(driveRoot)out.collections.settings.drive={rootId:driveRoot.id,rootName:driveRoot.name};
   saveFile("mould-log-backup-"+today()+".json",new Blob([JSON.stringify(out,null,1)],{type:"application/json"}));
 };
-window.addEventListener("online",renderAccount);window.addEventListener("offline",renderAccount);
+window.addEventListener("online",renderAccount);window.addEventListener("offline",renderAccount);window.addEventListener("resize",()=>{clearTimeout(window.__rz);window.__rz=setTimeout(renderAccount,300)});
 
 window.MouldApp={
   notConfigured(){showGate("setup")},
@@ -1424,7 +1425,12 @@ else{
   showGate("loading","Starting…");
   setTimeout(()=>{if(!currentUser&&!$("#gate").hidden&&$("#gate-signin").hidden)showGate("signin","Can't reach the sign-in service yet. Check your connection, then sign in.")},10000);
 }
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
+if("serviceWorker" in navigator){
+  // When a new version of the app is published, switch to it straight away
+  const hadController=!!navigator.serviceWorker.controller;let reloading=false;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloading){reloading=true;flushSave().finally(()=>location.reload())}});
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{r.update().catch(()=>{});document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")r.update().catch(()=>{})})}).catch(()=>{}));
+}
 </script>
 <script type="module">
 // Firebase: Google sign-in + Firestore (synced across devices, works offline)
