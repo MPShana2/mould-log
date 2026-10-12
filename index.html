@@ -1390,13 +1390,22 @@ async function enqueue(files,t,fromCamera){
   if(!files.length)return;
   if(!driveRoot){toast("Set your Drive Work Orders folder on the Moulds tab first");return}
   uploading++;
+  // Skip files whose name is already in this folder (as last loaded) or already waiting to upload there
+  const key=dkey(t),st=driveState[key],norm=n=>String(n||"").trim().toLowerCase();
+  const taken=new Set(queueCache.filter(q=>q.num===t.num&&(q.sub||"")===(t.sub||"")).map(q=>norm(q.name)));
+  if(st&&st.status==="ready"&&st.stack&&st.stack.length===1)(st.items||[]).forEach(x=>taken.add(norm(x.name)));
+  const dupes=[];
   try{
     for(const f of files){
       if(f.size>200*1024*1024){toast(`${f.name} is over 200 MB`);continue}
       const p=await prepFile(f,fromCamera,t.num);
+      if(taken.has(norm(p.name))){dupes.push(p.name);continue}
+      taken.add(norm(p.name));
       await qPut({id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),num:t.num,label:t.label,sub:t.sub||"",name:p.name,type:p.type,blob:p.blob,size:p.blob.size,addedAt:new Date().toISOString(),err:""});
     }
   }finally{uploading--}
+  if(dupes.length)toast(dupes.length===1?`${dupes[0]} is already in this folder, so it was skipped`:`Skipped ${dupes.length} files already in this folder: ${dupes.slice(0,3).join(", ")}${dupes.length>3?"…":""}`);
+  if(dupes.length===files.length)return;
   await refreshQueue();
   if(!hasToken())toast("Saved on this device. Connect Google Drive to upload.");
   else if(!navigator.onLine)toast("Saved on this device. It will upload when you're back online.");
@@ -1411,6 +1420,9 @@ async function processQueue(){
       if(it.err&&!it.retry)continue;
       try{
         const folder=await ensureFolder(it.num,it.label,it.sub);
+        // Last check against Drive itself (another device may have uploaded it meanwhile)
+        const ex=await dList(`'${dq(folder.id)}' in parents and name='${dq(it.name)}' and trashed=false`);
+        if((ex.files||[]).length){await qDel(it.id);delete driveState[it.num];if(it.sub)delete driveState[it.num+"/"+it.sub];toast(`${it.name} is already in Drive, so it was skipped`);await refreshQueue();continue}
         await dUpload(folder.id,it.blob,it.name,it.type);
         await qDel(it.id);
         delete driveState[it.num];if(it.sub)delete driveState[it.num+"/"+it.sub];
@@ -1792,7 +1804,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-21";
+const APP_VERSION="2026.10.12-22";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
