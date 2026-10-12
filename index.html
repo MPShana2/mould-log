@@ -561,7 +561,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 <script>
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const JOBTYPES=["Preventive","Service","Repair","Clean","Inspection","Insert change","Modification"];
+const JOBTYPES=["Preventive","Service","Repair","Clean","Inspection","Insert change","Modification","Misc."];
 const WORKS=["Cleaned vents","Greased ejector pins","Flushed water lines","Replaced O-rings","Checked slides/lifters","Cleaned parting line","Polished cavity","Replaced ejector pin","Checked hot runner / heaters","Checked guide pins & bushes","Full strip & clean","Other (see notes)"];
 const store=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}};
 let db=null, moulds=[], logs=[], loaded={m:false,l:false}, current=null, confirmDel=null;
@@ -986,6 +986,7 @@ function renderAll(){
 let editingId=null;
 function segSet(id,v){const bs=[...$(id).querySelectorAll("button")];const hit=bs.find(b=>b.dataset.v===v)||bs[0];bs.forEach(b=>b.setAttribute("aria-pressed",b===hit?"true":"false"))}
 function clearForm(){
+  setMould("");setExtras([]);
   $("#f-shots").value="";$("#f-work").value="";$("#f-notes").value="";$("#f-desc").value="";$("#f-parts").value="";$("#f-done").value="";
   setExtras([]);
   $("#f-type").selectedIndex=0;$("#f-faults").value="";segReset("#f-status");$("#f-date").value=today();
@@ -1633,7 +1634,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-15";
+const APP_VERSION="2026.10.12-16";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
