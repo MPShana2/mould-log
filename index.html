@@ -824,7 +824,7 @@ function renderHist(){
      ${l.notes?`<p style="color:var(--muted)">${esc(l.notes)}</p>`:""}
      ${l.parts?`<div class="small">Parts: ${esc(l.parts)}</div>`:""}
      ${ckHistory(l)}`}</div>
-     <div class="small">${confirmDel===l.id?`<button class="linkish" data-del="${esc(l.id)}" style="color:var(--bad)">Confirm delete</button> · <button class="linkish" data-cancel="1">Keep</button>`:`<button class="linkish" data-edit="${esc(l.id)}" style="color:var(--steel)">Edit</button> · <button class="linkish" data-ask="${esc(l.id)}">Delete</button>`}${l.updatedAt?` · <span>edited ${fmtDate(l.updatedAt.slice(0,10))}</span>`:""}</div>
+     <div class="small">${confirmDel===l.id?`<button class="linkish" data-del="${esc(l.id)}" style="color:var(--bad)">Confirm delete</button> · <button class="linkish" data-cancel="1">Keep</button>`:`<button class="linkish" data-edit="${esc(l.id)}" style="color:var(--steel)">Edit</button> · <button class="linkish" data-ask="${esc(l.id)}">Delete</button>`}${woNum(l.wo)?` · ${backupNote(l.id)}`:""}${l.updatedAt?` · <span>edited ${fmtDate(l.updatedAt.slice(0,10))}</span>`:""}</div>
    </div>`).join(""):'<div class="empty"><strong>No history yet</strong>Log the first job on this mould and it will appear here, newest first.</div>';
 }
 $("#timeline").addEventListener("click",async e=>{
@@ -842,7 +842,7 @@ $("#timeline").addEventListener("change",async e=>{
   const l=logs.find(x=>x.id===s.dataset.st);
   const patch={status,statusUpdatedAt:new Date().toISOString()};
   if(status==="Complete"&&l&&!l.dateCompleted)patch.dateCompleted=today();
-  try{await db.collection("logs").doc(s.dataset.st).update(patch);toast("Status set to "+status)}
+  try{await db.collection("logs").doc(s.dataset.st).update(patch);toast("Status set to "+status);scheduleBackup(s.dataset.st)}
   catch(err){toast("Couldn't update status: "+(err.message||err.code));renderHist()}
 });
 $("#backbtn").onclick=()=>show("moulds");
@@ -960,6 +960,7 @@ async function autosave(){
       if(editingId){await db.collection("logs").doc(editingId).update({...b.entry,updatedAt:now})}
       else{const ref=await db.collection("logs").add({...b.entry,createdAt:now});editingId=ref.id;updateEditBar()}
       if(!dirty)setSaveState("saved","All changes saved");
+      scheduleBackup(editingId);
       updateEditBar();
     }catch(err){
       dirty=true;
@@ -1190,7 +1191,7 @@ async function processQueue(){
     }
   }finally{qRunning=false;await refreshQueue()}
 }
-window.addEventListener("online",()=>{renderAll();processQueue()});
+window.addEventListener("online",()=>{renderAll();processQueue();processBackups()});
 window.addEventListener("offline",()=>renderAll());
 setInterval(()=>{if(queueCache.length)processQueue()},60000);
 
@@ -1271,7 +1272,7 @@ let formDriveTimer=null;
 function renderFormDriveSoon(){clearTimeout(formDriveTimer);formDriveTimer=setTimeout(renderFormDrive,500)}
 $("#f-wo").addEventListener("input",renderFormDriveSoon);
 function renderAttViews(){if(!$("#v-hist").hidden)renderHist();if(!$("#v-log").hidden)renderFormDrive()}
-function onDriveConnected(){for(const k in driveState){if(driveState[k].status!=="ready")delete driveState[k]}renderAttViews();renderAccount();processQueue()}
+function onDriveConnected(){for(const k in driveState){if(driveState[k].status!=="ready")delete driveState[k]}renderAttViews();renderAccount();processQueue();processBackups()}
 async function connectDrive(forceConsent){
   try{await requestToken(forceConsent||!driveOk?"consent":"");
     if(!driveOk){toast("Google Drive still isn't allowed. Tick the Google Drive box on Google's screen.");renderAttViews();return}
@@ -1329,6 +1330,96 @@ document.addEventListener("paste",e=>{
   const files=[...(e.clipboardData?.files||[])];if(!files.length)return;
   const t=formTarget();if(!t)return;e.preventDefault();enqueue(files,t,false);
 });
+
+
+// ---------- Work order backups (Markdown file in the work order's Drive folder) ----------
+// Each work order is written to "#2549 Work order.md" in its Drive folder a few seconds after it changes.
+// Backups that can't run yet (offline, Drive not connected) wait on this device and catch up later.
+let backupPending={};try{backupPending=JSON.parse(localStorage.getItem("ml_bk")||"{}")||{}}catch(e){}
+const backupDone={}, backupTimers={};let backupRunning=false;
+function saveBackupPending(){try{localStorage.setItem("ml_bk",JSON.stringify(backupPending))}catch(e){}}
+function backupNote(id){
+  if(backupPending[id])return `<span>Drive backup waiting</span> <button class="linkish" data-backup="${esc(id)}">Back up now</button>`;
+  if(backupDone[id])return `<span>Backed up to Drive ${backupDone[id]}</span>`;
+  return `<button class="linkish" data-backup="${esc(id)}">Back up to Drive</button>`;
+}
+function scheduleBackup(id){
+  if(!id)return;backupPending[id]=Date.now();saveBackupPending();
+  clearTimeout(backupTimers[id]);backupTimers[id]=setTimeout(processBackups,4000);
+}
+function mdEsc(v){return String(v??"").replace(/\|/g,"\\|").replace(/\r?\n/g," ")}
+function mdBlock(v){const t=String(v??"").trim();return t?t:"_None recorded_"}
+function workOrderMarkdown(l){
+  const m=moulds.find(x=>x.id===l.mouldId)||{};
+  const name=m.id?mlabel(m):(l.mouldName||"");
+  const rows=[
+    ["Work order",l.wo],["Status",l.status||"Complete"],["Mould / job",name],["Category",isGen(m)?"General job":"Mould"],
+    [isGen(m)?"Area":"Part / product",m.part||m.area||""],["Job type",l.type],["Date started",l.date?fmtDate(l.date):""],
+    ["Date completed",l.dateCompleted?fmtDate(l.dateCompleted):""],["Shot count",l.shots!=null&&l.shots!==""?fmtNum(l.shots):""],
+    ["Created",l.createdAt?new Date(l.createdAt).toLocaleString():""],["Last updated",l.updatedAt?new Date(l.updatedAt).toLocaleString():""]
+  ];
+  let md=`# Work order #${woNum(l.wo)} – ${name}\n\n| Field | Value |\n|---|---|\n`+rows.map(([k,v])=>`| ${k} | ${mdEsc(v)||"–"} |`).join("\n")+"\n";
+  md+=`\n## Description\n\n${mdBlock(l.description)}\n`;
+  md+=`\n## Inspection / faults found\n\n${mdBlock(l.faults)}\n`;
+  md+=`\n## Work done\n\n${mdBlock(l.work)}\n`;
+  md+=`\n## Notes\n\n${mdBlock(l.notes)}\n`;
+  md+=`\n## Parts used\n\n${mdBlock(l.parts)}\n`;
+  const st=(l.checklist&&l.checklist.state)||{};
+  md+=`\n## Service checklist\n\n`;
+  if(!Object.keys(st).length)md+="_Not started_\n";
+  else{
+    md+=`**${ckSummary(st)}**\n`;
+    const mark=id=>st[id]==="done"?"[x]":"[ ]";const na=id=>st[id]==="na"?" _(N/A)_":"";
+    CHECKLIST.forEach(sec=>{
+      md+=`\n### ${sec.sec}\n\n`;
+      sec.items.forEach(it=>{
+        if(it.sub){md+=`- **${it.t}**\n`+it.sub.map(k=>`  - ${mark(k.id)} ${k.t}${na(k.id)}`).join("\n")+"\n"}
+        else md+=`- ${mark(it.id)} ${it.t}${na(it.id)}${it.counter&&l.shots!=null&&l.shots!==""?` (reading: ${fmtNum(l.shots)})`:""}\n`;
+      });
+    });
+  }
+  md+=`\n## Photos & files\n\nStored in this Google Drive folder.\n\n---\n_Backed up automatically by Mould Log on ${new Date().toLocaleString()}._\n`;
+  return md;
+}
+const backupFileIds={}; // work order number -> Drive file id of its backup
+async function writeBackup(l){
+  const num=woNum(l.wo);if(!num)return;
+  const m=moulds.find(x=>x.id===l.mouldId);
+  const folder=(await findWoFolder(num))||(await createWoFolder(num,m?mlabel(m):(l.mouldName||"Job")));
+  const name=`#${num} Work order.md`;
+  const blob=new Blob([workOrderMarkdown(l)],{type:"text/markdown"});
+  let id=backupFileIds[num];
+  if(!id){
+    const r=await dList(`'${dq(folder.id)}' in parents and name='${dq(name)}' and trashed=false`);
+    id=r.files&&r.files[0]&&r.files[0].id;
+  }
+  if(id){
+    try{await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(id)}?uploadType=media&supportsAllDrives=true`,{method:"PATCH",headers:{"Content-Type":"text/markdown"},body:blob});backupFileIds[num]=id;return}
+    catch(e){if(!(e&&e.status===404))throw e;delete backupFileIds[num]}
+  }
+  const f=await dUpload(folder.id,blob,name,"text/markdown");backupFileIds[num]=f.id;
+  delete driveState[num];
+}
+async function processBackups(){
+  if(backupRunning)return;backupRunning=true;
+  try{
+    for(const id of Object.keys(backupPending)){
+      if(!driveRoot||!hasToken()||!navigator.onLine)break;
+      const l=logs.find(x=>x.id===id);
+      if(!l||!woNum(l.wo)){delete backupPending[id];continue}
+      const stamp=backupPending[id];
+      try{
+        await writeBackup(l);
+        if(backupPending[id]===stamp)delete backupPending[id];
+        backupDone[id]=new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+      }catch(err){if(err&&(err.code==="needs_token"||err.code==="needs_scope"||err.code==="offline"))break}
+    }
+  }finally{backupRunning=false;saveBackupPending();renderAttViews()}
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-backup]");if(!b)return;
+  if(!hasToken()){scheduleBackup(b.dataset.backup);connectDrive();return}
+  scheduleBackup(b.dataset.backup);clearTimeout(backupTimers[b.dataset.backup]);processBackups().then(()=>{if(backupDone[b.dataset.backup])toast("Work order backed up to Drive")})});
+setInterval(()=>{if(Object.keys(backupPending).length)processBackups()},60000);
 
 // ---- Photo viewer (loads the full photo from Drive) ----
 // Photos open as a screen-sized copy from Drive (small and fast); the full original loads only when asked for.
@@ -1433,7 +1524,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-9";
+const APP_VERSION="2026.10.12-10";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -1515,7 +1606,7 @@ window.MouldApp={
   start(adapter,user){
     currentUser=user;db=adapter;hideGate();
     $("#exportbtn").hidden=false;
-    startData();renderAccount();refreshQueue().then(processQueue);
+    startData();renderAccount();refreshQueue().then(processQueue);setTimeout(processBackups,6000);
   },
   writeError(e){
     if(e&&e.code==="permission-denied")dataError(e);
