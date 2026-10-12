@@ -958,8 +958,10 @@ function saveFile(name,blob){const a=document.createElement("a");a.href=URL.crea
 const CFG=window.MOULDLOG_CONFIG||{};
 const SCOPES="openid email profile https://www.googleapis.com/auth/drive";
 let gToken=null,gExp=0,tokenClient=null,tokenWaiters=[];
-try{const t=JSON.parse(localStorage.getItem("ml_tok")||"null");if(t&&t.exp>Date.now()+60000){gToken=t.token;gExp=t.exp}}catch(e){}
-function hasToken(){return !!gToken&&gExp>Date.now()+60000}
+// driveOk is false when Google sign-in succeeded but the Google Drive permission box was left unticked
+let driveOk=true;
+try{const t=JSON.parse(localStorage.getItem("ml_tok")||"null");if(t&&t.exp>Date.now()+60000){gToken=t.token;gExp=t.exp;driveOk=t.drive!==false}}catch(e){}
+function hasToken(){return !!gToken&&gExp>Date.now()+60000&&driveOk}
 function dropToken(){gToken=null;gExp=0;try{localStorage.removeItem("ml_tok")}catch(e){}}
 function ensureTokenClient(){
   if(tokenClient)return tokenClient;
@@ -969,7 +971,8 @@ function ensureTokenClient(){
       const w=tokenWaiters;tokenWaiters=[];
       if(!r||r.error||!r.access_token){w.forEach(x=>x.reject({code:"auth_error",message:(r&&(r.error_description||r.error))||"Sign-in failed"}));return}
       gToken=r.access_token;gExp=Date.now()+(Number(r.expires_in)||3600)*1000;
-      try{localStorage.setItem("ml_tok",JSON.stringify({token:gToken,exp:gExp}))}catch(e){}
+      try{driveOk=google.accounts.oauth2.hasGrantedAllScopes(r,"https://www.googleapis.com/auth/drive")}catch(e){driveOk=String(r.scope||"").includes("auth/drive")}
+      try{localStorage.setItem("ml_tok",JSON.stringify({token:gToken,exp:gExp,drive:driveOk}))}catch(e){}
       w.forEach(x=>x.resolve(gToken));onDriveConnected();
     },
     error_callback:e=>{const w=tokenWaiters;tokenWaiters=[];w.forEach(x=>x.reject({code:"popup_closed",message:(e&&e.type)||"Sign-in window closed"}))}
@@ -990,6 +993,8 @@ async function driveFetch(url,opts={}){
   try{res=await fetch(url,{...opts,headers:{...(opts.headers||{}),Authorization:"Bearer "+gToken}})}
   catch(e){throw {code:"offline",message:"Can't reach Google Drive. Check your connection."}}
   if(res.status===401){dropToken();renderAccount();throw {code:"needs_token"}}
+  if(res.status===403){let msg="";try{msg=(await res.clone().json()).error.message||""}catch(e){}
+    if(/insufficient/i.test(msg)){driveOk=false;dropToken();renderAccount();throw {code:"needs_scope"}}}
   if(!res.ok){let msg="";try{msg=(await res.json()).error.message}catch(e){}throw {code:"drive_error",status:res.status,message:msg||("Google Drive error "+res.status)}}
   return res;
 }
@@ -1115,16 +1120,18 @@ async function driveLoad(num,more){
     const p=await dList(`'${dq(cur.id)}' in parents and trashed=false`,more?st.next:undefined);
     st.items=more?[...(st.items||[]),...(p.files||[])]:(p.files||[]);
     st.next=p.nextPageToken||null;st.status="ready";
-  }catch(err){st.status=err&&err.code==="needs_token"?"needs_token":"error";st.err=err}
+  }catch(err){st.status=err&&(err.code==="needs_token"||err.code==="needs_scope")?err.code:"error";st.err=err}
   st.loadingMore=false;renderAttViews();
 }
 function driveBody(t){
   const num=t.num;
   if(!driveRoot)return `<div class="small">Set your Drive Work Orders folder on the Moulds tab to see Drive files here.</div>`;
+  if(!driveOk)return `<div class="small">Mould Log doesn't have permission to use your Google Drive on this device. Tap below, then make sure the <b>Google Drive</b> box is ticked on Google's screen.</div><button type="button" class="btn ghost" data-dconsent="1" style="margin-top:8px">Allow Google Drive access</button>`;
   if(!hasToken())return `<div class="small">Connect Google Drive to see this work order's folder.</div><button type="button" class="btn ghost" data-dconnect="1" style="margin-top:8px">Connect Google Drive</button>`;
   let st=driveState[num];
   if(!st){st=driveState[num]={stack:[],status:"loading",label:t.label};setTimeout(()=>driveLoad(num),0)}
   if(st.status==="loading")return `<div class="small">Looking in Google Drive…</div>`;
+  if(st.status==="needs_scope")return `<div class="small">Mould Log doesn't have permission to use your Google Drive on this device. Tap below, then make sure the <b>Google Drive</b> box is ticked on Google's screen.</div><button type="button" class="btn ghost" data-dconsent="1" style="margin-top:8px">Allow Google Drive access</button>`;
   if(st.status==="needs_token")return `<div class="small">Your Google Drive connection has timed out.</div><button type="button" class="btn ghost" data-dconnect="1" style="margin-top:8px">Reconnect Google Drive</button>`;
   if(st.status==="nofolder")return `<div class="small">No Drive folder for #${esc(num)} yet. It's created automatically with your first photo or file. <button type="button" class="linkish" data-dcreate="${esc(num)}" data-dlabel="${esc(t.label)}">Create it now</button> · <button type="button" class="linkish" data-dretry="${esc(num)}">Check again</button></div>`;
   if(st.status==="error")return `<div class="small">${esc((st.err&&st.err.message)||"Couldn't load Google Drive files.")} <button type="button" class="linkish" data-dretry="${esc(num)}" style="color:var(--steel)">Try again</button></div>`;
@@ -1172,8 +1179,10 @@ function renderFormDriveSoon(){clearTimeout(formDriveTimer);formDriveTimer=setTi
 $("#f-wo").addEventListener("input",renderFormDriveSoon);
 function renderAttViews(){if(!$("#v-hist").hidden)renderHist();if(!$("#v-log").hidden)renderFormDrive()}
 function onDriveConnected(){for(const k in driveState){if(driveState[k].status!=="ready")delete driveState[k]}renderAttViews();renderAccount();processQueue()}
-async function connectDrive(){
-  try{await requestToken("");toast("Google Drive connected")}
+async function connectDrive(forceConsent){
+  try{await requestToken(forceConsent||!driveOk?"consent":"");
+    if(!driveOk){toast("Google Drive still isn't allowed. Tick the Google Drive box on Google's screen.");renderAttViews();return}
+    toast("Google Drive connected")}
   catch(e){toast((e&&e.message&&e.code!=="popup_closed")?e.message:"Google Drive wasn't connected")}
 }
 
@@ -1185,6 +1194,7 @@ document.addEventListener("click",async e=>{
   const t=e.target;
   const lab=t.closest("label[data-addnum]");if(lab){pickTarget={num:lab.dataset.addnum,label:lab.dataset.addlabel};return}
   if(t.closest("[data-dconnect]")){connectDrive();return}
+  if(t.closest("[data-dconsent]")){connectDrive(true);return}
   const r=t.closest("[data-dretry]");if(r){delete driveState[r.dataset.dretry];delete folderCache[r.dataset.dretry];renderAttViews();return}
   const c=t.closest("[data-dcreate]");if(c){try{await createWoFolder(c.dataset.dcreate,c.dataset.dlabel);delete driveState[c.dataset.dcreate];toast("Folder created");renderAttViews()}catch(err){toast(err.code==="needs_token"?"Connect Google Drive first":(err.message||"Couldn't create the folder"))}return}
   const f=t.closest("[data-dfolder]");if(f){const[num,i]=f.dataset.dfolder.split("|");const st=driveState[num];const it=st&&st.items[+i];if(it){st.stack.push({id:it.id,name:it.name,url:it.webViewLink});st.items=[];driveLoad(num)}return}
@@ -1302,7 +1312,7 @@ function renderImportHint(){
   const h=$("#import-hint");if(!h)return;
   h.hidden=!(loaded.m&&loaded.l&&!moulds.length&&!logs.length);
 }
-$("#acct-drive").onclick=connectDrive;
+$("#acct-drive").onclick=()=>connectDrive();
 $("#acct-signout").onclick=async()=>{dropToken();try{if(window.google&&google.accounts&&google.accounts.oauth2&&gToken)google.accounts.oauth2.revoke(gToken,()=>{})}catch(e){}if(authApi)await authApi.signOut()};
 $("#import-file").addEventListener("change",async e=>{
   const file=e.target.files[0];e.target.value="";if(!file||!db)return;
