@@ -10,5 +10,5 @@ window.MOULDLOG_CONFIG = {
     appId: "1:946935745198:web:62b1e19a69f12332a43b3f"
   },
   // OAuth Client ID from Google Cloud → APIs & Services → Credentials (Part C of the setup guide)
-  googleClientId: ""
+  googleClientId: "946935745198-hhimkr2nbouioci5grd3oj0epkn5kvjg.apps.googleusercontent.com"
 };
