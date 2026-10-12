@@ -166,7 +166,7 @@ textarea.autogrow{resize:none;overflow:hidden}
 .lb-foot{justify-content:center}
 .lb-bar .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .lb button,.lb a{font:inherit;font-size:14px;color:#f2f5f7;background:rgba(255,255,255,.14);border:0;border-radius:999px;padding:8px 14px;cursor:pointer;text-decoration:none}
-.lb-body{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 16px 8px}
+.lb-body{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 16px 8px;overflow:hidden;touch-action:pinch-zoom}
 .lb-body img,.lb-body video{max-width:100%;max-height:100%;object-fit:contain}
 .lb-body .doc{text-align:center;color:#c9d3da;max-width:320px}
 .lb-body .doc b{display:block;font-family:var(--mono);font-size:32px;color:#f2f5f7;margin-bottom:8px}
@@ -1311,6 +1311,30 @@ async function renderViewer(){
   }catch(e){body.innerHTML=`<div class="doc">${e.code==="needs_token"?"Reconnect Google Drive to view this photo.":esc(e.message||"Couldn't load this file.")}</div>`}
 }
 $("#lb-close").onclick=closeViewer;
+// Swipe in the viewer: left/right for next/previous photo, down to close. The photo follows the finger.
+(function(){
+  const body=$("#lb-body");let sx=0,sy=0,dx=0,dy=0,st=0,axis="",tracking=false;
+  const media=()=>body.querySelector("img,video");
+  const setT=(x,y,anim)=>{const m=media();if(!m)return;m.style.transition=anim?"transform .2s ease, opacity .2s ease":"none";m.style.transform=`translate(${x}px,${y}px)`;m.style.opacity=y>0?String(Math.max(.3,1-y/400)):"1"};
+  body.addEventListener("touchstart",e=>{if(e.touches.length!==1)return;tracking=true;axis="";sx=e.touches[0].clientX;sy=e.touches[0].clientY;dx=dy=0;st=Date.now()},{passive:true});
+  body.addEventListener("touchmove",e=>{
+    if(!tracking||e.touches.length!==1)return;
+    dx=e.touches[0].clientX-sx;dy=e.touches[0].clientY-sy;
+    if(!axis&&(Math.abs(dx)>10||Math.abs(dy)>10))axis=Math.abs(dx)>Math.abs(dy)?"x":"y";
+    if(axis==="x"&&lbList.length>1){e.preventDefault();setT(dx,0)}
+    else if(axis==="y"&&dy>0){e.preventDefault();setT(0,dy)}
+  },{passive:false});
+  body.addEventListener("touchend",()=>{
+    if(!tracking)return;tracking=false;
+    const fast=Date.now()-st<300;
+    if(axis==="x"&&lbList.length>1&&(Math.abs(dx)>80||(fast&&Math.abs(dx)>30))){
+      const w=body.clientWidth||window.innerWidth;setT(dx<0?-w:w,0,true);
+      setTimeout(()=>{(dx<0?$("#lb-next"):$("#lb-prev")).click()},180);
+    }else if(axis==="y"&&(dy>120||(fast&&dy>50))){setT(0,window.innerHeight,true);setTimeout(closeViewer,180)}
+    else setT(0,0,true);
+  },{passive:true});
+  body.addEventListener("touchcancel",()=>{tracking=false;setT(0,0,true)},{passive:true});
+})();
 $("#lb-prev").onclick=()=>{lbIdx=(lbIdx-1+lbList.length)%lbList.length;renderViewer()};
 $("#lb-next").onclick=()=>{lbIdx=(lbIdx+1)%lbList.length;renderViewer()};
 document.addEventListener("keydown",e=>{if($("#lb").hidden)return;if(e.key==="Escape")closeViewer();else if(e.key==="ArrowLeft"&&lbList.length>1)$("#lb-prev").click();else if(e.key==="ArrowRight"&&lbList.length>1)$("#lb-next").click()});
@@ -1329,7 +1353,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-4";
+const APP_VERSION="2026.10.12-5";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
