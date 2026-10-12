@@ -1780,7 +1780,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-2";
+const APP_VERSION="2026.10.13-3";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -1810,7 +1810,7 @@ function dataError(err){
 function startData(){
   stopData();
   unsubs.push(db.collection("moulds").onSnapshot(s=>{moulds=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>mlabel(a).localeCompare(mlabel(b),undefined,{numeric:true,sensitivity:"base"}));loaded.m=true;renderAll();renderImportHint()},e=>{loaded.m=true;renderAll();dataError(e)}));
-  unsubs.push(db.collection("logs").orderBy("date","desc").limit(2000).onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint()},e=>dataError(e)));
+  unsubs.push(db.collection("logs").onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint()},e=>dataError(e)));
   unsubs.push(db.doc("settings/drive").onSnapshot(s=>{
     const d=s.exists?s.data():null;const nr=d&&d.rootId?{id:d.rootId,name:d.rootName}:null;
     if(JSON.stringify(nr)!==JSON.stringify(driveRoot)){driveRoot=nr;for(const k in driveState)delete driveState[k];for(const k in folderCache)delete folderCache[k];for(const k in subCache)delete subCache[k];renderAttViews()}
