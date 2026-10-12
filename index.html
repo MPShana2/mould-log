@@ -239,10 +239,13 @@ details.ckhist>summary{cursor:pointer;padding:8px 10px;font-size:13px;font-weigh
 .pmbody{display:flex;flex-direction:column;gap:16px}
 .pmsec:not(.multi) .pmbody{display:contents}
 .pmsec:not(.multi){display:contents}
+.pmsec:not(.multi) .pm-a{display:contents}
+.pm-a,.pm-b,.pmside{display:flex;flex-direction:column;gap:16px;min-width:0}
+.pm-b:empty{display:none}
 .pmtabs{display:flex;gap:0;overflow-x:auto;background:var(--sunk);border-bottom:1px solid var(--line)}
 .pmtabs button{flex:0 0 auto;font:inherit;font-size:14px;font-weight:600;border:0;background:none;color:var(--muted);padding:11px 14px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pmtabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent);background:var(--surface)}
-.pmtabs.small-tabs{border:1px solid var(--line);border-radius:8px 8px 0 0;margin-bottom:10px}
+
 #shots-field[hidden]{display:none}
 .alsoon{font-size:13px;color:var(--muted);margin-top:2px}
 .combo-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:8;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.18);max-height:320px;overflow-y:auto;padding:4px}
@@ -282,6 +285,9 @@ details summary{cursor:pointer;font-weight:600;color:var(--steel)}
   .editbar{margin:-24px -32px 0;padding:8px 32px}
   /* Log job: details on the left, checklist + parts + photos on the right */
   #logform{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:24px 28px;align-items:start}
+  #logform.multi{grid-template-columns:minmax(0,1fr)}
+  #logform.multi .fcol-side{display:none}
+  .pmsec.multi .pmbody{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px 28px;align-items:start;padding:18px 18px 18px}
   #logform>#savebtn{grid-column:1/-1;justify-self:start;min-width:220px}
   .fcol-side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 140px)}
   .fcol-side details.ck[open] #cklist{max-height:58vh;overflow-y:auto}
@@ -400,6 +406,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <div class="pmsec" id="pmsec">
       <div class="pmtabs" id="pmtabs" role="tablist" aria-label="Mould on this work order" hidden></div>
       <div class="pmbody">
+      <div class="pm-a">
       <div class="field" id="shots-field"><label class="label" for="f-shots">Shot count</label><input id="f-shots" class="mono" type="number" inputmode="numeric" min="0" placeholder="e.g. 412500"></div>
       <div class="field">
         <label class="label" for="f-faults">Inspection / faults found</label>
@@ -414,9 +421,12 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <textarea id="f-notes" class="autogrow" placeholder="Extra detail, findings or measurements"></textarea>
       </div>
       </div>
+      <div class="pm-b" id="pmb"></div>
+      </div>
       </div>
       </div>
       <div class="fcol fcol-side">
+      <div class="pmside" id="pmside">
       <details class="panel ck" id="ckpanel">
         <summary><span>Service checklist</span><span class="ckprog" id="ckprog">Not started</span></summary>
         <div id="cklist"></div>
@@ -424,8 +434,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <div class="field"><label class="label" for="f-parts">Parts used</label><input id="f-parts" placeholder="e.g. 2× O-ring 20mm"></div>
       <div class="field">
         <span class="label">Photos &amp; files</span>
-        <div class="pmtabs small-tabs" id="atttabs" role="tablist" aria-label="Mould for photos and files" hidden></div>
         <div id="f-att"></div>
+      </div>
       </div>
       </div>
       <button class="btn" id="savebtn" type="submit">Save job</button>
@@ -749,20 +759,24 @@ function jobNames(l){return jobIds(l).map((id,i)=>{const m=moulds.find(x=>x.id==
 function jobTool(l){const n=jobNames(l);return n.length?n.join(", "):(l.mouldName||l.mouldNumber||"Unknown mould")}
 // Per-mould values on a work order: the main mould's are stored at the top level, extra moulds' in perMould
 const PMKEYS=["shots","faults","work","notes"];
-function pmVal(l,id){if(!id||id===l.mouldId)return {shots:l.shots,faults:l.faults,work:l.work,notes:l.notes};return (l.perMould&&l.perMould[id])||{}}
+function pmVal(l,id){if(!id||id===l.mouldId)return {shots:l.shots,faults:l.faults,work:l.work,notes:l.notes,parts:l.parts,checklist:l.checklist};return (l.perMould&&l.perMould[id])||{}}
 function subName(id){const m=moulds.find(x=>x.id===id);return String(m?mlabel(m):"Mould").replace(/[\\/|]/g,"-").trim().slice(0,100)||"Mould"}
 // Form state: inputs show the values for pmActive; formPM keeps the rest
 let formPM={}, pmActive=null, lastPrimary="";
-function readPM(){return {shots:$("#f-shots").value,faults:$("#f-faults").value,work:$("#f-work").value,notes:$("#f-notes").value}}
+function readPM(){return {shots:$("#f-shots").value,faults:$("#f-faults").value,work:$("#f-work").value,notes:$("#f-notes").value,parts:$("#f-parts").value,ck:{...ckState}}}
 function stashPM(){if(!pmActive&&$("#f-mould").value){pmActive=lastPrimary=$("#f-mould").value}if(pmActive)formPM[pmActive]=readPM()}
-function writePM(id){const v=formPM[id]||{};$("#f-shots").value=v.shots??"";$("#f-faults").value=v.faults||"";$("#f-work").value=v.work||"";$("#f-notes").value=v.notes||"";const c=$("#ck-counter");if(c)c.value=v.shots??""}
+function writePM(id){const v=formPM[id]||{};$("#f-shots").value=v.shots??"";$("#f-faults").value=v.faults||"";$("#f-work").value=v.work||"";$("#f-notes").value=v.notes||"";$("#f-parts").value=v.parts||"";
+  ckState={...(v.ck||{})};syncChecklist();const c=$("#ck-counter");if(c)c.value=v.shots??""}
 const pmIds=()=>[...new Set([$("#f-mould").value,...extraIds].filter(Boolean))];
 function switchPM(id){if(id===pmActive)return;stashPM();pmActive=id;writePM(id);renderPM();growAll();renderFormDrive()}
 function renderPM(){
   const ids=pmIds(),multi=ids.length>1;
   const html=multi?ids.map(id=>{const m=moulds.find(x=>x.id===id);return `<button type="button" role="tab" data-pm="${esc(id)}" aria-selected="${id===pmActive}">${esc(m?mlabel(m):"Unknown")}</button>`}).join(""):"";
-  for(const sel of ["#pmtabs","#atttabs"]){const el=$(sel);el.innerHTML=html;el.hidden=!multi}
-  $("#pmsec").classList.toggle("multi",multi);
+  const tb=$("#pmtabs");tb.innerHTML=html;tb.hidden=!multi;
+  $("#pmsec").classList.toggle("multi",multi);$("#logform").classList.toggle("multi",multi);
+  // In a multi-mould job the checklist, parts and photos belong to the selected mould, so they sit inside its tab
+  const side=$("#pmside"),home=$(".fcol-side"),dest=multi?$("#pmb"):home;
+  if(side.parentElement!==dest)dest.prepend(side);
   const am=moulds.find(x=>x.id===(pmActive||$("#f-mould").value));
   $("#shots-field").hidden=!!(am&&isGen(am));
 }
@@ -1069,8 +1083,8 @@ async function startEdit(id){
   await flushSave();
   editingId=id;dirty=false;
   resetPM();
-  formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||""};
-  for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||""}}
+  formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",ck:{...((l.checklist&&l.checklist.state)||{})}};
+  for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",ck:{...((v.checklist&&v.checklist.state)||{})}}}
   $("#f-wo").value=l.wo||"";setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);$("#f-date").value=l.date||today();
   $("#f-shots").value=l.shots??"";$("#f-parts").value=l.parts||"";$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-desc").value=l.description||"";
   $("#f-type").value=JOBTYPES.includes(l.type)?l.type:JOBTYPES[0];
@@ -1105,10 +1119,10 @@ function buildEntry(){
   if($("#f-done").value&&$("#f-done").value<$("#f-date").value)return {error:"date completed is before date started"};
   const m=moulds.find(x=>x.id===mouldId);
   stashPM();
-  const pmClean=id=>{const v=formPM[id]||(id===mouldId?readPM():{});const sh=String(v.shots??"").trim();return {shots:sh===""?null:Number(sh),faults:String(v.faults||"").trim(),work:String(v.work||"").trim(),notes:String(v.notes||"").trim()}};
+  const pmClean=id=>{const v=formPM[id]||(id===mouldId?readPM():{});const sh=String(v.shots??"").trim();return {shots:sh===""?null:Number(sh),faults:String(v.faults||"").trim(),work:String(v.work||"").trim(),notes:String(v.notes||"").trim(),parts:String(v.parts||"").trim(),checklist:v.ck&&Object.keys(v.ck).length?{state:{...v.ck}}:null}};
   const main=pmClean(mouldId), extras=extraIds.filter(x=>x!==mouldId);
   const perMould={};for(const x of extras)perMould[x]=pmClean(x);
-  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:$("#f-parts").value.trim(),checklist:Object.keys(ckState).length?{state:{...ckState}}:null}};
+  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,checklist:main.checklist}};
 }
 function markDirty(delay){
   if(!db)return;
@@ -1555,28 +1569,34 @@ function workOrderMarkdown(l){
     jobIds(l).forEach((id,i)=>{const v=pmVal(l,id),mm=moulds.find(x=>x.id===id);
       md+=`\n## ${names[i]}\n`;
       if(!(mm&&isGen(mm)))md+=`\n**Shot count:** ${v.shots!=null&&v.shots!==""?fmtNum(v.shots):"–"}\n`;
-      md+=`\n### Inspection / faults found\n\n${mdBlock(v.faults)}\n\n### Work done\n\n${mdBlock(v.work)}\n\n### Notes\n\n${mdBlock(v.notes)}\n`});
+      md+=`\n### Inspection / faults found\n\n${mdBlock(v.faults)}\n\n### Work done\n\n${mdBlock(v.work)}\n\n### Notes\n\n${mdBlock(v.notes)}\n\n### Parts used\n\n${mdBlock(v.parts)}\n\n### Service checklist\n\n`+mdChecklist(v.checklist,v.shots,"####")});
   }else{
   md+=`\n## Inspection / faults found\n\n${mdBlock(l.faults)}\n`;
   md+=`\n## Work done\n\n${mdBlock(l.work)}\n`;
   md+=`\n## Notes\n\n${mdBlock(l.notes)}\n`;
   }
+  if(jobIds(l).length<2){
   md+=`\n## Parts used\n\n${mdBlock(l.parts)}\n`;
-  const st=(l.checklist&&l.checklist.state)||{};
-  md+=`\n## Service checklist\n\n`;
+  md+=`\n## Service checklist\n\n`+mdChecklist(l.checklist,l.shots);
+  }
+  md+=jobIds(l).length>1?`\n## Photos & files\n\nStored in this Google Drive folder, in a subfolder for each mould.\n`:`\n## Photos & files\n\nStored in this Google Drive folder.\n`;
+  return md+`\n---\n_Backed up automatically by Mould Log on ${new Date().toLocaleString()}._\n`;
+}
+function mdChecklist(ckl,shots,h="###"){
+  let md="";
+  const st=(ckl&&ckl.state)||{};
   if(!Object.keys(st).length)md+="_Not started_\n";
   else{
     md+=`**${ckSummary(st)}**\n`;
     const mark=id=>st[id]==="done"?"[x]":"[ ]";const na=id=>st[id]==="na"?" _(N/A)_":"";
     CHECKLIST.forEach(sec=>{
-      md+=`\n### ${sec.sec}\n\n`;
+      md+=`\n${h} ${sec.sec}\n\n`;
       sec.items.forEach(it=>{
         if(it.sub){md+=`- **${it.t}**\n`+it.sub.map(k=>`  - ${mark(k.id)} ${k.t}${na(k.id)}`).join("\n")+"\n"}
-        else md+=`- ${mark(it.id)} ${it.t}${na(it.id)}${it.counter&&l.shots!=null&&l.shots!==""?` (reading: ${fmtNum(l.shots)})`:""}\n`;
+        else md+=`- ${mark(it.id)} ${it.t}${na(it.id)}${it.counter&&shots!=null&&shots!==""?` (reading: ${fmtNum(shots)})`:""}\n`;
       });
     });
   }
-  md+=`\n## Photos & files\n\nStored in this Google Drive folder.\n\n---\n_Backed up automatically by Mould Log on ${new Date().toLocaleString()}._\n`;
   return md;
 }
 const backupFileIds={}; // work order number -> Drive file id of its backup
@@ -1736,7 +1756,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-19";
+const APP_VERSION="2026.10.12-20";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -1815,7 +1835,7 @@ $("#import-file").addEventListener("change",async e=>{
 $("#exportbtn").onclick=()=>{
   const cols=["Work order","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Service checklist"];
   const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.status||"",l.date,l.dateCompleted,jobTool(l),isGen(m)?"General job":"Mould",m.part||m.area,l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),j("notes")]})(),l.parts,l.checklist?ckSummary(l.checklist.state||{}):""].map(q).join(",")}));
+  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.status||"",l.date,l.dateCompleted,jobTool(l),isGen(m)?"General job":"Mould",m.part||m.area,l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,l.parts,l.checklist?ckSummary(l.checklist.state||{}):""];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),j("notes"),j("parts"),ids.map((id,i)=>{const c=pmVal(l,id).checklist;return c?n[i]+": "+ckSummary(c.state||{}):""}).filter(Boolean).join(" | ")]})()].map(q).join(",")}));
   saveFile("mould-maintenance-"+today()+".csv",new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
 };
 $("#backupbtn").onclick=()=>{
