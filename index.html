@@ -1529,7 +1529,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.12-11";
+const APP_VERSION="2026.10.12-12";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -1582,11 +1582,27 @@ $("#import-file").addEventListener("change",async e=>{
   try{
     const data=JSON.parse(await file.text());
     const cols=(data&&data.collections)||{};
-    let n=0;
-    for(const col of ["moulds","logs","settings"]){
-      for(const [id,doc] of Object.entries(cols[col]||{})){await db.collection(col).doc(id).set(doc);n++}
+    // Never overwrite what's already in the app: skip work order numbers that exist,
+    // and reuse an existing mould/job with the same name instead of making a duplicate.
+    const haveWo=new Set(logs.map(l=>woNum(l.wo)).filter(Boolean));
+    const byName=new Map(moulds.map(m=>[mlabel(m).trim().toLowerCase(),m.id]));
+    const idMap={};let nm=0,nl=0,skip=0;const writes=[];
+    for(const [id,doc] of Object.entries(cols.moulds||{})){
+      const key=String(doc.name||doc.number||"").trim().toLowerCase();
+      if(byName.has(key)){idMap[id]=byName.get(key);continue}
+      if(moulds.some(m=>m.id===id)){idMap[id]=id;continue}
+      idMap[id]=id;byName.set(key,id);writes.push(["moulds",id,doc]);nm++;
     }
-    toast(`Imported ${n} records`);
+    for(const [id,doc] of Object.entries(cols.logs||{})){
+      const n=woNum(doc.wo);
+      if((n&&haveWo.has(n))||logs.some(l=>l.id===id)){skip++;continue}
+      if(n)haveWo.add(n);
+      writes.push(["logs",id,{...doc,mouldId:idMap[doc.mouldId]||doc.mouldId}]);nl++;
+    }
+    for(const [id,doc] of Object.entries(cols.settings||{})){if(!(id==="drive"&&driveRoot))writes.push(["settings",id,doc])}
+    toast(`Importing ${nl} work orders…`);
+    for(let i=0;i<writes.length;i+=25){await Promise.all(writes.slice(i,i+25).map(([c,id,d])=>db.collection(c).doc(id).set(d)))}
+    toast(`Imported ${nl} work order${nl===1?"":"s"} and ${nm} new mould${nm===1?"":"s"}/job${nm===1?"":"s"}`+(skip?`. Skipped ${skip} already in the app.`:""));
   }catch(err){toast("That file couldn't be imported: "+((err&&err.message)||"not a Mould Log export"))}
 });
 $("#exportbtn").onclick=()=>{
