@@ -7,6 +7,7 @@
 <meta name="description" content="Mould and toolroom maintenance work orders, synced across your devices.">
 <meta name="theme-color" content="#000000">
 <link rel="manifest" href="manifest.webmanifest">
+<script>try{var t=localStorage.getItem("ml_theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
 <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -47,6 +48,17 @@ body{font-family:var(--body);font-size:15px;line-height:1.45}
 .wrap{max-width:640px;margin:0 auto;padding:0 16px 96px}
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bar);color:var(--bar-fg);padding-block:16px 12px;border-bottom:3px solid var(--accent);margin:0 -16px 16px;padding-inline:16px;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 header.top .sub{color:var(--bar-muted)}
+header.top{align-items:center}
+.menubtn{border:0;background:none;color:var(--bar-fg);width:44px;height:44px;margin:-8px -10px -8px 0;border-radius:10px;display:grid;place-items:center;cursor:pointer}
+.menubtn:hover,.menubtn[aria-expanded="true"]{background:#1d1d1d}
+.menu{position:absolute;right:12px;top:calc(100% + 6px);z-index:30;min-width:240px;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 34px rgba(0,0,0,.28);padding:6px;display:flex;flex-direction:column}
+.menu[hidden]{display:none}
+.menu button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:0;background:none;font:inherit;color:inherit;text-align:left;padding:12px 14px;border-radius:8px;cursor:pointer}
+.menu button:hover,.menu button:focus-visible{background:var(--sunk);outline:none}
+.menu button span{font-weight:700;font-size:15px}
+.menu button small{color:var(--muted);font-size:12px}
+.pagehead{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.pagehead h2{margin:0}
 h1{font-family:var(--display);font-size:22px;font-weight:800;letter-spacing:-.01em;margin:0}
 h1 span{color:var(--accent)}
 .sub{color:var(--muted);font-size:13px}
@@ -413,7 +425,13 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 <div class="wrap">
   <header class="top">
     <h1>Mould <span>Log</span></h1>
-    <div class="sub" id="countline">Loading…</div>
+    <div class="sub" id="countline" hidden>Loading…</div>
+    <button type="button" class="menubtn" id="menubtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="menu" id="menu" role="menu" hidden>
+      <button type="button" role="menuitem" data-page="settings"><span>Settings</span><small>Theme · Drive folder</small></button>
+      <button type="button" role="menuitem" data-page="account"><span>Account</span><small>Sign-in · Google Drive</small></button>
+      <button type="button" role="menuitem" data-page="backup"><span>Backup &amp; export</span><small>Backup · CSV · Import</small></button>
+    </div>
   </header>
 
 
@@ -570,11 +588,63 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <details class="tddone" id="tododone" hidden><summary id="tododonesum"></summary><div id="tododonelist" class="tdgrid"></div></details>
   </section>
 
+  <!-- MENU PAGES -->
+  <section id="v-settings" class="stackcol page" hidden>
+    <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Settings</h2></div>
+    <div class="panel stackcol">
+      <div class="field">
+        <span class="label">Appearance</span>
+        <div class="seg" id="themeseg" role="group" aria-label="Theme">
+          <button type="button" data-v="system" aria-pressed="true">Match device</button>
+          <button type="button" data-v="light" aria-pressed="false">Light</button>
+          <button type="button" data-v="dark" aria-pressed="false">Dark</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel stackcol">
+      <span class="label" style="margin:0">Google Drive folder</span>
+      <form id="driveform" autocomplete="off">
+        <div class="hint" style="margin-top:0" id="drivecur">Loading…</div>
+        <div class="field"><label class="label" for="d-link">Folder link</label><input id="d-link" placeholder="Paste the Drive link to your Work Orders folder"></div>
+        <div class="field"><label class="label" for="d-name">Name to show</label><input id="d-name" placeholder="Work Orders"></div>
+        <button class="btn" type="submit">Use this folder</button>
+      </form>
+    </div>
+  </section>
+  <section id="v-account" class="stackcol page" hidden>
+    <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Account</h2></div>
+    <div class="panel stackcol">
+      <div class="acct" id="acct">Not signed in.</div>
+      <div class="attbtns" style="margin:0">
+        <button class="btn ghost" id="acct-drive" type="button">Connect Google Drive</button>
+        <button class="btn ghost" id="acct-signout" type="button">Sign out</button>
+      </div>
+    </div>
+  </section>
+  <section id="v-backup" class="stackcol page" hidden>
+    <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Backup &amp; export</h2></div>
+    <div class="panel stackcol">
+      <span class="label" style="margin:0">Save a copy</span>
+      <p class="small" style="margin:0">A backup file holds everything (work orders, moulds, to-do lists) and can be imported again. The CSV opens in Excel or Google Sheets.</p>
+      <div class="attbtns" style="margin:0">
+        <button class="btn ghost" id="backupbtn" type="button">Download backup</button>
+        <button class="btn ghost" id="exportbtn" type="button" hidden>Export CSV</button>
+      </div>
+    </div>
+    <div class="panel stackcol">
+      <div class="field">
+        <label class="label" for="import-file">Import a backup or export</label>
+        <input id="import-file" type="file" accept=".json,application/json">
+        <div class="hint" id="import-hint" hidden>Your log is empty. Import the export file from the previous version to bring your work orders across.</div>
+        <div class="hint">Work order numbers already in the app are skipped, so importing never overwrites anything.</div>
+      </div>
+    </div>
+  </section>
+
   <!-- MOULDS -->
   <section id="v-moulds" class="stackcol" hidden>
     <div class="row">
       <h2>Moulds &amp; general jobs</h2>
-      <button class="btn ghost" id="exportbtn" type="button" hidden>Export CSV</button>
     </div>
     <div class="mpanels">
     <details class="panel" id="addpanel">
@@ -597,31 +667,6 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <div class="field"><label class="label" for="g-area">Area / location</label><input id="g-area" placeholder="e.g. Moulding hall, Tool room"></div>
         <button class="btn" type="submit">Add general job</button>
       </form>
-    </details>
-    <details class="panel" id="drivepanel">
-      <summary>Google Drive folder</summary>
-      <form id="driveform" style="margin-top:14px" autocomplete="off">
-        <div class="hint" style="margin-top:0" id="drivecur">Loading…</div>
-        <div class="field"><label class="label" for="d-link">Folder link</label><input id="d-link" placeholder="Paste the Drive link to your Work Orders folder"></div>
-        <div class="field"><label class="label" for="d-name">Name to show</label><input id="d-name" placeholder="Work Orders"></div>
-        <button class="btn" type="submit">Use this folder</button>
-      </form>
-    </details>
-    <details class="panel" id="acctpanel">
-      <summary>Account, sync &amp; backup</summary>
-      <div class="stackcol" style="margin-top:14px">
-        <div class="acct" id="acct">Not signed in.</div>
-        <div class="attbtns" style="margin:0">
-          <button class="btn ghost" id="acct-drive" type="button">Connect Google Drive</button>
-          <button class="btn ghost" id="backupbtn" type="button">Download backup</button>
-          <button class="btn ghost" id="acct-signout" type="button">Sign out</button>
-        </div>
-        <div class="field">
-          <label class="label" for="import-file">Import a backup or export</label>
-          <input id="import-file" type="file" accept=".json,application/json">
-          <div class="hint" id="import-hint" hidden>Your log is empty. Import the export file from the previous version to bring your work orders across.</div>
-        </div>
-      </div>
     </details>
     </div>
     <input id="search" type="search" placeholder="Search job no., mould name, part or area">
@@ -1082,11 +1127,12 @@ window.addEventListener("resize",syncHeaderHeight);setTimeout(syncHeaderHeight,0
 // ---- Back gesture / back button ----
 // Open jobs is the "home" screen. Any other screen keeps one extra history entry above it,
 // so the phone's back gesture returns to Open jobs (or Moulds from a mould's history) instead of closing the app.
-let skipPop=0, returnTab="open";
+let skipPop=0, returnTab="open", pageReturn="open";
 try{if(!history.state||!history.state.ml)history.replaceState({ml:"root"},"")}catch(e){}
 function ensureGuard(){try{if(!history.state||history.state.ml==="root")history.pushState({ml:"guard"},"")}catch(e){}}
 function dropGuard(){try{if(history.state&&history.state.ml==="guard"){skipPop++;history.back()}}catch(e){}}
-function currentView(){return ["log","open","all","todo","moulds","hist"].find(v=>!$("#v-"+v).hidden)||"open"}
+const PAGES=["settings","account","backup"];
+function currentView(){return ["log","open","all","todo","moulds","hist",...PAGES].find(v=>!$("#v-"+v).hidden)||"open"}
 async function leaveLogIfNeeded(target){
   if($("#v-log").hidden||target==="log")return;
   if(dirty||saving||editingId){
@@ -1103,12 +1149,32 @@ window.addEventListener("popstate",async()=>{
   const v=currentView();
   if(v==="open")return;
   if(v==="hist"){ensureGuard();show("moulds");return}
+  if(PAGES.includes(v)){const r=pageReturn;pageReturn="open";await goTab(r);return}
   if(v==="log"&&returnTab!=="open"){const r=returnTab;returnTab="open";await goTab(r);return}
   await goTab("open");
 });
+// ---- Menu (top right) and its pages ----
+function closeMenu(){const m=$("#menu");if(m&&!m.hidden){m.hidden=true;$("#menubtn").setAttribute("aria-expanded","false")}}
+$("#menubtn").addEventListener("click",e=>{e.stopPropagation();const m=$("#menu");m.hidden=!m.hidden;$("#menubtn").setAttribute("aria-expanded",String(!m.hidden));if(!m.hidden)m.querySelector("button").focus()});
+document.addEventListener("click",e=>{if(!e.target.closest("#menu,#menubtn"))closeMenu()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu()});
+$("#menu").addEventListener("click",async e=>{const b=e.target.closest("[data-page]");if(!b)return;
+  const cur=currentView();if(!PAGES.includes(cur))pageReturn=cur==="log"?(returnTab||"open"):cur;
+  closeMenu();await goTab(b.dataset.page)});
+document.addEventListener("click",e=>{if(e.target.closest("[data-pageback]")){history.back()}});
+// ---- Theme: match the device, or always light / dark (kept on this device) ----
+function applyTheme(t){
+  if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme;
+  $("#themeseg").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===(t||"system"))));
+}
+applyTheme((()=>{try{return localStorage.getItem("ml_theme")}catch(e){return null}})()||"system");
+$("#themeseg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const t=b.dataset.v;
+  try{if(t==="system")localStorage.removeItem("ml_theme");else localStorage.setItem("ml_theme",t)}catch(e){}applyTheme(t)});
+
 function show(view){
   if(view!=="log"&&subPage){stashPM();subPage=null;$("#logform").classList.remove("subpage")}
-  ["log","open","all","todo","moulds","hist"].forEach(v=>$("#v-"+v).hidden=v!==view);
+  ["log","open","all","todo","moulds","hist",...PAGES].forEach(v=>$("#v-"+v).hidden=v!==view);
+  closeMenu();
   if(view==="all")renderAllJobs();
   if(view==="todo")renderTodo(true);
   if(view==="open")dropGuard();else ensureGuard();
@@ -2305,11 +2371,11 @@ $("#driveform").addEventListener("submit",async e=>{
   e.preventDefault();if(!db){toast("Saving isn't available in this view");return}
   const id=parseFolderId($("#d-link").value);if(!id){toast("Paste a Google Drive folder link");return}
   try{await db.doc("settings/drive").set({rootId:id,rootName:$("#d-name").value.trim()||"Work Orders",updatedAt:new Date().toISOString()});
-    $("#d-link").value="";$("#d-name").value="";$("#drivepanel").open=false;toast("Drive folder saved")}
+    $("#d-link").value="";$("#d-name").value="";toast("Drive folder saved")}
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-18";
+const APP_VERSION="2026.10.13-19";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
