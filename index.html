@@ -27,17 +27,20 @@
   --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
   --r:12px;
+  --band:#edf1f5; --band-sub:#e3e9ef; --sub-bg:#f9f8f6; /* job list striping */
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0b0b0b; --surface:#171717; --sunk:#202020; --line:#323232;
   --fg:#f2f2f2; --muted:#a39e96; --accent:#f0a21c; --accent-ink:#111111; --steel:#ececec;
   --bar:#000000; --bar-fg:#ffffff; --bar-muted:#9a9a9a;
-  --ok:#5fcf95; --ok-bg:#16301f; --warn:#f2924f; --warn-bg:#3a2314; --bad:#ff8f86; --bad-bg:#3d1c1a; color-scheme:dark}}
+  --ok:#5fcf95; --ok-bg:#16301f; --warn:#f2924f; --warn-bg:#3a2314; --bad:#ff8f86; --bad-bg:#3d1c1a; color-scheme:dark;
+  --band:#1d232b; --band-sub:#222a33; --sub-bg:#1a1a1a}}
 :root[data-theme="dark"]{
   --bg:#0b0b0b; --surface:#171717; --sunk:#202020; --line:#323232;
   --fg:#f2f2f2; --muted:#a39e96; --accent:#f0a21c; --accent-ink:#111111; --steel:#ececec;
   --bar:#000000; --bar-fg:#ffffff; --bar-muted:#9a9a9a;
-  --ok:#5fcf95; --ok-bg:#16301f; --warn:#f2924f; --warn-bg:#3a2314; --bad:#ff8f86; --bad-bg:#3d1c1a; color-scheme:dark}
+  --ok:#5fcf95; --ok-bg:#16301f; --warn:#f2924f; --warn-bg:#3a2314; --bad:#ff8f86; --bad-bg:#3d1c1a; color-scheme:dark;
+  --band:#1d232b; --band-sub:#222a33; --sub-bg:#1a1a1a}
 *{box-sizing:border-box}
 html,body{background:var(--bg);color:var(--fg)}
 body{font-family:var(--body);font-size:15px;line-height:1.45}
@@ -137,9 +140,11 @@ nav.tabs button[aria-current="true"]{color:var(--bar-fg);border-top-color:var(--
 .worow2.parent{font-weight:600}
 .worow2.sub{border-top:1px dashed var(--line);padding-block:9px;background:color-mix(in srgb,var(--sunk) 45%,transparent);font-size:14px}
 .worow2.sub:hover{background:var(--sunk)}
-.worow2.alt{background:color-mix(in srgb,var(--accent) 9%,var(--surface))}
-.worow2.sub{background:color-mix(in srgb,var(--sunk) 30%,var(--surface))}
-.worow2.sub.alt{background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+/* every second work order gets a steel blue-grey band (its sub-jobs share it); each work order row has an amber edge */
+.worow2.alt{background:var(--band)}
+.worow2.sub{background:var(--sub-bg)}
+.worow2.sub.alt{background:var(--band-sub)}
+.worow2:not(.sub):not(.head){box-shadow:inset 4px 0 0 var(--accent)}
 .worow2.alt:hover,.worow2.sub.alt:hover{background:var(--sunk)}
 .worow2.sub .wo{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);padding-left:6px}
 .subtree{width:10px;height:12px;border-left:2px solid var(--line);border-bottom:2px solid var(--line);border-bottom-left-radius:3px;margin-top:-8px;flex:none}
@@ -2304,7 +2309,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-17";
+const APP_VERSION="2026.10.13-18";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
