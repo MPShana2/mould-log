@@ -2414,7 +2414,9 @@ function reportModel(l,onlyId){
   B.push({t:"grid",items:grid});
   if(rptHas(l.description)){B.push({t:"h",text:"Description"});B.push({t:"field",text:l.description})}
   if(!onlyId&&(l.todos||[]).length){B.push({t:"h",text:"To-do"});B.push({t:"todo",items:l.todos})}
-  if(single){const f=showFields(single).filter(x=>x.label!=="Shot count");if(f.length){B.push({t:"h",text:"Work carried out"});B.push(...f)}}
+  if(single){const f=showFields(single).filter(x=>x.label!=="Shot count"),insp=f.find(x=>x.label==="Inspection / faults found"),rest=f.filter(x=>x!==insp);
+    if(insp){B.push({t:"h",text:"Inspection / faults found"});B.push({t:"field",text:insp.text})}
+    if(rest.length){B.push({t:"h",text:"Work carried out"});B.push(...rest)}}
   else{
     B.push({t:"h",text:"Moulds & jobs"});
     for(const id of scope){
@@ -3018,7 +3020,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.14-23";
+const APP_VERSION="2026.10.14-24";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
