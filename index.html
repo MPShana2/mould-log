@@ -57,6 +57,19 @@ header.top{align-items:center}
 .menu button:hover,.menu button:focus-visible{background:var(--sunk);outline:none}
 .menu button span{font-weight:700;font-size:15px}
 .menu button small{color:var(--muted);font-size:12px}
+.sharestrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.sharestrip img{width:72px;height:72px;object-fit:cover;border-radius:8px;flex:none;background:var(--sunk)}
+.sharestrip .more{width:72px;height:72px;border-radius:8px;flex:none;display:grid;place-items:center;background:var(--sunk);font-weight:700}
+#sharelist{display:flex;flex-direction:column;gap:8px}
+#sharelist .ogh{margin-top:8px}
+.sharegroup{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.sharerow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;padding:12px 14px;border:0;border-left:4px solid var(--accent);background:none;font:inherit;color:var(--fg);text-align:left;cursor:pointer;min-height:52px}
+.sharerow:hover{background:var(--sunk)}
+.sharerow .wo{font-family:var(--mono);font-weight:600}
+.sharerow .nm{min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.sharerow .nm small{display:block;font-weight:400;color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sharerow.sub{border-left-color:transparent;border-top:1px dashed var(--line);padding-block:9px;background:var(--sub-bg)}
+.sharerow.sub .wo{font-size:13px;color:var(--muted);padding-left:6px}
 .pagehead{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 .pagehead h2{margin:0}
 h1{font-family:var(--display);font-size:22px;font-weight:800;letter-spacing:-.01em;margin:0}
@@ -586,6 +599,14 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <div class="tdhead">Work orders</div>
     <div id="todowo" class="tdgrid"></div>
     <details class="tddone" id="tododone" hidden><summary id="tododonesum"></summary><div id="tododonelist" class="tdgrid"></div></details>
+  </section>
+
+  <!-- SHARED PHOTOS: pick the work order they belong to -->
+  <section id="v-share" class="stackcol page" hidden>
+    <div class="pagehead"><button type="button" class="subback" data-pageback>← Cancel</button><h2 id="sharetitle">Add photos to a work order</h2><span class="sub" id="sharewhen"></span></div>
+    <div class="sharestrip" id="sharestrip"></div>
+    <input id="sharesearch" type="search" placeholder="Search job no., mould or description" aria-label="Search work orders">
+    <div id="sharelist"></div>
   </section>
 
   <!-- MENU PAGES -->
@@ -1131,7 +1152,7 @@ let skipPop=0, returnTab="open", pageReturn="open";
 try{if(!history.state||!history.state.ml)history.replaceState({ml:"root"},"")}catch(e){}
 function ensureGuard(){try{if(!history.state||history.state.ml==="root")history.pushState({ml:"guard"},"")}catch(e){}}
 function dropGuard(){try{if(history.state&&history.state.ml==="guard"){skipPop++;history.back()}}catch(e){}}
-const PAGES=["settings","account","backup"];
+const PAGES=["settings","account","backup","share"];
 function currentView(){return ["log","open","all","todo","moulds","hist",...PAGES].find(v=>!$("#v-"+v).hidden)||"open"}
 async function leaveLogIfNeeded(target){
   if($("#v-log").hidden||target==="log")return;
@@ -1149,10 +1170,90 @@ window.addEventListener("popstate",async()=>{
   const v=currentView();
   if(v==="open")return;
   if(v==="hist"){ensureGuard();show("moulds");return}
-  if(PAGES.includes(v)){const r=pageReturn;pageReturn="open";await goTab(r);return}
+  if(PAGES.includes(v)){if(v==="share")leaveShare();const r=pageReturn;pageReturn="open";await goTab(r);return}
   if(v==="log"&&returnTab!=="open"){const r=returnTab;returnTab="open";await goTab(r);return}
   await goTab("open");
 });
+// ---- Photos shared from another app (Google Photos etc.) ----
+// The service worker keeps them in the "mouldlog-share" store and opens the app with ?share=1
+let shareWanted=/[?&]share=1/.test(location.search),shareFiles=[],shareUrls=[];
+if(shareWanted){try{history.replaceState(history.state,"",location.pathname)}catch(e){}}
+function shareDb(){return new Promise((res,rej)=>{try{const r=indexedDB.open("mouldlog-share",1);r.onupgradeneeded=()=>r.result.createObjectStore("inbox",{keyPath:"id"});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}})}
+async function shareInbox(){try{const d=await shareDb();return await new Promise((res,rej)=>{const r=d.transaction("inbox").objectStore("inbox").getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error)})}catch(e){return[]}}
+async function shareClear(){try{const d=await shareDb();await new Promise(res=>{const t=d.transaction("inbox","readwrite");t.objectStore("inbox").clear();t.oncomplete=res;t.onerror=res})}catch(e){}}
+// The day a photo was taken: from the JPEG's EXIF data, else from a dated file name (PXL_20251103_…, IMG_20251103_…)
+async function photoDate(file){
+  try{
+    if(/jpe?g/i.test(file.type)||/\.jpe?g$/i.test(file.name)){
+      const v=new DataView(await file.slice(0,262144).arrayBuffer());
+      if(v.byteLength>4&&v.getUint16(0)===0xFFD8){
+        let o=2;
+        while(o+10<v.byteLength){
+          const mk=v.getUint16(o),len=v.getUint16(o+2);
+          if(mk===0xFFE1&&v.getUint32(o+4)===0x45786966){
+            const t=o+10,le=v.getUint16(t)===0x4949,u16=p=>v.getUint16(t+p,le),u32=p=>v.getUint32(t+p,le);
+            const ifd=(off,want)=>{const out={},n=u16(off);for(let i=0;i<n;i++){const e=off+2+i*12,tag=u16(e);if(want.includes(tag)){const cnt=u32(e+4);out[tag]={cnt,vo:cnt>4?u32(e+8):e+8,val:u32(e+8)}}}return out};
+            const str=(vo,cnt)=>{let r="";for(let i=0;i<cnt-1&&t+vo+i<v.byteLength;i++)r+=String.fromCharCode(v.getUint8(t+vo+i));return r};
+            const i0=ifd(u32(4),[0x8769,0x0132]);let ds=null;
+            if(i0[0x8769]){const ex=ifd(i0[0x8769].val,[0x9003,0x9004]);const d=ex[0x9003]||ex[0x9004];if(d)ds=str(d.vo,d.cnt)}
+            if(!ds&&i0[0x0132])ds=str(i0[0x0132].vo,i0[0x0132].cnt);
+            const m=ds&&ds.match(/^(\d{4}):(\d{2}):(\d{2})/);if(m&&m[1]!=="0000")return `${m[1]}-${m[2]}-${m[3]}`;
+            break;
+          }
+          if((mk&0xFF00)!==0xFF00||mk===0xFFDA)break;o+=2+len;
+        }
+      }
+    }
+  }catch(e){}
+  const f=String(file.name||"").match(/(20\d{2})(\d{2})(\d{2})[_\-T ]/);
+  return f&&+f[2]>=1&&+f[2]<=12&&+f[3]>=1&&+f[3]<=31?`${f[1]}-${f[2]}-${f[3]}`:null;
+}
+function maybeOpenShare(){if(shareWanted&&db&&loaded.l&&loaded.m){shareWanted=false;openShare()}}
+async function openShare(){
+  const items=await shareInbox();if(!items.length)return;
+  shareFiles=await Promise.all(items.map(async it=>{const file=new File([it.blob],it.name,{type:it.type||it.blob.type||"",lastModified:it.lastModified});return {file,date:await photoDate(file)}}));
+  shareUrls.forEach(u=>URL.revokeObjectURL(u));shareUrls=[];
+  const imgs=shareFiles.filter(x=>String(x.file.type).startsWith("image/"));
+  $("#sharestrip").innerHTML=imgs.slice(0,8).map(x=>{const u=URL.createObjectURL(x.file);shareUrls.push(u);return `<img src="${u}" alt="">`}).join("")+(shareFiles.length>8?`<span class="more">+${shareFiles.length-8}</span>`:"");
+  const n=shareFiles.length;$("#sharetitle").textContent=`Add ${n} ${n===1?"photo":"photos"} to a work order`;
+  const ds=shareFiles.map(x=>x.date).filter(Boolean).sort();
+  $("#sharewhen").textContent=ds.length?(ds[0]===ds.at(-1)?`Taken ${fmtDate(ds[0])}`:`Taken ${fmtDate(ds[0])} – ${fmtDate(ds.at(-1))}`):"";
+  $("#sharesearch").value="";
+  const cur=currentView();if(!PAGES.includes(cur))pageReturn=cur==="log"?"open":cur;
+  await goTab("share");renderShareList();
+}
+function addDays(d,n){const t=new Date(d+"T00:00:00");t.setDate(t.getDate()+n);return t.toISOString().slice(0,10)}
+function renderShareList(){
+  const q=$("#sharesearch").value.trim(),qn=normWo(q),dates=shareFiles.map(x=>x.date).filter(Boolean);
+  const hits=d=>{if(!d.start)return 0;const a=addDays(d.start,-1),b=addDays(d.end||today(),1);return dates.filter(x=>x>=a&&x<=b).length};
+  const span=l=>({start:l.date,end:l.dateCompleted});
+  const match=l=>!q||(qn&&woKeys(l).some(k=>k.includes(qn)))||searchScore([jobTool(l),l.description,l.notes,l.type].join(" "),q)>0;
+  const list=logs.filter(l=>l.wo&&match(l));
+  const scored=list.map(l=>({l,s:Math.max(hits(span(l)),...subJobs(l).map(x=>hits({start:x.date,end:x.dateCompleted})))}));
+  const sug=dates.length?scored.filter(x=>x.s>0).sort((a,b)=>b.s-a.s||woSortNum(b.l)-woSortNum(a.l)).map(x=>x.l):[];
+  const rest=list.filter(l=>!sug.includes(l)).sort((a,b)=>woSortNum(b)-woSortNum(a));
+  const row=l=>{const st=l.status||"Complete";const subs=subJobs(l);
+    return `<div class="sharegroup"><button type="button" class="sharerow" data-shareto="${esc(l.id)}"><span class="wo">${esc(l.wo)}</span><span class="nm">${esc(jobTool(l))}<small>${l.date?fmtDate(l.date):""}${l.dateCompleted?" – "+fmtDate(l.dateCompleted):""}${(l.description||l.notes)?" · "+esc(String(l.description||l.notes).slice(0,60)):""}</small></span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`+
+      subs.map(x=>`<button type="button" class="sharerow sub" data-shareto="${esc(l.id)}" data-sharesub="${esc(x.id)}"><span class="wo">${esc(l.wo)}-${x.no}</span><span class="nm">${esc(x.name)}</span><span class="stpill ${stClass(x.status)}">${esc(x.status)}</span></button>`).join("")+`</div>`};
+  const lim=q?60:40;
+  $("#sharelist").innerHTML=(sug.length?`<div class="ogh">Running when these were taken<span>${sug.length}</span></div>${sug.slice(0,12).map(row).join("")}`:"")+
+    `<div class="ogh">${q?"Matching work orders":"All work orders"}<span>${rest.length}</span></div>`+(rest.length?rest.slice(0,lim).map(row).join(""):`<div class="empty small">No work orders match.</div>`)+
+    (rest.length>lim?`<div class="small" style="margin-top:8px">Showing the newest ${lim}. Search to find older ones.</div>`:"");
+}
+$("#sharesearch").addEventListener("input",renderShareList);
+$("#sharelist").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-shareto]");if(!b||!shareFiles.length)return;
+  const l=logs.find(x=>x.id===b.dataset.shareto);if(!l)return;const sub=b.dataset.sharesub||"";
+  const num=woNum(l.wo);if(!num){toast("That work order has no number");return}
+  const files=shareFiles.map(x=>x.file);shareFiles=[];
+  await enqueue(files,{num,label:jobTool(l),sub:sub?subName(sub):""},false);
+  await shareClear();shareUrls.forEach(u=>URL.revokeObjectURL(u));shareUrls=[];
+  toast(`Adding ${files.length} ${files.length===1?"photo":"photos"} to #${sub?subLabel(l,sub):num}`);
+  pageReturn="open";startEdit(l.id,sub||undefined);
+});
+// Leaving the screen without picking a work order discards the shared photos (share them again to retry)
+function leaveShare(){if(shareFiles.length){shareFiles=[];shareClear();toast("Shared photos not added")}}
+
 // ---- Menu (top right) and its pages ----
 function closeMenu(){const m=$("#menu");if(m&&!m.hidden){m.hidden=true;$("#menubtn").setAttribute("aria-expanded","false")}}
 $("#menubtn").addEventListener("click",e=>{e.stopPropagation();const m=$("#menu");m.hidden=!m.hidden;$("#menubtn").setAttribute("aria-expanded",String(!m.hidden));if(!m.hidden)m.querySelector("button").focus()});
@@ -1172,6 +1273,7 @@ $("#themeseg").addEventListener("click",e=>{const b=e.target.closest("button");i
   try{if(t==="system")localStorage.removeItem("ml_theme");else localStorage.setItem("ml_theme",t)}catch(e){}applyTheme(t)});
 
 function show(view){
+  if(view!=="share"&&!$("#v-share").hidden&&shareFiles.length)leaveShare();
   if(view!=="log"&&subPage){stashPM();subPage=null;$("#logform").classList.remove("subpage")}
   ["log","open","all","todo","moulds","hist",...PAGES].forEach(v=>$("#v-"+v).hidden=v!==view);
   closeMenu();
@@ -1612,7 +1714,7 @@ $("#newjob2").onclick=()=>{returnTab="all";show("log")};
 $("#openlist").addEventListener("click",e=>{const r=e.target.closest("[data-open]");if(r)startEdit(r.dataset.open,r.dataset.sub)});
 
 function renderAll(){
-  renderOpen();renderAllJobs();renderTodo();
+  renderOpen();renderAllJobs();renderTodo();maybeOpenShare();
   if(loaded.l||!db)refreshWO();
   const nm=moulds.filter(m=>!isGen(m)).length,ng=moulds.length-nm;
   $("#countline").textContent=loaded.m?`${nm} mould${nm===1?"":"s"}${ng?` · ${ng} general`:""} · ${logs.length} entr${logs.length===1?"y":"ies"}`:"Loading…";
@@ -1955,7 +2057,7 @@ async function prepFile(file,fromCamera,num){
 }
 async function enqueue(files,t,fromCamera){
   if(!files.length)return;
-  if(!driveRoot){toast("Set your Drive Work Orders folder on the Moulds tab first");return}
+  if(!driveRoot){toast("Set your Drive Work Orders folder first (menu › Settings)");return}
   uploading++;
   // Skip files whose name is already in this folder (as last loaded) or already waiting to upload there
   const key=dkey(t),st=driveState[key],norm=n=>String(n||"").trim().toLowerCase();
@@ -2375,7 +2477,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-19";
+const APP_VERSION="2026.10.13-20";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
