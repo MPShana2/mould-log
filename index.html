@@ -57,6 +57,9 @@ header.top{align-items:center}
 .menu button:hover,.menu button:focus-visible{background:var(--sunk);outline:none}
 .menu button span{font-weight:700;font-size:15px}
 .menu button small{color:var(--muted);font-size:12px}
+.drive-drop{border-radius:10px;transition:background .15s}
+.drive-drop.dragging{background:color-mix(in srgb,var(--accent) 14%,transparent);outline:2px dashed var(--accent);outline-offset:4px}
+.drophint{align-self:center;font-size:12.5px;color:var(--muted)}
 .sharestrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
 .sharestrip img{width:72px;height:72px;object-fit:cover;border-radius:8px;flex:none;background:var(--sunk)}
 .sharestrip .more{width:72px;height:72px;border-radius:8px;flex:none;display:grid;place-items:center;background:var(--sunk);font-weight:700}
@@ -1945,7 +1948,7 @@ document.addEventListener("click",e=>{
   if(autoRenewBusy||!currentUser||!driveEver()||!driveOk||!navigator.onLine)return;
   if(gToken&&gExp>Date.now()+10*60000)return;
   if(Date.now()<autoRenewAt)return;
-  if(e.target.closest&&e.target.closest("[data-dconnect],[data-dconsent],#signin,#acct-signout,#drive-connect"))return;
+  if(e.target.closest&&e.target.closest("[data-dconnect],[data-dconsent],[data-gphotos],#signin,#acct-signout,#drive-connect"))return;
   if(!(window.google&&google.accounts&&google.accounts.oauth2))return;
   autoRenewBusy=true;autoRenewAt=Date.now()+60000;
   requestToken("").then(()=>{autoRenewBusy=false})
@@ -2021,6 +2024,89 @@ async function dUpload(folderId,blob,name,type){
   const loc=init.headers.get("Location");if(!loc)throw {code:"drive_error",message:"Google Drive didn't accept the upload"};
   return (await driveFetch(loc,{method:"PUT",headers:{"Content-Type":type},body:blob})).json();
 }
+
+// ---- From Google Photos (desktop): Google's own picker in a window, then the picked photos upload like any other ----
+// Uses its own Google permission (only the photos picked), separate from the Drive one.
+const GP_SCOPE="https://www.googleapis.com/auth/photospicker.mediaitems.readonly",GP_API="https://photospicker.googleapis.com/v1/";
+let gpToken=null,gpExp=0,gpClient=null,gpBusy=false;
+try{const t=JSON.parse(localStorage.getItem("ml_gptok")||"null");if(t&&t.exp>Date.now()+60000){gpToken=t.token;gpExp=t.exp}}catch(e){}
+const gpHasToken=()=>!!gpToken&&gpExp>Date.now()+60000;
+function gpRequestToken(){
+  return new Promise((resolve,reject)=>{
+    if(!(window.google&&google.accounts&&google.accounts.oauth2)){reject({message:"Google sign-in hasn't loaded yet. Try again in a moment."});return}
+    gpClient=google.accounts.oauth2.initTokenClient({client_id:CFG.googleClientId,scope:GP_SCOPE,
+      callback:r=>{if(!r||r.error||!r.access_token){reject({message:(r&&(r.error_description||r.error))||"Google Photos wasn't connected"});return}
+        try{if(!google.accounts.oauth2.hasGrantedAllScopes(r,GP_SCOPE)){reject({message:"Google Photos access wasn't allowed. Tick the box on Google's screen."});return}}catch(e){}
+        gpToken=r.access_token;gpExp=Date.now()+(Number(r.expires_in)||3600)*1000;
+        try{localStorage.setItem("ml_gptok",JSON.stringify({token:gpToken,exp:gpExp}))}catch(e){}resolve(gpToken)},
+      error_callback:e=>reject({message:"Google Photos wasn't connected"})});
+    const o={prompt:""};if(currentUser&&currentUser.email)o.login_hint=currentUser.email;gpClient.requestAccessToken(o);
+  });
+}
+async function gpFetch(url,opts={}){
+  const res=await fetch(url,{...opts,headers:{...(opts.headers||{}),Authorization:"Bearer "+gpToken}});
+  if(res.status===401){gpToken=null;try{localStorage.removeItem("ml_gptok")}catch(e){}throw {message:"Google Photos connection timed out. Tap From Google Photos again."}}
+  if(res.status===403){let m="";try{m=(await res.json()).error.message}catch(e){}throw {message:/not been used|disabled/i.test(m)?"The Google Photos Picker API isn't turned on for this project yet (Google Cloud setup).":(m||"Google Photos refused the request")}}
+  if(!res.ok){let m="";try{m=(await res.json()).error.message}catch(e){}throw {message:m||("Google Photos error "+res.status)}}
+  return res;
+}
+const gpSecs=d=>{const m=String(d||"").match(/([\d.]+)s/);return m?Number(m[1])*1000:0};
+async function gphotosPick(t){
+  if(gpBusy){toast("Google Photos is already open");return}
+  if(!driveRoot){toast("Set your Drive Work Orders folder first (menu › Settings)");return}
+  // First time (or after an hour): get permission; the picker window then needs a second tap (browsers allow one pop-up per tap)
+  if(!gpHasToken()){try{await gpRequestToken();toast("Google Photos connected. Tap From Google Photos again to choose photos.")}catch(e){toast(e.message)}return}
+  const win=window.open("about:blank","mlgphotos","width=1100,height=780");
+  gpBusy=true;let sid=null;
+  try{
+    const ses=await (await gpFetch(GP_API+"sessions",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
+    sid=ses.id;const uri=ses.pickerUri+"/autoclose";
+    if(win&&!win.closed)win.location.href=uri;else window.open(uri,"mlgphotos");
+    toast("Choose photos in the Google Photos window, then tap Done");
+    // wait for the selection (Google says how often to check and for how long)
+    let pc=ses.pollingConfig||{},every=Math.max(2000,gpSecs(pc.pollInterval)||4000),until=Date.now()+(gpSecs(pc.timeoutIn)||20*60000),closedAt=0,set=false;
+    while(Date.now()<until){
+      await new Promise(r=>setTimeout(r,every));
+      const st=await (await gpFetch(GP_API+"sessions/"+encodeURIComponent(sid))).json();
+      if(st.mediaItemsSet){set=true;break}
+      if(st.pollingConfig&&st.pollingConfig.pollInterval)every=Math.max(2000,gpSecs(st.pollingConfig.pollInterval));
+      if(win&&win.closed){if(!closedAt)closedAt=Date.now();else if(Date.now()-closedAt>6000)break}
+    }
+    if(!set){toast("No photos were chosen");return}
+    let items=[],page="";
+    do{const q=new URLSearchParams({sessionId:sid,pageSize:"100"});if(page)q.set("pageToken",page);
+      const r=await (await gpFetch(GP_API+"mediaItems?"+q)).json();items=items.concat(r.mediaItems||[]);page=r.nextPageToken||""}while(page);
+    if(!items.length){toast("No photos were chosen");return}
+    const files=[];
+    for(let i=0;i<items.length;i++){
+      const it=items[i],mf=it.mediaFile||{},vid=it.type==="VIDEO"||String(mf.mimeType).startsWith("video/");
+      toast(`Getting ${i+1} of ${items.length} from Google Photos…`);
+      let res;
+      try{res=await fetch(mf.baseUrl+(vid?"=dv":"=d"),{headers:{Authorization:"Bearer "+gpToken}})}
+      catch(e){throw {message:"Google blocked downloading the photos directly in the browser. This route needs the small server option; nothing was uploaded.",blocked:true}}
+      if(!res.ok)throw {message:"Couldn't download "+(mf.filename||"a photo")+" from Google Photos ("+res.status+")"};
+      const blob=await res.blob();
+      files.push(new File([blob],mf.filename||("google_photo_"+(i+1)+(vid?".mp4":".jpg")),{type:mf.mimeType||blob.type||"image/jpeg"}));
+    }
+    await enqueue(files,t,false);
+    toast(`Adding ${files.length} ${files.length===1?"photo":"photos"} from Google Photos to #${t.num}${t.sub?" / "+t.sub:""}`);
+  }catch(err){
+    toast((err&&err.message)||"Google Photos didn't work this time");
+    if(err&&err.blocked)console.warn("Google Photos download blocked (CORS)");
+    try{if(win&&!win.closed&&win.location.href==="about:blank")win.close()}catch(e){}
+  }finally{
+    gpBusy=false;
+    if(sid&&gpHasToken())gpFetch(GP_API+"sessions/"+encodeURIComponent(sid),{method:"DELETE"}).catch(()=>{});
+  }
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-gphotos]");if(!b)return;
+  gphotosPick({num:b.dataset.addnum,label:b.dataset.addlabel,sub:b.dataset.addsub||""})});
+// ---- Drag and drop files onto a Photos & files panel (desktop) ----
+document.addEventListener("dragover",e=>{const z=e.target.closest&&e.target.closest(".drive-drop");if(!z)return;e.preventDefault();z.classList.add("dragging")});
+document.addEventListener("dragleave",e=>{const z=e.target.closest&&e.target.closest(".drive-drop");if(z&&!z.contains(e.relatedTarget))z.classList.remove("dragging")});
+document.addEventListener("drop",e=>{const z=e.target.closest&&e.target.closest(".drive-drop");if(!z)return;e.preventDefault();z.classList.remove("dragging");
+  const files=[...(e.dataTransfer&&e.dataTransfer.files||[])];if(!files.length){toast("Drop files saved on this computer (drag from File Explorer)");return}
+  const a=z.querySelector("[data-addnum]");if(!a)return;enqueue(files,{num:a.dataset.addnum,label:a.dataset.addlabel,sub:a.dataset.addsub||""},false)});
 
 // ---- Upload queue (kept on this device until the file reaches Drive) ----
 let memQ=[], queueCache=[], qRunning=false;
@@ -2163,12 +2249,13 @@ function driveBody(t){
 function drivePanelFor(t){
   const da=`data-addnum="${esc(t.num)}" data-addlabel="${esc(t.label)}" data-addsub="${esc(t.sub||"")}"`;
   const camApp=IS_MOBILE?`<label class="btn ghost" for="pick-gallery" ${da} role="button" tabindex="0">From gallery</label>`:"";
-  const btns=`<div class="attbtns"><label class="btn ghost" for="pick-photo" ${da} role="button" tabindex="0">Take photo</label>${camApp}<label class="btn ghost" for="pick-file" ${da} role="button" tabindex="0">Attach file</label></div>`+
+  const gp=IS_MOBILE?"":`<button type="button" class="btn ghost" data-gphotos="1" ${da}>From Google Photos</button>`;
+  const btns=`<div class="attbtns" data-drop="1" ${da}><label class="btn ghost" for="pick-photo" ${da} role="button" tabindex="0">Take photo</label>${camApp}${gp}<label class="btn ghost" for="pick-file" ${da} role="button" tabindex="0">Attach file</label>${IS_MOBILE?"":`<span class="drophint">or drop files here</span>`}</div>`+
     (camReturn&&camReturn.num===t.num?`<div class="cambanner"><span>Add the photos you just took to <b>#${esc(t.num)}</b>?</span><span class="attbtns" style="margin:0"><label class="btn" for="pick-gallery" ${da} role="button" tabindex="0">Choose photos</label><button type="button" class="btn ghost" data-camdismiss="1">Not now</button></span></div>`:"");
   const pend=queueCache.filter(q=>q.num===t.num&&(q.sub||"")===(t.sub||""));
   const waitWhy=!navigator.onLine?"Waiting for internet":!hasToken()?"Waiting for Google Drive connection":"Uploading…";
   const pendHTML=pend.length?`<div class="qlist">${pend.map(q=>`<div class="qrow${q.err?" qerr":""}"><span class="ico">${q.err?"!":"↑"}</span><span class="dn">${esc(q.name)}<span class="dm">${q.err?esc(q.err):waitWhy}</span></span>${q.err?`<span><button type="button" class="linkish" data-qretry="${esc(q.id)}">Retry</button> · <button type="button" class="linkish" data-qdel="${esc(q.id)}">Remove</button></span>`:""}</div>`).join("")}</div>`:"";
-  return btns+pendHTML+`<div class="drive">${driveBody(t)}</div>`;
+  return `<div class="drive-drop">`+btns+pendHTML+`<div class="drive">${driveBody(t)}</div></div>`;
 }
 function attPanel(l,forId){
   const num=woNum(l.wo);
@@ -2477,7 +2564,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-21";
+const APP_VERSION="2026.10.13-22";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
