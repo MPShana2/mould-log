@@ -357,13 +357,15 @@ body{margin:0}
 [hidden]{display:none!important}
 img{max-width:100%}
 .gate{position:fixed;inset:0;z-index:30;background:var(--bar);color:var(--bar-fg);display:flex;align-items:center;justify-content:center;padding:24px 16px}
-.gate-card{max-width:380px;width:100%;display:flex;flex-direction:column;gap:16px}
+.gate-card{max-width:380px;width:100%;display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px}
+.gate-card>div{width:100%}
 .gate h1{font-size:34px}
 .gate p{margin:0;color:var(--bar-muted);line-height:1.5}
 .gate .btn{width:100%;padding:15px}
 .gate-msg{color:var(--accent);font-weight:600;min-height:1.4em}
+.gate-msg:empty{display:none}
 .gate code{background:#1d1d1d;padding:2px 6px;border-radius:4px;color:#fff}
-.gate-mark{width:64px;height:64px;border-radius:16px}
+.gate-mark{width:88px;height:88px;border-radius:22px}
 .cambanner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 8px;padding:10px 12px;border-radius:10px;background:var(--accent);color:var(--accent-ink);font-weight:600}
 .cambanner .btn{background:var(--bar);color:var(--bar-fg);border-color:var(--bar)}
 .cambanner .btn.ghost{background:transparent;color:var(--accent-ink);border-color:var(--accent-ink)}
@@ -2195,7 +2197,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-9";
+const APP_VERSION="2026.10.13-10";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
