@@ -255,6 +255,20 @@ details.ck>summary span:first-child{flex:1}
 .mcol{display:flex;flex-direction:column;gap:16px;min-width:0}
 #b-shots-field[hidden]{display:none}
 #shots-field[hidden]{display:none}
+.pl{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 8px;display:flex;flex-direction:column}
+.pl-row{display:flex;flex-wrap:wrap;align-items:center;gap:4px;border-bottom:1px solid var(--line);padding:2px 0}
+.pl-text,.pl-new{flex:1;min-width:120px;border:0;background:transparent;font:inherit;font-size:15px;padding:9px 6px;color:var(--fg);border-radius:6px}
+.pl-text:focus,.pl-new:focus{outline:none;background:var(--sunk)}
+.pl-row.linked .pl-text{color:#8a5a00;font-weight:600;text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
+.pl-open{flex:none;font-size:13px;font-weight:700;color:var(--fg);background:color-mix(in srgb,var(--accent) 22%,var(--surface));border-radius:999px;padding:6px 10px;text-decoration:none;white-space:nowrap}
+.pl-open:hover{background:var(--accent)}
+.pl-btn{flex:none;border:0;background:none;color:var(--muted);width:36px;height:36px;border-radius:50%;cursor:pointer;display:grid;place-items:center;font-size:20px;line-height:1}
+.pl-btn:hover{background:var(--sunk);color:var(--fg)}
+.pl-link.on{color:#8a5a00}
+.pl-urlrow{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:4px 0 10px 6px}
+.pl-urlrow[hidden]{display:none}
+.pl-url{flex:1;min-width:180px}
+.pl-add{display:flex;align-items:center;gap:6px}
 .cl{display:flex;flex-direction:column}
 .cl-row,.cl-add{display:flex;align-items:flex-start;gap:6px}
 .cl-cb{width:20px;height:20px;margin:10px 4px 0 2px;accent-color:#8a5a00;flex:none;cursor:pointer}
@@ -476,7 +490,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <summary><span>Service checklist</span><span class="ckprog" id="ckprog">Not started</span></summary>
         <div id="cklist" class="cklist"></div>
       </details>
-      <div class="field"><label class="label" for="f-parts">Parts used</label><input id="f-parts" placeholder="e.g. 2× O-ring 20mm"></div>
+      <div class="field"><span class="label">Parts used</span><div class="pl" id="f-parts" data-pl="f"></div></div>
       <div class="field">
         <span class="label">Photos &amp; files</span>
         <div id="f-att"></div>
@@ -517,7 +531,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
               <summary><span>Service checklist</span><span class="ckprog" id="b-ckprog">Not started</span></summary>
               <div id="b-cklist" class="cklist"></div>
             </details>
-            <div class="field"><label class="label" for="b-parts">Parts used</label><input id="b-parts" placeholder="e.g. 2× O-ring 20mm"></div>
+            <div class="field"><span class="label">Parts used</span><div class="pl" id="b-parts" data-pl="b"></div></div>
             <div class="field"><span class="label">Photos &amp; files</span><div id="b-att"></div></div>
           </div>
         </div>
@@ -825,6 +839,68 @@ document.addEventListener("paste",e=>{
   ta.dispatchEvent(new Event("input",{bubbles:true}));
 });
 
+// ---- Parts used: one part per line, each can link to its product page ----
+const isUrl=t=>/^(https?:\/\/|www\.)\S+$/i.test(String(t||"").trim());
+const normUrl=u=>{u=String(u||"").trim();if(!u)return"";if(/^www\./i.test(u))u="https://"+u;return /^https?:\/\//i.test(u)?u:""};
+const partsFromText=t=>String(t||"").split(/\n/).map(x=>x.trim()).filter(Boolean).map(text=>({text,url:""}));
+const cleanParts=l=>(l||[]).map(p=>({text:String(p.text||"").trim(),url:normUrl(p.url)})).filter(p=>p.text||p.url);
+const partsText=l=>cleanParts(l).map(p=>p.text||p.url).join("\n");
+function partsMd(v){const l=cleanParts(v.partsList||partsFromText(v.parts));return l.length?l.map(p=>"- "+(p.url?`[${(p.text||p.url).replace(/[\[\]]/g,"")}](${p.url})`:p.text)).join("\n"):"_None recorded_"}
+const partsCsv=v=>cleanParts(v.partsList||partsFromText(v.parts)).map(p=>p.url?`${p.text||p.url} (${p.url})`:p.text).join(" | ");
+const LINK_SVG='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>';
+function plRow(p){
+  return `<div class="pl-row${p.url?" linked":""}" data-url="${esc(p.url||"")}">
+    <input class="pl-text" value="${esc(p.text||"")}" placeholder="${p.url?"Part name":"Part"}" aria-label="Part">
+    ${p.url?`<a class="pl-open" href="${esc(p.url)}" target="_blank" rel="noopener" aria-label="Open product page" title="${esc(p.url)}">Open ↗</a>`:""}
+    <button type="button" class="pl-btn pl-link${p.url?" on":""}" aria-label="${p.url?"Edit link":"Add link"}" aria-expanded="false">${LINK_SVG}</button>
+    <button type="button" class="pl-btn pl-del" aria-label="Remove part">×</button>
+    <div class="pl-urlrow" hidden><input class="pl-url" type="url" inputmode="url" placeholder="Paste the product page link" aria-label="Product page link" value="${esc(p.url||"")}"><button type="button" class="btn ghost pl-save">Save link</button>${p.url?`<button type="button" class="linkish pl-unlink">Remove link</button>`:""}</div>
+  </div>`;
+}
+function plWrite(p,list){
+  const el=$(`#${p}-parts`);if(!el)return;
+  el.innerHTML=(list||[]).map(plRow).join("")+`<div class="pl-add"><span class="cl-plus" aria-hidden="true">+</span><input class="pl-new" placeholder="Add a part" aria-label="Add a part"></div>`;
+}
+function plRead(p){const el=$(`#${p}-parts`);if(!el)return[];return [...el.querySelectorAll(".pl-row")].map(r=>({text:r.querySelector(".pl-text").value,url:r.dataset.url||""}))}
+function plRerender(el,focusIdx,pos){
+  const p=el.dataset.pl,list=plRead(p);plWrite(p,list);
+  if(focusIdx!=null){const t=focusIdx==="new"?el.querySelector(".pl-new"):el.querySelectorAll(".pl-text")[focusIdx];if(t){t.focus();const q=pos==null?t.value.length:pos;try{t.setSelectionRange(q,q)}catch(e){}}}
+}
+function plSetUrl(row,url){row.dataset.url=normUrl(url);const el=row.closest(".pl");const i=[...el.querySelectorAll(".pl-row")].indexOf(row);plRerender(el,i);markDirty(250)}
+document.addEventListener("input",e=>{
+  const t=e.target;if(!t.classList||!t.classList.contains("pl-new"))return;
+  if(!t.value)return;const el=t.closest(".pl"),v=t.value;
+  const list=plRead(el.dataset.pl);list.push(isUrl(v)?{text:"",url:normUrl(v)}:{text:v,url:""});plWrite(el.dataset.pl,list);
+  const ins=el.querySelectorAll(".pl-text");const last=ins[ins.length-1];last.focus();if(!isUrl(v))last.setSelectionRange(v.length,v.length);
+});
+document.addEventListener("keydown",e=>{
+  const t=e.target;if(!t.classList)return;
+  if(t.classList.contains("pl-url")&&e.key==="Enter"){e.preventDefault();plSetUrl(t.closest(".pl-row"),t.value);return}
+  if(t.classList.contains("pl-new")&&e.key==="Enter"){e.preventDefault();return}
+  if(!t.classList.contains("pl-text"))return;
+  const el=t.closest(".pl"),rows=[...el.querySelectorAll(".pl-row")],i=rows.indexOf(t.closest(".pl-row"));
+  if(e.key==="Enter"){e.preventDefault();const list=plRead(el.dataset.pl);list.splice(i+1,0,{text:"",url:""});plWrite(el.dataset.pl,list);el.querySelectorAll(".pl-text")[i+1].focus();return}
+  if(e.key==="Backspace"&&!t.value&&!rows[i].dataset.url){e.preventDefault();rows[i].remove();plRerender(el,i>0?i-1:"new");markDirty(250)}
+});
+document.addEventListener("click",e=>{
+  const b=e.target.closest(".pl-btn,.pl-save,.pl-unlink");if(!b)return;const row=b.closest(".pl-row");if(!row)return;
+  if(b.classList.contains("pl-del")){const el=row.closest(".pl");row.remove();plRerender(el);markDirty(250);return}
+  if(b.classList.contains("pl-link")){const u=row.querySelector(".pl-urlrow");u.hidden=!u.hidden;b.setAttribute("aria-expanded",String(!u.hidden));if(!u.hidden)row.querySelector(".pl-url").focus();return}
+  if(b.classList.contains("pl-save")){plSetUrl(row,row.querySelector(".pl-url").value);return}
+  if(b.classList.contains("pl-unlink")){plSetUrl(row,"")}
+});
+// Pasting a link into a part's name attaches it as that part's link; pasting several lines adds a part per line
+document.addEventListener("paste",e=>{
+  const t=e.target;if(!t.classList||!(t.classList.contains("pl-text")||t.classList.contains("pl-new"))||!e.clipboardData)return;
+  const txt=e.clipboardData.getData("text/plain")||"";
+  if(isUrl(txt)&&t.classList.contains("pl-text")){e.preventDefault();const row=t.closest(".pl-row");plSetUrl(row,txt);toast("Link added to this part");return}
+  const lines=normaliseBullets(txt).split("\n").map(x=>x.replace(/^\s*•\s*/,"").trim()).filter(Boolean);
+  if(lines.length<2)return;e.preventDefault();
+  const el=t.closest(".pl"),list=plRead(el.dataset.pl);
+  let at=list.length;if(t.classList.contains("pl-text")){at=[...el.querySelectorAll(".pl-text")].indexOf(t);if(!list[at].text){list.splice(at,1)}else at++}
+  list.splice(at,0,...lines.map(x=>isUrl(x)?{text:"",url:normUrl(x)}:{text:x,url:""}));plWrite(el.dataset.pl,list);markDirty(250);
+});
+
 // ---- Tick lists (Google Keep style), used in the To-do tab and on each work order ----
 // Each list lives in a .cl element with data-cl="<key>"; clInst[key] holds {items:[{id,text,done}], save(items), showDone}
 const clInst={};
@@ -1089,7 +1165,7 @@ const hasMould=(l,id)=>jobIds(l).includes(id);
 function jobNames(l){return jobIds(l).map((id,i)=>{const m=moulds.find(x=>x.id===id);return m?mlabel(m):((i===0?(l.mouldName||l.mouldNumber):(l.extraMouldNames||[])[i-1])||"Unknown mould")})}
 function jobTool(l){const n=jobNames(l);return n.length?n.join(", "):(l.mouldName||l.mouldNumber||(l.mouldId?"Unknown mould":"Mould not set"))}
 // Per-mould values on a work order: the main mould's are stored at the top level, extra moulds' in perMould
-function pmVal(l,id){if(!id||id===l.mouldId)return {shots:l.shots,faults:l.faults,work:l.work,notes:l.notes,parts:l.parts,checklist:l.checklist};return (l.perMould&&l.perMould[id])||{}}
+function pmVal(l,id){if(!id||id===l.mouldId)return {shots:l.shots,faults:l.faults,work:l.work,notes:l.notes,parts:l.parts,partsList:l.partsList,checklist:l.checklist};return (l.perMould&&l.perMould[id])||{}}
 function subName(id){const m=moulds.find(x=>x.id===id);return String(m?mlabel(m):"Mould").replace(/[\\/|]/g,"-").trim().slice(0,100)||"Mould"}
 // Which moulds get a tab: every mould when the main one is a mould; only the added ones when the main one is a general job
 function tabIdsFor(prim,extras){const all=[...new Set([prim,...(extras||[])].filter(Boolean))];if(all.length<2)return [];const pm=moulds.find(x=>x.id===prim);return pm&&isGen(pm)?all.filter(x=>x!==prim):all}
@@ -1110,11 +1186,11 @@ const woKeys=l=>[normWo(l.wo),...Object.values(l.subs||{}).filter(x=>x&&x.no).ma
 let subPage=null; // the sub-job shown as its own page, if any
 let formPM={}, mainFor=null, boxFor=null, boxActive=null, lastPrimary="";
 let formSubNo={}; // mould id -> sub-job number on this work order
-function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,parts:$(`#${p}-parts`).value,ck:{...(p==="f"?ckState:boxCk)}};
+function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,partsList:plRead(p),ck:{...(p==="f"?ckState:boxCk)}};
   if(p==="b"){v.status=segVal("#b-status");v.date=$("#b-date").value;v.done=$("#b-done").value}
   return v}
 function writeSet(p,id){const v=formPM[id]||{};
-  $(`#${p}-shots`).value=v.shots??"";$(`#${p}-faults`).value=v.faults||"";$(`#${p}-work`).value=v.work||"";$(`#${p}-notes`).value=v.notes||"";$(`#${p}-parts`).value=v.parts||"";
+  $(`#${p}-shots`).value=v.shots??"";$(`#${p}-faults`).value=v.faults||"";$(`#${p}-work`).value=v.work||"";$(`#${p}-notes`).value=v.notes||"";plWrite(p,v.partsList||partsFromText(v.parts));
   if(p==="f"){ckState={...(v.ck||{})};ckMain.sync();ckMain.setCounter(v.shots)}else{boxCk={...(v.ck||{})};ckBox.sync();ckBox.setCounter(v.shots);
     // a new sub-job starts with the work order's status and start date
     segSet("#b-status",v.status||segVal("#f-status")||"Pending");$("#b-date").value=v.date??$("#f-date").value;$("#b-done").value=v.done||""}}
@@ -1480,7 +1556,7 @@ mountFormTodos();
 function clearForm(){
   resetPM();setMould("");setExtras([]);
   formTodos=[];mountFormTodos();
-  $("#f-shots").value="";$("#f-work").value="";$("#f-notes").value="";$("#f-desc").value="";$("#f-parts").value="";$("#f-done").value="";
+  $("#f-shots").value="";$("#f-work").value="";$("#f-notes").value="";$("#f-desc").value="";plWrite("f",[]);$("#f-done").value="";
   setExtras([]);
   $("#f-type").selectedIndex=0;$("#f-faults").value="";segReset("#f-status");$("#f-date").value=today();
   ckState={};ckMain.setCounter("");syncChecklist();
@@ -1496,12 +1572,12 @@ async function startEdit(id,subId){
   await flushSave();
   editingId=id;dirty=false;
   resetPM();
-  formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",ck:{...((l.checklist&&l.checklist.state)||{})}};
-  for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",ck:{...((v.checklist&&v.checklist.state)||{})}}}
+  formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",partsList:l.partsList,ck:{...((l.checklist&&l.checklist.state)||{})}};
+  for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",partsList:v.partsList,ck:{...((v.checklist&&v.checklist.state)||{})}}}
   for(const [x,sm] of Object.entries(l.subs||{})){if(!sm||!formPM[x])continue;if(sm.no)formSubNo[x]=sm.no;Object.assign(formPM[x],{status:sm.status,date:sm.date,done:sm.dateCompleted||""})}
   $("#f-wo").value=l.wo||"";setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);
   formTodos=(l.todos||[]).map(i=>({...i}));mountFormTodos();$("#f-date").value=l.date||today();
-  $("#f-shots").value=l.shots??"";$("#f-parts").value=l.parts||"";$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-desc").value=l.description||"";
+  $("#f-shots").value=l.shots??"";plWrite("f",l.partsList||partsFromText(l.parts));$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-desc").value=l.description||"";
   $("#f-type").value=JOBTYPES.includes(l.type)?l.type:JOBTYPES[0];
   $("#f-work").value=l.work==="Other (see notes)"?"":(l.work||"");$("#f-notes").value=l.notes||"";
   segSet("#f-status",l.status||"Complete");
@@ -1535,11 +1611,11 @@ function buildEntry(){
   if($("#f-done").value&&$("#f-done").value<$("#f-date").value)return {error:"date completed is before date started"};
   const m=moulds.find(x=>x.id===mouldId);
   stashPM();
-  const pmClean=id=>{const v=formPM[id]||(id===mouldId?readSet("f"):{});const sh=String(v.shots??"").trim();return {shots:sh===""?null:Number(sh),faults:String(v.faults||"").trim(),work:String(v.work||"").trim(),notes:String(v.notes||"").trim(),parts:String(v.parts||"").trim(),checklist:v.ck&&Object.keys(v.ck).length?{state:{...v.ck}}:null}};
+  const pmClean=id=>{const v=formPM[id]||(id===mouldId?readSet("f"):{});const sh=String(v.shots??"").trim();return {shots:sh===""?null:Number(sh),faults:String(v.faults||"").trim(),work:String(v.work||"").trim(),notes:String(v.notes||"").trim(),...(()=>{const pl=cleanParts(v.partsList||partsFromText(v.parts));return {parts:partsText(pl),partsList:pl}})(),checklist:v.ck&&Object.keys(v.ck).length?{state:{...v.ck}}:null}};
   const main=pmClean(mouldId), extras=extraIds.filter(x=>x!==mouldId);
   const perMould={};for(const x of extras)perMould[x]=pmClean(x);
   const subs={};for(const x of tabIdsFor(mouldId,extras)){const v=formPM[x]||{};subs[x]={no:formSubNo[x]||null,status:v.status||segVal("#f-status"),date:v.date??$("#f-date").value,dateCompleted:v.done||""}}
-  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,checklist:main.checklist,todos:cleanItems(formTodos),subs}};
+  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,checklist:main.checklist,todos:cleanItems(formTodos),subs}};
 }
 function markDirty(delay){
   if(!db)return;
@@ -2041,14 +2117,14 @@ function workOrderMarkdown(l){
       md+=`\n## ${sm.no?subLabel(l,id)+" · ":""}${names[i]}\n`;
       if(sm.no)md+=`\n**Status:** ${sm.status} · **Started:** ${sm.date?fmtDate(sm.date):"–"} · **Completed:** ${sm.dateCompleted?fmtDate(sm.dateCompleted):"–"}\n`;
       if(!(mm&&isGen(mm)))md+=`\n**Shot count:** ${v.shots!=null&&v.shots!==""?fmtNum(v.shots):"–"}\n`;
-      md+=`\n### Inspection / faults found\n\n${mdBlock(v.faults)}\n\n### Work done\n\n${mdBlock(v.work)}\n\n### Notes\n\n${mdBlock(v.notes)}\n\n### Parts used\n\n${mdBlock(v.parts)}\n\n### Service checklist\n\n`+mdChecklist(v.checklist,v.shots,"####")});
+      md+=`\n### Inspection / faults found\n\n${mdBlock(v.faults)}\n\n### Work done\n\n${mdBlock(v.work)}\n\n### Notes\n\n${mdBlock(v.notes)}\n\n### Parts used\n\n${partsMd(v)}\n\n### Service checklist\n\n`+mdChecklist(v.checklist,v.shots,"####")});
   }else{
   md+=`\n## Inspection / faults found\n\n${mdBlock(l.faults)}\n`;
   md+=`\n## Work done\n\n${mdBlock(l.work)}\n`;
   md+=`\n## Notes\n\n${mdBlock(l.notes)}\n`;
   }
   if(jobIds(l).length<2){
-  md+=`\n## Parts used\n\n${mdBlock(l.parts)}\n`;
+  md+=`\n## Parts used\n\n${partsMd(l)}\n`;
   md+=`\n## Service checklist\n\n`+mdChecklist(l.checklist,l.shots);
   }
   md+=jobIds(l).length>1?`\n## Photos & files\n\nStored in this Google Drive folder, in a subfolder for each mould.\n`:`\n## Photos & files\n\nStored in this Google Drive folder.\n`;
@@ -2228,7 +2304,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-15";
+const APP_VERSION="2026.10.13-16";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -2308,7 +2384,7 @@ $("#import-file").addEventListener("change",async e=>{
 $("#exportbtn").onclick=()=>{
   const cols=["Work order","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Service checklist","To-do","Sub-jobs"];
   const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.status||"",l.date,l.dateCompleted,jobTool(l),isGen(m)?"General job":"Mould",m.part||m.area,l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,l.parts,l.checklist?ckSummary(l.checklist.state||{}):""];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),j("notes"),j("parts"),ids.map((id,i)=>{const c=pmVal(l,id).checklist;return c?n[i]+": "+ckSummary(c.state||{}):""}).filter(Boolean).join(" | ")]})(),(l.todos||[]).map(i=>(i.done?"[x] ":"[ ] ")+i.text).join(" | "),jobIds(l).map((id,i)=>{const sm=subMeta(l,id);return sm.no?`${subLabel(l,id)} ${jobNames(l)[i]}: ${sm.status}`:""}).filter(Boolean).join(" | ")].map(q).join(",")}));
+  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.status||"",l.date,l.dateCompleted,jobTool(l),isGen(m)?"General job":"Mould",m.part||m.area,l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,partsCsv(l),l.checklist?ckSummary(l.checklist.state||{}):""];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),j("notes"),ids.map((id,i)=>{const v=partsCsv(pmVal(l,id));return v?n[i]+": "+v:""}).filter(Boolean).join(" | "),ids.map((id,i)=>{const c=pmVal(l,id).checklist;return c?n[i]+": "+ckSummary(c.state||{}):""}).filter(Boolean).join(" | ")]})(),(l.todos||[]).map(i=>(i.done?"[x] ":"[ ] ")+i.text).join(" | "),jobIds(l).map((id,i)=>{const sm=subMeta(l,id);return sm.no?`${subLabel(l,id)} ${jobNames(l)[i]}: ${sm.status}`:""}).filter(Boolean).join(" | ")].map(q).join(",")}));
   saveFile("mould-maintenance-"+today()+".csv",new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
 };
 $("#backupbtn").onclick=()=>{
