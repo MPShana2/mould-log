@@ -1087,7 +1087,7 @@ const cIn=()=>comboMode==="extra"?$("#f-add-q"):mq(), cList=()=>comboMode==="ext
 const jobIds=l=>[l.mouldId,...(l.extraMouldIds||[])].filter(Boolean);
 const hasMould=(l,id)=>jobIds(l).includes(id);
 function jobNames(l){return jobIds(l).map((id,i)=>{const m=moulds.find(x=>x.id===id);return m?mlabel(m):((i===0?(l.mouldName||l.mouldNumber):(l.extraMouldNames||[])[i-1])||"Unknown mould")})}
-function jobTool(l){const n=jobNames(l);return n.length?n.join(", "):(l.mouldName||l.mouldNumber||"Unknown mould")}
+function jobTool(l){const n=jobNames(l);return n.length?n.join(", "):(l.mouldName||l.mouldNumber||(l.mouldId?"Unknown mould":"Mould not set"))}
 // Per-mould values on a work order: the main mould's are stored at the top level, extra moulds' in perMould
 function pmVal(l,id){if(!id||id===l.mouldId)return {shots:l.shots,faults:l.faults,work:l.work,notes:l.notes,parts:l.parts,checklist:l.checklist};return (l.perMould&&l.perMould[id])||{}}
 function subName(id){const m=moulds.find(x=>x.id===id);return String(m?mlabel(m):"Mould").replace(/[\\/|]/g,"-").trim().slice(0,100)||"Mould"}
@@ -1415,7 +1415,7 @@ function jobTable(list){
       // with sub-jobs listed underneath, the work order row names only what isn't a sub-job
       const own=subs.length?jobIds(l).map((id,i)=>subs.some(x=>x.id===id)?null:jobNames(l)[i]).filter(Boolean):[];
       const tool=subs.length?(own.length?own.join(", "):`${subs.length} moulds`):jobTool(l);
-      return `<button type="button" class="worow2${band}${subs.length?" parent":""}" data-open="${esc(l.id)}" aria-label="Edit ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(tool)}</span><span class="dsk">${esc(l.type||"")}</span><span class="dsk dsc">${esc(l.description||l.faults||"")}</span><span class="dsk mono">${l.date?fmtDate(l.date):"—"}</span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`+
+      return `<button type="button" class="worow2${band}${subs.length?" parent":""}" data-open="${esc(l.id)}" aria-label="Edit ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(tool)}</span><span class="dsk">${esc(l.type||"")}</span><span class="dsk dsc">${esc(l.description||l.faults||l.notes||"")}</span><span class="dsk mono">${l.date?fmtDate(l.date):"—"}</span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`+
         // sub-jobs nested under their work order
         subs.map((x,i)=>`<button type="button" class="worow2 sub${band}${i===subs.length-1?" last":""}" data-open="${esc(l.id)}" data-sub="${esc(x.id)}" aria-label="Edit ${esc((l.wo||"")+"-"+x.no)}"><span class="wo"><span class="subtree" aria-hidden="true"></span>${esc((l.wo||"")+"-"+x.no)}</span><span class="tool">${esc(x.name)}</span><span class="dsk"></span><span class="dsk"></span><span class="dsk mono">${x.date?fmtDate(x.date):"—"}</span><span class="stpill ${stClass(x.status)}">${esc(x.status)}</span></button>`).join("")}).join("")+'</div>';
 }
@@ -1429,9 +1429,9 @@ function renderOpen(){
   if(!n){el.innerHTML='<div class="empty"><strong>No open work orders</strong>Jobs marked Pending, In progress or On hold will show here until they\'re set to Complete.</div>';return}
   // Mould work first, general jobs (no mould on them at all) in their own list underneath
   const hasMouldOn=l=>jobIds(l).some(id=>{const m=moulds.find(x=>x.id===id);return m?!isGen(m):!String(id).startsWith("gen_")});
-  const mj=open.filter(hasMouldOn),gj=open.filter(l=>!hasMouldOn(l));
+  const ns=open.filter(l=>!l.mouldId),mj=open.filter(l=>l.mouldId&&hasMouldOn(l)),gj=open.filter(l=>l.mouldId&&!hasMouldOn(l));
   const sec=(title,list)=>`<div class="opengroup"><div class="ogh">${title}<span>${list.length}</span></div>${jobTable(list)}</div>`;
-  el.innerHTML=(mj.length?sec("Moulds",mj):"")+(gj.length?sec("General jobs",gj):"");
+  el.innerHTML=(ns.length?sec("Mould not set yet",ns):"")+(mj.length?sec("Moulds",mj):"")+(gj.length?sec("General jobs",gj):"");
 }
 // All jobs: every work order, newest number first
 const ALL_PAGE=100;let allShown=ALL_PAGE;
@@ -2228,7 +2228,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-14";
+const APP_VERSION="2026.10.13-15";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
