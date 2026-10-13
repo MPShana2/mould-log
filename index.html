@@ -275,6 +275,9 @@ details.ck>summary span:first-child{flex:1}
 .tdhead{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:10px}
 .tddone>summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--muted);padding:10px 0}
 .tddone[hidden]{display:none}
+.opengroup+.opengroup{margin-top:24px}
+.ogh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
+.ogh span{background:var(--sunk);color:var(--fg);border-radius:999px;padding:1px 8px;font-size:12px;letter-spacing:0}
 .closehead{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 8px}
 .alsoon{font-size:13px;color:var(--muted);margin-top:2px}
 .combo-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:8;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.18);max-height:320px;overflow-y:auto;padding:4px}
@@ -1420,7 +1423,11 @@ function renderOpen(){
   const el=$("#openlist");
   if(!loaded.l&&db){el.innerHTML='<div class="empty">Loading work orders…</div>';return}
   if(!n){el.innerHTML='<div class="empty"><strong>No open work orders</strong>Jobs marked Pending, In progress or On hold will show here until they\'re set to Complete.</div>';return}
-  el.innerHTML=jobTable(open);
+  // Mould work first, general jobs (no mould on them at all) in their own list underneath
+  const hasMouldOn=l=>jobIds(l).some(id=>{const m=moulds.find(x=>x.id===id);return m?!isGen(m):!String(id).startsWith("gen_")});
+  const mj=open.filter(hasMouldOn),gj=open.filter(l=>!hasMouldOn(l));
+  const sec=(title,list)=>`<div class="opengroup"><div class="ogh">${title}<span>${list.length}</span></div>${jobTable(list)}</div>`;
+  el.innerHTML=(mj.length?sec("Moulds",mj):"")+(gj.length?sec("General jobs",gj):"");
 }
 // All jobs: every work order, newest number first
 const ALL_PAGE=100;let allShown=ALL_PAGE;
@@ -2197,7 +2204,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-10";
+const APP_VERSION="2026.10.13-11";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
