@@ -206,6 +206,34 @@ textarea.autogrow{resize:none;overflow:hidden}
 .etabs button[aria-pressed="true"]{color:var(--fg);border-bottom-color:var(--accent)}
 .epanel{padding-top:8px}
 .epanel .attbtns{margin:10px 0 0}
+.hrline{display:block;margin-top:6px}
+.hrline[hidden]{display:none}
+.subhead .hrline{margin:0}
+.hrlink{font:inherit;font-size:12.5px;color:var(--muted);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.hrlink::before{content:"\23F1\FE0E  ";font-size:12px}
+.hrlink:hover{color:var(--fg)}
+.hint.bad{color:var(--warn)}
+.hrtotals{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hrtotals div{background:var(--sunk);border-radius:10px;padding:10px 12px;min-width:0;border-left:3px solid var(--accent)}
+.hrtotals span{display:block;font-size:12px;color:var(--muted);font-weight:600}
+.hrtotals b{display:block;font-family:var(--mono);font-size:22px;margin-top:2px}
+.hrtotals small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+.hrbytech{display:flex;flex-wrap:wrap;gap:6px}
+.hrbytech:empty{display:none}
+.hrbytech span{font-size:12.5px;background:var(--sunk);border-radius:999px;padding:4px 10px;color:var(--muted)}
+.hrbytech b{color:var(--fg);font-family:var(--mono);font-weight:600}
+.hrlist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.hrlist .empty{border:0;margin:0}
+.hrrow{display:flex;align-items:center;gap:8px;padding:0 12px 0 0;border-top:1px solid var(--line);background:var(--surface)}
+.hrrow:first-child{border-top:0}
+.hrrow:nth-child(even){background:var(--sunk)}
+.hrrow.editing{box-shadow:inset 3px 0 0 var(--accent)}
+.hrmain{flex:1;min-width:0;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;text-align:left;font:inherit;color:var(--fg);background:none;border:0;padding:10px 0 10px 12px;cursor:pointer}
+.hrd{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.hrw{min-width:0;font-size:14px;overflow-wrap:anywhere}
+.hrw small{display:block;color:var(--muted);font-size:12px}
+.hrh{font-weight:700;white-space:nowrap}
+.hrdel{font-size:12.5px;flex:none}
 .eb-btns{display:flex;gap:6px;flex:none}
 .rptm{position:fixed;inset:0;z-index:25;background:rgba(8,12,16,.55);display:flex;align-items:flex-end;justify-content:center;padding:0}
 .rptbox{background:var(--surface);color:var(--fg);width:100%;max-width:460px;border-radius:16px 16px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;max-height:92vh;overflow:auto;box-shadow:0 -8px 30px rgba(0,0,0,.25)}
@@ -461,6 +489,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <div class="sub" id="countline" hidden>Loading…</div>
     <button type="button" class="menubtn" id="menubtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="menu" id="menu" role="menu" hidden>
+      <button type="button" role="menuitem" data-page="hours"><span>Work hours</span><small>Log time · monthly totals</small></button>
       <button type="button" role="menuitem" data-page="settings"><span>Settings</span><small>Theme · Drive folder</small></button>
       <button type="button" role="menuitem" data-page="account"><span>Account</span><small>Sign-in · Google Drive</small></button>
       <button type="button" role="menuitem" data-page="backup"><span>Backup &amp; export</span><small>Backup · CSV · Import</small></button>
@@ -483,6 +512,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
           <button class="btn ghost" id="wonext" type="button">Next no.</button>
         </div>
         <div class="hint">Filled in automatically. Type over it to use your own number.</div>
+        <div class="hrline" id="f-hrs" hidden></div>
         <div class="subsec" id="subsec" hidden>
           <span class="label">Sub-jobs</span>
           <div class="sublist" id="sublist"></div>
@@ -561,7 +591,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         </div>
         <div class="mbody">
           <div class="mmeta">
-            <div class="subhead"><span class="label">Sub-job</span><span class="subno" id="b-subno"></span></div>
+            <div class="subhead"><span class="label">Sub-job</span><span class="subno" id="b-subno"></span><span class="hrline" id="b-hrs"></span></div>
             <div class="field">
               <span class="label">Status</span>
               <div class="seg status" id="b-status" role="group" aria-label="Sub-job status">
@@ -655,6 +685,29 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       </form>
     </div>
   </section>
+  <section id="v-hours" class="stackcol page" hidden>
+    <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Work hours</h2></div>
+    <form class="panel stackcol" id="hrform" autocomplete="off">
+      <span class="label" style="margin:0" id="hr-formtitle">Log hours</span>
+      <div class="grid2">
+        <div class="field"><label class="label" for="hr-date">Date</label><input id="hr-date" type="date" required></div>
+        <div class="field"><label class="label" for="hr-hours">Hours worked</label><input id="hr-hours" class="mono" type="number" inputmode="decimal" min="0.25" max="24" step="0.25" placeholder="e.g. 3.5" required></div>
+      </div>
+      <div class="field"><label class="label" for="hr-tech">Technician</label><input id="hr-tech" list="hr-techs" required placeholder="Name"><datalist id="hr-techs"></datalist></div>
+      <div class="field"><label class="label" for="hr-wo">Work order no.</label><input id="hr-wo" class="mono" list="hr-wos" required autocapitalize="characters" placeholder="e.g. 2601 or 2601-1"><datalist id="hr-wos"></datalist><div class="hint" id="hr-wohint"></div></div>
+      <div class="attbtns" style="margin:0"><button class="btn" type="submit" id="hr-save">Add hours</button><button class="btn ghost" type="button" id="hr-cancel" hidden>Cancel</button></div>
+    </form>
+    <div class="panel stackcol">
+      <div class="grid2">
+        <div class="field"><label class="label" for="hr-month">Month</label><input id="hr-month" type="month"></div>
+        <div class="field"><label class="label" for="hr-filter">Tool or company</label><select id="hr-filter"><option value="all">All work</option></select></div>
+      </div>
+      <div class="hrtotals" id="hr-totals"></div>
+      <div class="hrbytech" id="hr-bytech"></div>
+      <div class="hrlist" id="hr-list"></div>
+      <div><button class="btn ghost" type="button" id="hr-csv">Export month as CSV</button></div>
+    </div>
+  </section>
   <section id="v-account" class="stackcol page" hidden>
     <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Account</h2></div>
     <div class="panel stackcol">
@@ -700,6 +753,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
           <div class="field"><label class="label" for="m-cav">Cavities</label><input id="m-cav" type="number" inputmode="numeric" min="1" placeholder="e.g. 4"></div>
           <div class="field"><label class="label" for="m-mat">Material</label><input id="m-mat" placeholder="e.g. PP"></div>
         </div>
+        <div class="field"><label class="label" for="m-comp">Company</label><input id="m-comp" list="complist" placeholder="Who the mould belongs to or runs for"></div>
         <button class="btn" type="submit">Add mould</button>
       </form>
     </details>
@@ -732,7 +786,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
           <div class="field"><label class="label" for="e-cav">Cavities</label><input id="e-cav" type="number" inputmode="numeric" min="1" placeholder="e.g. 4"></div>
           <div class="field"><label class="label" for="e-mat">Material</label><input id="e-mat" placeholder="e.g. PP"></div>
         </div>
-      </div>
+        <div class="field"><label class="label" for="e-comp">Company</label><input id="e-comp" list="complist" placeholder="Who the mould belongs to or runs for"></div>
+      </div><datalist id="complist"></datalist>
       <div class="field" id="e-genfields"><label class="label" for="e-area">Area / location</label><input id="e-area" placeholder="e.g. Tool room"></div>
       <div class="attbtns" style="margin:0"><button class="btn" type="submit">Save details</button><button class="btn ghost" type="button" id="mecancel">Cancel</button></div>
       <div class="mdel">
@@ -1189,7 +1244,7 @@ let skipPop=0, returnTab="open", pageReturn="open";
 try{if(!history.state||!history.state.ml)history.replaceState({ml:"root"},"")}catch(e){}
 function ensureGuard(){try{if(!history.state||history.state.ml==="root")history.pushState({ml:"guard"},"")}catch(e){}}
 function dropGuard(){try{if(history.state&&history.state.ml==="guard"){skipPop++;history.back()}}catch(e){}}
-const PAGES=["settings","account","backup","share"];
+const PAGES=["hours","settings","account","backup","share"];
 function currentView(){return ["log","open","all","todo","moulds","hist",...PAGES].find(v=>!$("#v-"+v).hidden)||"open"}
 async function leaveLogIfNeeded(target){
   if($("#v-log").hidden||target==="log")return;
@@ -1317,6 +1372,7 @@ function show(view){
   closeMenu();
   if(view==="all")renderAllJobs();
   if(view==="todo")renderTodo(true);
+  if(view==="hours"){hrConfirm=null;renderHours()}
   if(view==="open")dropGuard();else ensureGuard();
   document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current",(b.dataset.tab===view||(view==="hist"&&b.dataset.tab==="moulds"))?"true":"false"));
   window.scrollTo(0,0);
@@ -1567,7 +1623,7 @@ function renderList(){
     jobHits.slice(0,30).map(l=>{const st=l.status||"Complete";
       return `<button type="button" class="worow2" data-jobopen="${esc(l.id)}" aria-label="Open ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(jobTool(l))}<br><span style="font-size:12px;color:var(--muted)">${esc(l.type||"")} · ${fmtDate(l.date)}</span></span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`}).join("")+
     `</div></div>`:"";
-  const card=m=>{const s=summary(m);const sub=m.part||m.area;
+  const card=m=>{const s=summary(m);const sub=[m.part||m.area,m.company].filter(Boolean).join(" · ");
     return `<button class="mould b-${stClass(s.st).slice(3)}" data-id="${esc(m.id)}" type="button">
       <span><span class="mname">${esc(mlabel(m))}</span>${sub?` <span style="color:var(--muted)">· ${esc(sub)}</span>`:""}</span>
       <span class="stpill ${s.st?stClass(s.st):"none"}" style="align-self:start">${s.st?esc(s.st):"No jobs"}</span>
@@ -1587,7 +1643,7 @@ function openMould(id){current=id;$("#mouldedit").hidden=true;renderHist();show(
 $("#histhead").addEventListener("click",e=>{if(e.target.closest("#meditbtn"))openMouldEdit()});
 function openMouldEdit(){
   const m=moulds.find(x=>x.id===current);if(!m)return;const gen=isGen(m);
-  $("#e-name").value=mlabel(m);$("#e-part").value=m.part||"";$("#e-cav").value=m.cavities||"";$("#e-mat").value=m.material||"";$("#e-area").value=m.area||"";
+  $("#e-name").value=mlabel(m);$("#e-part").value=m.part||"";$("#e-cav").value=m.cavities||"";$("#e-mat").value=m.material||"";$("#e-comp").value=m.company||"";$("#complist").innerHTML=companies().map(c=>`<option value="${esc(c)}">`).join("");$("#e-area").value=m.area||"";
   $("#e-mouldfields").hidden=gen;$("#e-genfields").hidden=!gen;
   resetMouldDel();
   $("#mouldedit").hidden=false;$("#e-name").focus();
@@ -1615,7 +1671,7 @@ $("#mouldedit").addEventListener("submit",async e=>{
   const m=moulds.find(x=>x.id===current);if(!m)return;
   const name=$("#e-name").value.trim();if(!name){toast("Enter a name");return}
   if(moulds.some(x=>x.id!==m.id&&mlabel(x).toLowerCase()===name.toLowerCase())){toast(name+" is already used by another mould or job");return}
-  const patch=isGen(m)?{name,area:$("#e-area").value.trim()}:{name,part:$("#e-part").value.trim(),cavities:$("#e-cav").value.trim(),material:$("#e-mat").value.trim()};
+  const patch=isGen(m)?{name,area:$("#e-area").value.trim()}:{name,part:$("#e-part").value.trim(),cavities:$("#e-cav").value.trim(),material:$("#e-mat").value.trim(),company:$("#e-comp").value.trim()};
   try{await db.collection("moulds").doc(m.id).update({...patch,updatedAt:new Date().toISOString()});$("#mouldedit").hidden=true;toast("Details saved")}
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
@@ -1625,7 +1681,7 @@ function renderHist(){
   $("#histhead").innerHTML=`<div class="row"><div><div style="font-family:var(--display);font-size:22px;font-weight:700">${esc(mlabel(m))}</div><div style="color:var(--muted)">${isGen(m)?"General job"+(m.area?" · "+esc(m.area):""):esc(m.part||"No part recorded")}</div></div><span class="stpill ${s.open?"st-Inprogress":s.count?"st-Complete":"none"}">${s.open?s.open+" open job"+(s.open===1?"":"s"):s.count?"All complete":"No jobs"}</span></div>
    <div style="margin-top:10px"><button type="button" class="btn ghost" id="meditbtn">Edit details</button></div>
    <div class="facts">${isGen(m)?`<div><span>Area</span><b>${esc(m.area||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`:
-   `<div><span>Cavities</span><b>${esc(m.cavities||"—")}</b></div><div><span>Material</span><b>${esc(m.material||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div>
+   `${m.company?`<div><span>Company</span><b>${esc(m.company)}</b></div>`:""}<div><span>Cavities</span><b>${esc(m.cavities||"—")}</b></div><div><span>Material</span><b>${esc(m.material||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div>
    <div><span>Latest shots</span><b>${fmtNum(s.shots)}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`}</div>`;
   const ml=logs.filter(l=>hasMould(l,m.id));
   const alsoOn=l=>{const o=jobIds(l).map((id,i)=>[id,jobNames(l)[i]]).filter(([id])=>id!==m.id).map(x=>x[1]);return o.length?`<div class="alsoon">Also on: ${esc(o.join(", "))}</div>`:""};
@@ -1806,6 +1862,7 @@ function updateEditBar(){
   $("#edittitle").textContent=subPage?(editingId?"Editing ":"New sub-job ")+subNo:(editingId?("Editing "+(wo||"job")):"New job");
   $("#canceledit").hidden=!editingId&&!subPage;$("#exportrpt").hidden=!editingId;$("#canceledit").textContent=subPage?"Back":"Done";
   $("#savebtn").textContent=editingId?"Done":"Save job";
+  renderFormHours();
 }
 
 // ---------- Autosave ----------
@@ -1916,13 +1973,14 @@ $("#genform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't add: "+(err.message||err.code))}
 });
 
+$("#addpanel").addEventListener("toggle",()=>{$("#complist").innerHTML=companies().map(c=>`<option value="${esc(c)}">`).join("")});
 $("#mouldform").addEventListener("submit",async e=>{
   e.preventDefault();if(!db){toast("Saving isn't available in this view");return}
   const name=$("#m-name").value.trim();if(!name)return;
   const id=slug(name);
   if(moulds.some(m=>m.id===id||mlabel(m).toLowerCase()===name.toLowerCase())){toast(name+" is already registered");return}
-  const doc={name,part:$("#m-part").value.trim(),cavities:$("#m-cav").value.trim(),material:$("#m-mat").value.trim(),createdAt:new Date().toISOString()};
-  try{await db.collection("moulds").doc(id).set(doc);["#m-name","#m-part","#m-cav","#m-mat"].forEach(s=>$(s).value="");$("#addpanel").open=false;toast("Added "+name)}
+  const doc={name,part:$("#m-part").value.trim(),cavities:$("#m-cav").value.trim(),material:$("#m-mat").value.trim(),company:$("#m-comp").value.trim(),createdAt:new Date().toISOString()};
+  try{await db.collection("moulds").doc(id).set(doc);["#m-name","#m-part","#m-cav","#m-mat","#m-comp"].forEach(s=>$(s).value="");$("#addpanel").open=false;toast("Added "+name)}
   catch(err){toast("Couldn't add: "+(err.message||err.code))}
 });
 
@@ -2375,6 +2433,108 @@ document.addEventListener("paste",e=>{
   const t=formTarget();if(!t)return;e.preventDefault();enqueue(files,t,false);
 });
 
+
+// ---------- Work hours ----------
+// Each entry: {date, tech, wo, sub, logId, mouldId, hours}. "2601-1" puts the hours against that sub-job's mould.
+let hoursList=[], hrEditing=null, hrConfirm=null;
+const fmtH=n=>{const v=Math.round((Number(n)||0)*100)/100;return v.toLocaleString(undefined,{maximumFractionDigits:2})+" h"};
+const companies=()=>[...new Set(moulds.map(m=>String(m.company||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:"base"}));
+function hrParseWo(v){const m=String(v||"").trim().toUpperCase().replace(/^#/,"").match(/^(.*?\d+)(?:-(\d+))?$/);if(!m)return null;
+  const base=m[1],l=logs.find(x=>normWo(x.wo)===normWo(base));
+  let mouldId=null;if(l&&m[2]){const hit=Object.entries(l.subs||{}).find(([,s])=>s&&String(s.no)===m[2]);mouldId=hit?hit[0]:null}
+  return {wo:l?l.wo:base,sub:m[2]?Number(m[2]):null,log:l||null,mouldId,badSub:!!(m[2]&&l&&!mouldId)}}
+const hrLog=h=>logs.find(l=>l.id===h.logId)||logs.find(l=>normWo(l.wo)===normWo(h.wo))||null;
+function hrTools(h){if(h.mouldId)return [h.mouldId];const l=hrLog(h);return l?jobIds(l):[]}
+function hrMatch(h,f){if(!f||f==="all")return true;const ids=hrTools(h);
+  if(f.startsWith("m:"))return ids.includes(f.slice(2));
+  if(f.startsWith("c:"))return ids.some(id=>{const m=moulds.find(x=>x.id===id);return m&&String(m.company||"").trim()===f.slice(2)});
+  return true}
+function hrLabel(h){const l=hrLog(h);if(h.mouldId){const m=moulds.find(x=>x.id===h.mouldId);return m?mlabel(m):(l?jobTool(l):"")}return l?jobTool(l):"Work order not found"}
+// Hours on a work order (or one of its sub-jobs), for the small total on the work order page
+function hoursFor(logId,mouldId){const l=logs.find(x=>x.id===logId);return hoursList.filter(h=>(h.logId===logId||(l&&!h.logId&&normWo(h.wo)===normWo(l.wo)))&&(!mouldId||h.mouldId===mouldId)).reduce((a,h)=>a+(Number(h.hours)||0),0)}
+function renderFormHours(){
+  const el=$("#f-hrs"),bl=$("#b-hrs");if(!el)return;
+  if(!editingId){el.hidden=true;if(bl)bl.textContent="";return}
+  const t=hoursFor(editingId);el.hidden=false;
+  el.innerHTML=`<button type="button" class="hrlink" data-hrlog="1">${t?fmtH(t)+" logged":"No hours logged"}</button>`;
+  if(bl){const s=subPage?hoursFor(editingId,subPage):0;bl.innerHTML=subPage?`<button type="button" class="hrlink" data-hrlog="1">${s?fmtH(s)+" logged":"No hours logged"}</button>`:""}
+}
+document.addEventListener("click",async e=>{if(!e.target.closest("[data-hrlog]"))return;
+  const wo=$("#f-wo").value.trim().toUpperCase(),v=subPage&&formSubNo[subPage]?`${wo}-${formSubNo[subPage]}`:wo;
+  await flushSave();pageReturn="log";show("hours");hrReset();$("#hr-wo").value=v;hrWoHint();$("#hr-hours").focus()});
+function hrReset(){hrEditing=null;$("#hr-date").value=today();$("#hr-hours").value="";$("#hr-wo").value="";
+  let t="";try{t=localStorage.getItem("ml_hr_tech")||""}catch(e){}$("#hr-tech").value=t;
+  $("#hr-save").textContent="Add hours";$("#hr-cancel").hidden=true;$("#hr-formtitle").textContent="Log hours";hrWoHint()}
+function hrWoHint(){const v=$("#hr-wo").value.trim(),el=$("#hr-wohint");
+  if(!v){el.textContent="Use a sub-job number (e.g. 2601-1) to put the hours against one mould.";el.classList.remove("bad");return}
+  const p=hrParseWo(v);
+  if(!p||!p.log){el.textContent="No work order "+v+" in the app yet. The hours will still be saved.";el.classList.add("bad");return}
+  if(p.badSub){el.textContent=`#${p.log.wo} has no sub-job ${p.sub}.`;el.classList.add("bad");return}
+  el.classList.remove("bad");el.textContent="→ "+(p.mouldId?mlabel(moulds.find(x=>x.id===p.mouldId)||{name:"Mould"}):jobTool(p.log))}
+$("#hr-wo").addEventListener("input",hrWoHint);
+$("#hr-cancel").onclick=()=>{hrReset();renderHours()};
+$("#hrform").addEventListener("submit",async e=>{
+  e.preventDefault();if(!db){toast("Sign in to log hours");return}
+  const date=$("#hr-date").value,tech=$("#hr-tech").value.trim(),hours=Number($("#hr-hours").value),p=hrParseWo($("#hr-wo").value);
+  if(!date||!tech||!p||!(hours>0)){toast(!p?"Enter a work order number":!(hours>0)?"Enter the hours worked":"Fill in every field");return}
+  if(p.badSub){toast(`#${p.log.wo} has no sub-job ${p.sub}`);return}
+  if(hours>24){toast("That's more than 24 hours in a day");return}
+  const doc={date,tech,hours,wo:p.wo,sub:p.sub,logId:p.log?p.log.id:null,mouldId:p.mouldId,updatedAt:new Date().toISOString()};
+  try{localStorage.setItem("ml_hr_tech",tech)}catch(e){}
+  try{
+    if(hrEditing)await db.collection("hours").doc(hrEditing).update(doc);
+    else{const id="h"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);await db.collection("hours").doc(id).set({...doc,createdAt:doc.updatedAt})}
+    toast((hrEditing?"Updated ":"Logged ")+fmtH(hours)+" on #"+(p.sub?p.wo+"-"+p.sub:p.wo));
+    const keepTech=tech;hrReset();$("#hr-tech").value=keepTech;$("#hr-month").value=date.slice(0,7);renderHours();
+  }catch(err){toast("Couldn't save: "+(err.message||err.code))}
+});
+function renderHoursFilter(){
+  const sel=$("#hr-filter"),cur=sel.value||"all",cs=companies(),mo=moulds.filter(m=>!isGen(m)),ge=moulds.filter(isGen);
+  sel.innerHTML=`<option value="all">All work</option>`+(cs.length?`<optgroup label="Company">${cs.map(c=>`<option value="c:${esc(c)}">${esc(c)}</option>`).join("")}</optgroup>`:"")+
+    (mo.length?`<optgroup label="Moulds">${mo.map(m=>`<option value="m:${esc(m.id)}">${esc(mlabel(m))}${m.company?" · "+esc(m.company):""}</option>`).join("")}</optgroup>`:"")+
+    (ge.length?`<optgroup label="General jobs">${ge.map(m=>`<option value="m:${esc(m.id)}">${esc(mlabel(m))}</option>`).join("")}</optgroup>`:"");
+  sel.value=[...sel.options].some(o=>o.value===cur)?cur:"all";
+}
+function renderHours(){
+  if($("#v-hours").hidden)return;
+  if(!$("#hr-month").value)$("#hr-month").value=today().slice(0,7);
+  renderHoursFilter();
+  $("#hr-techs").innerHTML=[...new Set(hoursList.map(h=>h.tech).filter(Boolean))].sort().map(t=>`<option value="${esc(t)}">`).join("");
+  $("#hr-wos").innerHTML=logs.slice(0,300).flatMap(l=>[`<option value="${esc(l.wo)}">${esc(jobTool(l))}</option>`,...subJobs(l).map(s=>`<option value="${esc(l.wo)}-${s.no}">${esc(s.name)}</option>`)]).join("");
+  const f=$("#hr-filter").value,mon=$("#hr-month").value,end=mon+"-31";
+  const sel=hoursList.filter(h=>hrMatch(h,f));
+  const inMonth=sel.filter(h=>String(h.date||"").slice(0,7)===mon).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));
+  const sum=a=>a.reduce((t,h)=>t+(Number(h.hours)||0),0);
+  const monthName=new Date(mon+"-01T00:00:00").toLocaleDateString(undefined,{month:"long",year:"numeric"});
+  const running=sum(sel.filter(h=>(h.date||"")<=end));
+  $("#hr-totals").innerHTML=`<div><span>${esc(monthName)}</span><b>${fmtH(sum(inMonth))}</b></div><div><span>Running total</span><b>${fmtH(running)}</b><small>All hours up to the end of ${esc(monthName)}</small></div>`;
+  const byTech={};inMonth.forEach(h=>byTech[h.tech]=(byTech[h.tech]||0)+(Number(h.hours)||0));
+  $("#hr-bytech").innerHTML=Object.keys(byTech).length>1?Object.entries(byTech).sort((a,b)=>b[1]-a[1]).map(([t,v])=>`<span>${esc(t)} <b>${fmtH(v)}</b></span>`).join(""):"";
+  $("#hr-list").innerHTML=inMonth.length?inMonth.map(h=>`<div class="hrrow${hrEditing===h.id?" editing":""}">
+      <button type="button" class="hrmain" data-hredit="${esc(h.id)}" aria-label="Edit this entry">
+        <span class="hrd">${esc(fmtDate(h.date))}</span>
+        <span class="hrw"><b class="mono">#${esc(h.sub?h.wo+"-"+h.sub:h.wo)}</b> ${esc(hrLabel(h))}<small>${esc(h.tech||"")}</small></span>
+        <span class="hrh mono">${fmtH(h.hours)}</span></button>
+      ${hrConfirm===h.id?`<button type="button" class="linkish hrdel" data-hrdel="${esc(h.id)}" style="color:var(--bad)">Confirm</button>`:`<button type="button" class="linkish hrdel" data-hrask="${esc(h.id)}" aria-label="Delete this entry">Delete</button>`}
+    </div>`).join(""):`<div class="empty small">No hours logged in ${esc(monthName)}${f!=="all"?" for this filter":""}.</div>`;
+}
+$("#hr-month").addEventListener("change",renderHours);$("#hr-filter").addEventListener("change",renderHours);
+$("#hr-list").addEventListener("click",async e=>{
+  const ed=e.target.closest("[data-hredit]"),ask=e.target.closest("[data-hrask]"),del=e.target.closest("[data-hrdel]");
+  if(ask){hrConfirm=ask.dataset.hrask;renderHours();setTimeout(()=>{if(hrConfirm===ask.dataset.hrask){hrConfirm=null;renderHours()}},5000);return}
+  if(del){hrConfirm=null;try{await db.collection("hours").doc(del.dataset.hrdel).delete();if(hrEditing===del.dataset.hrdel)hrReset();toast("Entry deleted")}catch(err){toast("Couldn't delete: "+(err.message||err.code))}return}
+  if(ed){const h=hoursList.find(x=>x.id===ed.dataset.hredit);if(!h)return;hrEditing=h.id;
+    $("#hr-date").value=h.date||today();$("#hr-tech").value=h.tech||"";$("#hr-hours").value=h.hours;$("#hr-wo").value=h.sub?`${h.wo}-${h.sub}`:h.wo;hrWoHint();
+    $("#hr-save").textContent="Save changes";$("#hr-cancel").hidden=false;$("#hr-formtitle").textContent="Edit entry";renderHours();$("#hrform").scrollIntoView({behavior:"smooth",block:"start"})}
+});
+$("#hr-csv").onclick=()=>{
+  const f=$("#hr-filter").value,mon=$("#hr-month").value,q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+  const rows=hoursList.filter(h=>hrMatch(h,f)&&String(h.date||"").slice(0,7)===mon).sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+  const comp=h=>[...new Set(hrTools(h).map(id=>(moulds.find(x=>x.id===id)||{}).company).filter(Boolean))].join(", ");
+  const lines=[["Date","Technician","Work order","Mould / job","Company","Hours"].join(",")].concat(rows.map(h=>[h.date,h.tech,h.sub?h.wo+"-"+h.sub:h.wo,hrLabel(h),comp(h),h.hours].map(q).join(",")));
+  saveFile(`work-hours-${mon}.csv`,new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
+};
+hrReset();
 
 // ---------- Work order report (PDF or Word) ----------
 // Builds a report of everything filled in on a work order (or one sub-job), with photos from its Drive folder.
@@ -3020,7 +3180,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.14-24";
+const APP_VERSION="2026.10.14-25";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -3039,7 +3199,7 @@ $("#signin").addEventListener("click",async()=>{
   }catch(e){$("#gate-msg").textContent=(e&&e.code==="popup_closed")?"Sign-in was cancelled.":((e&&e.message)||"Sign-in failed. Try again.")}
   btn.disabled=false;
 });
-function stopData(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[];moulds=[];logs=[];loaded={m:false,l:false};driveRoot=null}
+function stopData(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[];moulds=[];logs=[];hoursList=[];loaded={m:false,l:false};driveRoot=null}
 function dataError(err){
   if(err&&err.code==="permission-denied"){
     stopData();
@@ -3051,6 +3211,7 @@ function startData(){
   stopData();
   unsubs.push(db.collection("moulds").onSnapshot(s=>{moulds=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>mlabel(a).localeCompare(mlabel(b),undefined,{numeric:true,sensitivity:"base"}));loaded.m=true;renderAll();renderImportHint()},e=>{loaded.m=true;renderAll();dataError(e)}));
   unsubs.push(db.collection("logs").onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint()},e=>dataError(e)));
+  unsubs.push(db.collection("hours").onSnapshot(s=>{hoursList=s.docs.map(d=>({id:d.id,...d.data()}));renderHours();renderFormHours()},e=>dataError(e)));
   unsubs.push(db.collection("todolists").onSnapshot(s=>{todoLists=s.docs.map(d=>({id:d.id,...d.data()}));renderTodo()},e=>dataError(e)));
   unsubs.push(db.doc("settings/drive").onSnapshot(s=>{
     const d=s.exists?s.data():null;const nr=d&&d.rootId?{id:d.rootId,name:d.rootName}:null;
@@ -3091,6 +3252,7 @@ $("#import-file").addEventListener("change",async e=>{
       if(n)haveWo.add(n);
       writes.push(["logs",id,{...doc,mouldId:idMap[doc.mouldId]||doc.mouldId,...(doc.extraMouldIds?{extraMouldIds:doc.extraMouldIds.map(x=>idMap[x]||x)}:{}),...(doc.perMould?{perMould:Object.fromEntries(Object.entries(doc.perMould).map(([k,v])=>[idMap[k]||k,v]))}:{})}]);nl++;
     }
+    for(const [id,doc] of Object.entries(cols.hours||{})){if(!hoursList.some(h=>h.id===id))writes.push(["hours",id,doc])}
     for(const [id,doc] of Object.entries(cols.settings||{})){if(!(id==="drive"&&driveRoot))writes.push(["settings",id,doc])}
     toast(`Importing ${nl} work orders…`);
     for(let i=0;i<writes.length;i+=25){await Promise.all(writes.slice(i,i+25).map(([c,id,d])=>db.collection(c).doc(id).set(d)))}
@@ -3107,6 +3269,7 @@ $("#backupbtn").onclick=()=>{
   const out={format:"mould-log-export",version:1,exportedAt:new Date().toISOString(),collections:{moulds:{},logs:{},settings:{}}};
   moulds.forEach(({id,...d})=>out.collections.moulds[id]=d);
   logs.forEach(({id,...d})=>out.collections.logs[id]=d);
+  out.collections.hours={};hoursList.forEach(({id,...d})=>out.collections.hours[id]=d);
   if(driveRoot)out.collections.settings.drive={rootId:driveRoot.id,rootName:driveRoot.name};
   saveFile("mould-log-backup-"+today()+".json",new Blob([JSON.stringify(out,null,1)],{type:"application/json"}));
 };
