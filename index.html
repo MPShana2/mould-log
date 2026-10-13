@@ -1663,7 +1663,7 @@ const SCOPES="openid email profile https://www.googleapis.com/auth/drive";
 let gToken=null,gExp=0,tokenClient=null,tokenWaiters=[];
 // driveOk is false when Google sign-in succeeded but the Google Drive permission box was left unticked
 let driveOk=true;
-try{const t=JSON.parse(localStorage.getItem("ml_tok")||"null");if(t&&t.exp>Date.now()+60000){gToken=t.token;gExp=t.exp;driveOk=t.drive!==false}}catch(e){}
+try{const t=JSON.parse(localStorage.getItem("ml_tok")||"null");if(t&&t.drive!==false)localStorage.setItem("ml_drive_ever","1");if(t&&t.exp>Date.now()+60000){gToken=t.token;gExp=t.exp;driveOk=t.drive!==false}}catch(e){}
 function hasToken(){return !!gToken&&gExp>Date.now()+60000&&driveOk}
 function dropToken(){gToken=null;gExp=0;try{localStorage.removeItem("ml_tok")}catch(e){}}
 function ensureTokenClient(){
@@ -1675,13 +1675,32 @@ function ensureTokenClient(){
       if(!r||r.error||!r.access_token){w.forEach(x=>x.reject({code:"auth_error",message:(r&&(r.error_description||r.error))||"Sign-in failed"}));return}
       gToken=r.access_token;gExp=Date.now()+(Number(r.expires_in)||3600)*1000;
       try{driveOk=google.accounts.oauth2.hasGrantedAllScopes(r,"https://www.googleapis.com/auth/drive")}catch(e){driveOk=String(r.scope||"").includes("auth/drive")}
-      try{localStorage.setItem("ml_tok",JSON.stringify({token:gToken,exp:gExp,drive:driveOk}))}catch(e){}
+      try{localStorage.setItem("ml_tok",JSON.stringify({token:gToken,exp:gExp,drive:driveOk}));if(driveOk)localStorage.setItem("ml_drive_ever","1")}catch(e){}
       w.forEach(x=>x.resolve(gToken));onDriveConnected();
     },
     error_callback:e=>{const w=tokenWaiters;tokenWaiters=[];w.forEach(x=>x.reject({code:"popup_closed",message:(e&&e.type)||"Sign-in window closed"}))}
   });
   return tokenClient;
 }
+// ---- Automatic Drive reconnect ----
+// Google's Drive pass lasts an hour and a web app can't renew it in the background. Once Drive has been allowed
+// on this device, the next tap after it expires (or in its last 10 minutes) renews it; Google's window opens and
+// closes by itself because permission was already given.
+let autoRenewAt=0,autoRenewBusy=false;
+const driveEver=()=>{try{return localStorage.getItem("ml_drive_ever")==="1"}catch(e){return false}};
+document.addEventListener("click",e=>{
+  if(autoRenewBusy||!currentUser||!driveEver()||!driveOk||!navigator.onLine)return;
+  if(gToken&&gExp>Date.now()+10*60000)return;
+  if(Date.now()<autoRenewAt)return;
+  if(e.target.closest&&e.target.closest("[data-dconnect],[data-dconsent],#signin,#acct-signout,#drive-connect"))return;
+  if(!(window.google&&google.accounts&&google.accounts.oauth2))return;
+  autoRenewBusy=true;autoRenewAt=Date.now()+60000;
+  requestToken("").then(()=>{autoRenewBusy=false})
+    .catch(err=>{autoRenewBusy=false;
+      // closed or blocked: don't keep popping it up; the Connect button is still there
+      autoRenewAt=Date.now()+(err&&err.code==="popup_closed"?10*60000:2*60000)});
+},true);
+
 // Must be called from a tap (it may open a Google window)
 function requestToken(prompt){
   return new Promise((resolve,reject)=>{
@@ -1861,7 +1880,8 @@ function driveBody(t){
   const num=dkey(t);
   if(!driveRoot)return `<div class="small">Set your Drive Work Orders folder on the Moulds tab to see Drive files here.</div>`;
   if(!driveOk)return `<div class="small">Mould Log doesn't have permission to use your Google Drive on this device. Tap below, then make sure the <b>Google Drive</b> box is ticked on Google's screen.</div><button type="button" class="btn ghost" data-dconsent="1" style="margin-top:8px">Allow Google Drive access</button>`;
-  if(!hasToken())return `<div class="small">Connect Google Drive to see this work order's folder.</div><button type="button" class="btn ghost" data-dconnect="1" style="margin-top:8px">Connect Google Drive</button>`;
+  if(!hasToken())return driveEver()?`<div class="small">Google Drive reconnects by itself when you tap anything. If it doesn't, use the button.</div><button type="button" class="btn ghost" data-dconnect="1" style="margin-top:8px">Reconnect Google Drive</button>`
+    :`<div class="small">Connect Google Drive to see this work order's folder.</div><button type="button" class="btn ghost" data-dconnect="1" style="margin-top:8px">Connect Google Drive</button>`;
   let st=driveState[num];
   if(!st){st=driveState[num]={stack:[],status:"loading",label:t.label,num:t.num,sub:t.sub||""};setTimeout(()=>driveLoad(num),0)}
   if(st.status==="loading")return `<div class="small">Looking in Google Drive…</div>`;
@@ -2204,7 +2224,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.13-11";
+const APP_VERSION="2026.10.13-12";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -2252,7 +2272,7 @@ function renderImportHint(){
   h.hidden=!(loaded.m&&loaded.l&&!moulds.length&&!logs.length);
 }
 $("#acct-drive").onclick=()=>connectDrive();
-$("#acct-signout").onclick=async()=>{dropToken();try{if(window.google&&google.accounts&&google.accounts.oauth2&&gToken)google.accounts.oauth2.revoke(gToken,()=>{})}catch(e){}if(authApi)await authApi.signOut()};
+$("#acct-signout").onclick=async()=>{dropToken();try{localStorage.removeItem("ml_drive_ever")}catch(e){}try{if(window.google&&google.accounts&&google.accounts.oauth2&&gToken)google.accounts.oauth2.revoke(gToken,()=>{})}catch(e){}if(authApi)await authApi.signOut()};
 $("#import-file").addEventListener("change",async e=>{
   const file=e.target.files[0];e.target.value="";if(!file||!db)return;
   try{
