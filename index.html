@@ -2773,7 +2773,7 @@ function procListHTML(list,showMoulds){return list.length?`<div class="proclinks
 function renderProcLists(){
   const el=$("#procall");if(el){$("#proccount").textContent=procedures.length?` · ${procedures.length}`:"";
     const sorted=procedures.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),undefined,{numeric:true}));
-    el.innerHTML=(procListHTML(sorted,true)||`<div class="small">No procedures yet. Write the steps for a repeating job, like an insert change, once and follow them as a checklist every time.</div>`)+`<button type="button" class="btn ghost" data-pnew="" style="margin-top:10px">+ New procedure</button>`}
+    el.innerHTML=(procListHTML(sorted,true)||`<div class="small">No procedures yet. Write the steps for a repeating job, like an insert change, once and follow them as a checklist every time.</div>`)+`<div class="attbtns" style="margin:10px 0 0"><button type="button" class="btn ghost" data-pnew="">+ New procedure</button>${procedures.some(p=>p.id===SERVICE_PID)?"":`<button type="button" class="btn ghost" data-psvc="1">+ Add the standard service checklist</button>`}</div>`}
   if(current){const h=$("#histproc");if(h){const l=procFor(current);
     h.innerHTML=`<div class="row"><span class="label" style="margin:0">Procedures</span><button type="button" class="linkish" data-pnew="${esc(current)}">+ New</button></div>`+(procListHTML(l,false)||`<div class="small">No procedures for this ${kindName(moulds.find(m=>m.id===current))} yet.</div>`)}}
   renderFormProcs();if(!$("#v-log").hidden){renderWoProcs("f");renderWoProcs("b")}
@@ -2809,6 +2809,7 @@ function renderWoProcs(p){
   const mid=wpFor(p),list=wpList(p);
   if(!mid||mid===FORCE){el.innerHTML="";return}
   const m=moulds.find(x=>x.id===mid),avail=procFor(mid).filter(x=>!list.some(a=>a.pid===x.id));
+  if(m&&!isGen(m)&&!procedures.some(x=>x.id===SERVICE_PID)&&!list.some(a=>a.pid===SERVICE_PID))avail.unshift({id:SERVICE_PID,...SERVICE_TPL});
   el.innerHTML=`<span class="label">Procedures</span>`+list.map((sn,i)=>{const pr=procProgress(sn,sn.st||{}),key=`${p}|${i}`,ok=`${p}|${sn.pid}|${i}`;
     return `<details class="panel ck wproc" data-wpk="${ok}"${wpOpen.has(ok)?" open":""}><summary><span>${esc(sn.name)}</span><span class="ckprog${pr.all?" done":""}">${esc(pr.txt)}</span></summary>
       <div class="cklist">${procNotesHTML(sn)}${procRowsHTML(sn,sn.st||{},true,key+"|")}
@@ -2828,7 +2829,7 @@ $("#logform").addEventListener("click",e=>{const t=e.target;
   const all=t.closest("[data-pall]");if(all&&all.dataset.pall.includes("|")){const[p,i,si]=all.dataset.pall.split("|"),sn=wpList(p)[+i];if(!sn)return;sn.st=sn.st||{};procLeaves(sn).filter(k=>k.split(".")[0]===si&&sn.st[k]!=="na").forEach(k=>sn.st[k]="done");wpChanged(p);return}
   const add=t.closest("[data-wpadd]");if(add){wpPicker=add.dataset.wpadd;renderWoProcs(wpPicker);return}
   if(t.closest("[data-wpcancel]")){const p=wpPicker;wpPicker=null;if(p)renderWoProcs(p);return}
-  const pick=t.closest("[data-wpick]");if(pick){const[p,pid]=pick.dataset.wpick.split("|"),pr=procedures.find(x=>x.id===pid);if(!pr)return;
+  const pick=t.closest("[data-wpick]");if(pick){const[p,pid]=pick.dataset.wpick.split("|"),pr=procedures.find(x=>x.id===pid)||(pid===SERVICE_PID?{id:SERVICE_PID,...SERVICE_TPL}:null);if(!pr)return;
     const list=wpList(p);list.push(procSnap(pr,{}));wpOpen.add(`${p}|${pr.id}|${list.length-1}`);wpPicker=null;wpChanged(p);return}
   const rem=t.closest("[data-wprem]");if(rem){const key=rem.dataset.wprem;
     if(wpRemArmed!==key){wpRemArmed=key;const[p]=key.split("|");renderWoProcs(p);setTimeout(()=>{if(wpRemArmed===key){wpRemArmed=null;renderWoProcs(p)}},4000);return}
@@ -2847,15 +2848,25 @@ function mdProcs(list,h){return (list||[]).map(sn=>{const st=sn.st||{};let md=`\
     if((it.sub||[]).length)md+=`- **${it.t}**\n`+it.sub.map((x,ki)=>`  - ${mark(k+"."+ki)} ${x.t}${na(k+"."+ki)}`).join("\n")+"\n";else md+=`- ${mark(k)} ${it.t}${na(k)}\n`})});
   return md}).join("")}
 // The service checklist exists once as a procedure (made the first time; deleting it is respected)
+// Checked against the server (not the copy kept on this device), so an edited checklist is never overwritten.
 let serviceSeedTried=false;
-async function ensureServiceProc(fromCache){
-  if(serviceSeedTried||fromCache||!db||procedures.some(p=>p.id===SERVICE_PID))return;serviceSeedTried=true;
-  try{const s=await db.doc("settings/app").get();const d=s&&s.exists?s.data():{};if(d&&d.serviceSeeded)return;
-    const now=new Date().toISOString();
-    await db.collection("procedures").doc(SERVICE_PID).set({...SERVICE_TPL,mouldIds:[],source:"",createdAt:now,updatedAt:now});
+async function addServiceProc(){
+  const now=new Date().toISOString();
+  await db.collection("procedures").doc(SERVICE_PID).set({...SERVICE_TPL,mouldIds:[],source:"",createdAt:now,updatedAt:now});
+}
+async function ensureServiceProc(){
+  if(serviceSeedTried||!db||!navigator.onLine||procedures.some(p=>p.id===SERVICE_PID))return;serviceSeedTried=true;
+  try{
+    const doc=await db.collection("procedures").doc(SERVICE_PID).get();
+    if(doc&&doc.exists&&!(doc.metadata&&doc.metadata.fromCache))return;
+    const s=await db.doc("settings/app").get();const d=s&&s.exists?s.data():{};if(d&&d.serviceSeeded)return;
+    await addServiceProc();
     await db.doc("settings/app").set({...(d||{}),serviceSeeded:true});
   }catch(e){serviceSeedTried=false}
 }
+window.addEventListener("online",()=>ensureServiceProc());
+document.addEventListener("click",async e=>{if(!e.target.closest("[data-psvc]"))return;
+  try{await addServiceProc();toast("Service checklist added. It can now be added to any mould's work order.")}catch(err){toast("Couldn't add it: "+(err.message||err.code))}});
 
 // ---------- Work hours ----------
 // Each entry: {date, tech, wo, sub, logId, mouldId, hours}. "2601-1" puts the hours against that sub-job's mould.
@@ -3783,7 +3794,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.14-35";
+const APP_VERSION="2026.10.14-36";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -3814,7 +3825,7 @@ function startData(){
   stopData();
   unsubs.push(db.collection("moulds").onSnapshot(s=>{moulds=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>mlabel(a).localeCompare(mlabel(b),undefined,{numeric:true,sensitivity:"base"}));loaded.m=true;renderAll();renderImportHint()},e=>{loaded.m=true;renderAll();dataError(e)}));
   unsubs.push(db.collection("logs").onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint()},e=>dataError(e)));
-  unsubs.push(db.collection("procedures").onSnapshot(s=>{procedures=s.docs.map(d=>({id:d.id,...d.data()}));renderProcLists();renderProc();renderList();ensureServiceProc(!!(s.metadata&&s.metadata.fromCache))},e=>dataError(e)));
+  unsubs.push(db.collection("procedures").onSnapshot(s=>{procedures=s.docs.map(d=>({id:d.id,...d.data()}));renderProcLists();renderProc();renderList();ensureServiceProc()},e=>dataError(e)));
   unsubs.push(db.collection("hours").onSnapshot(s=>{hoursList=s.docs.map(d=>({id:d.id,...d.data()}));renderHours();renderFormHours()},e=>dataError(e)));
   unsubs.push(db.collection("todolists").onSnapshot(s=>{todoLists=s.docs.map(d=>({id:d.id,...d.data()}));renderTodo()},e=>dataError(e)));
   unsubs.push(db.doc("settings/drive").onSnapshot(s=>{
