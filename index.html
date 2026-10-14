@@ -158,6 +158,11 @@ nav.tabs button[aria-current="true"]{color:var(--bar-fg);border-top-color:var(--
 .editbar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg);color:var(--fg);border-bottom:1px solid var(--line);margin:-16px -16px 0;padding:7px 16px;font-size:13px;position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--hdr-h,63px));z-index:4}
 .eb-text{display:flex;flex-direction:row;align-items:center;min-width:0;gap:10px;flex-wrap:wrap}
 #edittitle{font-weight:700;color:var(--muted)}
+.wonav{display:inline-flex;align-items:center;gap:4px}
+.wonavbtn{font:inherit;font-size:18px;line-height:1;width:28px;height:28px;flex:none;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0 0 2px}
+.wonavbtn:hover:not(:disabled){color:var(--fg);border-color:var(--muted)}
+.wonavbtn:disabled{opacity:.35;cursor:default}
+.wonavbtn[hidden]{display:none}
 .savestate{font-size:12px;font-weight:500;color:var(--muted);display:flex;align-items:center;gap:6px}
 .savestate::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.5;flex:none}
 .savestate.saved::before{background:var(--ok);opacity:1}
@@ -571,7 +576,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
   <!-- LOG JOB -->
   <section id="v-log" class="stackcol" hidden>
     <div class="editbar" id="editbar">
-      <div class="eb-text"><span id="edittitle">New job</span><span id="savestate" class="savestate" role="status" aria-live="polite">Autosaves once a mould and work order no. are set</span></div>
+      <div class="eb-text"><span class="wonav" id="wonav"><button type="button" id="woprev" class="wonavbtn" aria-label="Previous work order">‹</button><span id="edittitle">New job</span><button type="button" id="wonextbtn" class="wonavbtn" aria-label="Next work order">›</button></span><span id="savestate" class="savestate" role="status" aria-live="polite">Autosaves once a mould and work order no. are set</span></div>
       <div class="eb-btns"><button class="btn ghost" id="exportrpt" type="button" hidden>Export</button><button class="btn ghost" id="canceledit" type="button" hidden>Done</button></div>
     </div>
     <form id="logform" autocomplete="off">
@@ -1977,6 +1982,7 @@ function renderAll(){
   if(loaded.l||!db)refreshWO();
   const nm=moulds.filter(m=>!isGen(m)).length,ng=moulds.filter(isGen).length;
   $("#countline").textContent=loaded.m?`${nm} mould${nm===1?"":"s"}${ng?` · ${ng} general`:""} · ${logs.length} entr${logs.length===1?"y":"ies"}`:"Loading…";
+  if(editingId)woNavUpdate();
   renderSelect();renderList();if(!$("#v-hist").hidden)renderHist();renderProcLists();if(!$("#v-proc").hidden)renderProc();if(!$("#v-log").hidden&&document.activeElement!==$("#f-wo"))renderFormDrive();
 }
 
@@ -2021,12 +2027,29 @@ function endEdit(){
   editingId=null;origWo=null;
   clearForm();updateEditBar();setSaveState("idle");
 }
+// Prev / Next: step through work orders in number order (temporary numbers come after the highest)
+function woSeq(){return logs.slice().sort((a,b)=>woSortNum(a)-woSortNum(b)||String(a.wo||"").localeCompare(String(b.wo||""),undefined,{numeric:true}))}
+function woNeighbours(){const seq=woSeq(),i=seq.findIndex(l=>l.id===editingId);return i<0?{}:{prev:seq[i-1],next:seq[i+1]}}
+function woNavUpdate(){
+  const on=!!editingId&&!subPage,{prev,next}=on?woNeighbours():{};
+  [["#woprev",prev,"Previous"],["#wonextbtn",next,"Next"]].forEach(([sel,l,w])=>{const b=$(sel);b.hidden=!on;b.disabled=!l;
+    b.title=l?`${w} work order: #${l.wo} · ${jobTool(l)}`:`No ${w.toLowerCase()} work order`;b.setAttribute("aria-label",b.title)});
+}
+async function woGo(dir){
+  const {prev,next}=woNeighbours(),l=dir<0?prev:next;if(!l)return;
+  const rt=returnTab;await flushSave();await startEdit(l.id);returnTab=rt;window.scrollTo(0,0);
+}
+$("#woprev").onclick=()=>woGo(-1);$("#wonextbtn").onclick=()=>woGo(1);
+// Alt + ← / → on a keyboard does the same
+document.addEventListener("keydown",e=>{if(!e.altKey||$("#v-log").hidden||!editingId||subPage||!$("#lb").hidden)return;
+  if(e.key==="ArrowLeft"){e.preventDefault();woGo(-1)}else if(e.key==="ArrowRight"){e.preventDefault();woGo(1)}});
 function updateEditBar(){
   const wo=$("#f-wo").value.trim();
   const subNo=subPage?`${wo||"#"}-${formSubNo[subPage]}`:"";
   $("#edittitle").textContent=subPage?(editingId?"Editing ":"New sub-job ")+subNo:(editingId?("Editing "+(wo||"job")):"New job");
   $("#canceledit").hidden=!editingId&&!subPage;$("#exportrpt").hidden=!editingId;$("#canceledit").textContent=subPage?"Back":"Done";
   $("#savebtn").textContent=editingId?"Done":"Save job";
+  woNavUpdate();
   renderFormHours();renderWoRename();woHint();
 }
 
@@ -3804,7 +3827,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.14-37";
+const APP_VERSION="2026.10.15-38";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
