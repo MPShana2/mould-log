@@ -206,6 +206,10 @@ textarea.autogrow{resize:none;overflow:hidden}
 .etabs button[aria-pressed="true"]{color:var(--fg);border-bottom-color:var(--accent)}
 .epanel{padding-top:8px}
 .epanel .attbtns{margin:10px 0 0}
+.ordfield{margin-top:12px}
+.ordfield input{width:100%}
+.ordtag{display:inline-block;margin-left:8px;font-size:11.5px;font-weight:600;color:var(--muted);background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:1px 8px;vertical-align:1px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.worow2 .ordtag{display:table;margin:3px 0 0;border-radius:6px;white-space:normal;text-overflow:clip;overflow-wrap:anywhere}
 .hrline{display:block;margin-top:6px}
 .hrline[hidden]{display:none}
 .subhead .hrline{margin:0}
@@ -518,6 +522,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
           <button class="btn ghost" id="wonext" type="button">Next no.</button>
         </div>
         <div class="hint">Filled in automatically. Type over it to use your own number.</div>
+        <div class="ordfield"><label class="label" for="f-order">Client order no.</label><input id="f-order" maxlength="80" autocomplete="off" placeholder="Optional, for external contract work"></div>
         <div class="hrline" id="f-hrs" hidden></div>
         <div class="subsec" id="subsec" hidden>
           <span class="label">Sub-jobs</span>
@@ -1326,13 +1331,13 @@ function renderShareList(){
   const q=$("#sharesearch").value.trim(),qn=normWo(q),dates=shareFiles.map(x=>x.date).filter(Boolean);
   const hits=d=>{if(!d.start)return 0;const a=addDays(d.start,-1),b=addDays(d.end||today(),1);return dates.filter(x=>x>=a&&x<=b).length};
   const span=l=>({start:l.date,end:l.dateCompleted});
-  const match=l=>!q||(qn&&woKeys(l).some(k=>k.includes(qn)))||searchScore([jobTool(l),l.description,l.notes,l.type].join(" "),q)>0;
+  const match=l=>!q||(qn&&woKeys(l).some(k=>k.includes(qn)))||searchScore([jobTool(l),l.orderNo,l.description,l.notes,l.type].join(" "),q)>0;
   const list=logs.filter(l=>l.wo&&match(l));
   const scored=list.map(l=>({l,s:Math.max(hits(span(l)),...subJobs(l).map(x=>hits({start:x.date,end:x.dateCompleted})))}));
   const sug=dates.length?scored.filter(x=>x.s>0).sort((a,b)=>b.s-a.s||woSortNum(b.l)-woSortNum(a.l)).map(x=>x.l):[];
   const rest=list.filter(l=>!sug.includes(l)).sort((a,b)=>woSortNum(b)-woSortNum(a));
   const row=l=>{const st=l.status||"Complete";const subs=subJobs(l);
-    return `<div class="sharegroup"><button type="button" class="sharerow" data-shareto="${esc(l.id)}"><span class="wo">${esc(l.wo)}</span><span class="nm">${esc(jobTool(l))}<small>${l.date?fmtDate(l.date):""}${l.dateCompleted?" – "+fmtDate(l.dateCompleted):""}${(l.description||l.notes)?" · "+esc(String(l.description||l.notes).slice(0,60)):""}</small></span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`+
+    return `<div class="sharegroup"><button type="button" class="sharerow" data-shareto="${esc(l.id)}"><span class="wo">${esc(l.wo)}</span><span class="nm">${esc(jobTool(l))}<small>${l.orderNo?"Order "+esc(l.orderNo)+" · ":""}${l.date?fmtDate(l.date):""}${l.dateCompleted?" – "+fmtDate(l.dateCompleted):""}${(l.description||l.notes)?" · "+esc(String(l.description||l.notes).slice(0,60)):""}</small></span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`+
       subs.map(x=>`<button type="button" class="sharerow sub" data-shareto="${esc(l.id)}" data-sharesub="${esc(x.id)}"><span class="wo">${esc(l.wo)}-${x.no}</span><span class="nm">${esc(x.name)}</span><span class="stpill ${stClass(x.status)}">${esc(x.status)}</span></button>`).join("")+`</div>`};
   const lim=q?60:40;
   $("#sharelist").innerHTML=(sug.length?`<div class="ogh">Running when these were taken<span>${sug.length}</span></div>${sug.slice(0,12).map(row).join("")}`:"")+
@@ -1616,7 +1621,7 @@ function renderList(){
   // Work order numbers match ignoring "#", "WO-", spaces etc.
   const norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
   const qn=norm(q).replace(/^wo/,"");
-  const jobHits=q&&qn?logs.filter(l=>woKeys(l).some(k=>k.includes(qn)))
+  const jobHits=q&&qn?logs.filter(l=>woKeys(l).some(k=>k.includes(qn))||(l.orderNo&&norm(l.orderNo).includes(norm(q))))
     .sort((a,b)=>String(a.wo).localeCompare(String(b.wo),undefined,{numeric:true})):[];
   const jobMoulds=new Set(jobHits.flatMap(jobIds));
   const mScore=m=>jobMoulds.has(m.id)?3:searchScore([m.name,m.number,m.part,m.material,m.area].join(" "),q);
@@ -1627,7 +1632,7 @@ function renderList(){
   if(!rows.length&&!jobHits.length){el.innerHTML='<div class="empty">Nothing matches “'+esc(q)+'”.</div>';return}
   const jobsHTML=jobHits.length?`<div class="group"><span class="label">Work orders · ${jobHits.length}</span><div class="wotable">`+
     jobHits.slice(0,30).map(l=>{const st=l.status||"Complete";
-      return `<button type="button" class="worow2" data-jobopen="${esc(l.id)}" aria-label="Open ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(jobTool(l))}<br><span style="font-size:12px;color:var(--muted)">${esc(l.type||"")} · ${fmtDate(l.date)}</span></span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`}).join("")+
+      return `<button type="button" class="worow2" data-jobopen="${esc(l.id)}" aria-label="Open ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(jobTool(l))}<br><span style="font-size:12px;color:var(--muted)">${l.orderNo?"Order "+esc(l.orderNo)+" · ":""}${esc(l.type||"")} · ${fmtDate(l.date)}</span></span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`}).join("")+
     `</div></div>`:"";
   const card=m=>{const s=summary(m);const sub=[m.part||m.area,m.company].filter(Boolean).join(" · ");
     return `<button class="mould b-${stClass(s.st).slice(3)}" data-id="${esc(m.id)}" type="button">
@@ -1693,7 +1698,7 @@ function renderHist(){
   const alsoOn=l=>{const o=jobIds(l).map((id,i)=>[id,jobNames(l)[i]]).filter(([id])=>id!==m.id).map(x=>x[1]);return o.length?`<div class="alsoon">Also on: ${esc(o.join(", "))}</div>`:""};
   $("#timeline").innerHTML=ml.length?ml.map(l=>{const sm=subMeta(l,m.id);return `<div class="entry e-${stClass(sm.status).slice(3)}">
      <div class="ehead">
-       <div class="row"><div class="type">${l.wo?`<span class="wotag">${esc(subLabel(l,m.id))}</span>`:""}${esc(l.type)}</div>${statusSel(l,m.id)}</div>
+       <div class="row"><div class="type">${l.wo?`<span class="wotag">${esc(subLabel(l,m.id))}</span>`:""}${esc(l.type)}${l.orderNo?`<span class="ordtag">Order ${esc(l.orderNo)}</span>`:""}</div>${statusSel(l,m.id)}</div>
        <div class="when">Started ${fmtDate(sm.date)}${sm.dateCompleted?" · Completed "+fmtDate(sm.dateCompleted):""}${pmVal(l,m.id).shots?" · "+fmtNum(pmVal(l,m.id).shots)+" shots":""}</div>${alsoOn(l)}
      </div>
      <div class="etabs" role="group" aria-label="Work order sections">
@@ -1764,7 +1769,7 @@ function jobTable(list){
       // with sub-jobs listed underneath, the work order row names only what isn't a sub-job
       const own=subs.length?jobIds(l).map((id,i)=>subs.some(x=>x.id===id)?null:jobNames(l)[i]).filter(Boolean):[];
       const tool=subs.length?(own.length?own.join(", "):`${subs.length} moulds`):jobTool(l);
-      return `<button type="button" class="worow2${band}${subs.length?" parent":""}" data-open="${esc(l.id)}" aria-label="Edit ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(tool)}</span><span class="dsk">${esc(l.type||"")}</span><span class="dsk dsc">${esc(l.description||l.faults||l.notes||"")}</span><span class="dsk mono">${l.date?fmtDate(l.date):"—"}</span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`+
+      return `<button type="button" class="worow2${band}${subs.length?" parent":""}" data-open="${esc(l.id)}" aria-label="Edit ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(tool)}${l.orderNo?`<span class="ordtag">Order ${esc(l.orderNo)}</span>`:""}</span><span class="dsk">${esc(l.type||"")}</span><span class="dsk dsc">${esc(l.description||l.faults||l.notes||"")}</span><span class="dsk mono">${l.date?fmtDate(l.date):"—"}</span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`+
         // sub-jobs nested under their work order
         subs.map((x,i)=>`<button type="button" class="worow2 sub${band}${i===subs.length-1?" last":""}" data-open="${esc(l.id)}" data-sub="${esc(x.id)}" aria-label="Edit ${esc((l.wo||"")+"-"+x.no)}"><span class="wo"><span class="subtree" aria-hidden="true"></span>${esc((l.wo||"")+"-"+x.no)}</span><span class="tool">${esc(x.name)}</span><span class="dsk"></span><span class="dsk"></span><span class="dsk mono">${x.date?fmtDate(x.date):"—"}</span><span class="stpill ${stClass(x.status)}">${esc(x.status)}</span></button>`).join("")}).join("")+'</div>';
 }
@@ -1795,7 +1800,7 @@ function renderAllJobs(){
   const woOrder=(a,b)=>woSortNum(b)-woSortNum(a)||String(b.wo||"").localeCompare(String(a.wo||""),undefined,{numeric:true});
   let nExact=list.length;
   if(q){
-    const sc=new Map(list.map(l=>[l,(qn&&woKeys(l).some(k=>k.includes(qn)))?2:searchScore([jobTool(l),l.description,l.faults,l.work,l.notes,l.type].join(" "),q)]));
+    const sc=new Map(list.map(l=>[l,(qn&&woKeys(l).some(k=>k.includes(qn)))?2:searchScore([jobTool(l),l.orderNo,l.description,l.faults,l.work,l.notes,l.type].join(" "),q)]));
     const exact=list.filter(l=>sc.get(l)===2).sort(woOrder),close=list.filter(l=>sc.get(l)===1).sort(woOrder);
     list=exact.concat(close);nExact=exact.length;
   }else list.sort(woOrder);
@@ -1833,7 +1838,7 @@ function clearForm(){
   setExtras([]);
   $("#f-type").selectedIndex=0;$("#f-faults").value="";segReset("#f-status");$("#f-date").value=today();
   ckState={};ckMain.setCounter("");syncChecklist();
-  suggestedWO=nextWO();$("#f-wo").value=suggestedWO;
+  suggestedWO=nextWO();$("#f-wo").value=suggestedWO;$("#f-order").value="";
   renderFormDrive();
   dirty=false;clearTimeout(saveTimer);
   growAll();
@@ -1848,7 +1853,7 @@ async function startEdit(id,subId){
   formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",partsList:l.partsList,ck:{...((l.checklist&&l.checklist.state)||{})}};
   for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",partsList:v.partsList,ck:{...((v.checklist&&v.checklist.state)||{})}}}
   for(const [x,sm] of Object.entries(l.subs||{})){if(!sm||!formPM[x])continue;if(sm.no)formSubNo[x]=sm.no;Object.assign(formPM[x],{status:sm.status,date:sm.date,done:sm.dateCompleted||""})}
-  $("#f-wo").value=l.wo||"";setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);
+  $("#f-wo").value=l.wo||"";$("#f-order").value=l.orderNo||"";setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);
   formTodos=(l.todos||[]).map(i=>({...i}));mountFormTodos();$("#f-date").value=l.date||today();
   $("#f-shots").value=l.shots??"";plWrite("f",l.partsList||partsFromText(l.parts));$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-desc").value=l.description||"";
   $("#f-type").value=JOBTYPES.includes(l.type)?l.type:JOBTYPES[0];
@@ -1889,7 +1894,7 @@ function buildEntry(){
   const main=pmClean(mouldId), extras=extraIds.filter(x=>x!==mouldId);
   const perMould={};for(const x of extras)perMould[x]=pmClean(x);
   const subs={};for(const x of tabIdsFor(mouldId,extras)){const v=formPM[x]||{};subs[x]={no:formSubNo[x]||null,status:v.status||segVal("#f-status"),date:v.date??$("#f-date").value,dateCompleted:v.done||""}}
-  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,checklist:main.checklist,todos:cleanItems(formTodos),subs}};
+  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,checklist:main.checklist,todos:cleanItems(formTodos),subs,orderNo:$("#f-order").value.trim()}};
 }
 function markDirty(delay){
   if(!db)return;
@@ -2583,6 +2588,7 @@ function reportModel(l,onlyId){
   const g=(k,v,full)=>{if(rptHas(v))grid.push({k,v:String(v),full})};
   const single=scope.length===1?scope[0]:null,sm=single?mOf(single):null;
   if(onlyId)g("Work order","#"+(l.wo||""));
+  g("Client order no.",l.orderNo);
   if(!onlyId&&ids.length>1)g("Moulds / jobs",ids.map(id=>{const s=tabs.includes(id)?subMeta(l,id):null;return (s&&s.no?subLabel(l,id)+"  ":"")+nameOf(id)}).join("\n"),true);
   else g(sm&&isGen(sm)?"General job":"Mould",single?nameOf(single):jobTool(l));
   if(sm&&!isGen(sm)){g("Part / product",sm.part);g("Cavities",sm.cavities);g("Material",sm.material)}
@@ -3007,7 +3013,7 @@ function workOrderMarkdown(l){
   const m=moulds.find(x=>x.id===l.mouldId)||{};
   const name=jobTool(l);
   const rows=[
-    ["Work order",l.wo],["Status",l.status||"Complete"],[jobIds(l).length>1?"Moulds / jobs":"Mould / job",name],["Category",isGen(m)?"General job":"Mould"],
+    ["Work order",l.wo],...(l.orderNo?[["Client order no.",l.orderNo]]:[]),["Status",l.status||"Complete"],[jobIds(l).length>1?"Moulds / jobs":"Mould / job",name],["Category",isGen(m)?"General job":"Mould"],
     [isGen(m)?"Area":"Part / product",m.part||m.area||""],["Job type",l.type],["Date started",l.date?fmtDate(l.date):""],
     ["Date completed",l.dateCompleted?fmtDate(l.dateCompleted):""],...(jobIds(l).length>1||isGen(m)?[]:[["Shot count",l.shots!=null&&l.shots!==""?fmtNum(l.shots):""]]),
     ["Created",l.createdAt?new Date(l.createdAt).toLocaleString():""],["Last updated",l.updatedAt?new Date(l.updatedAt).toLocaleString():""]
@@ -3208,7 +3214,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.14-26";
+const APP_VERSION="2026.10.14-27";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -3288,9 +3294,9 @@ $("#import-file").addEventListener("change",async e=>{
   }catch(err){toast("That file couldn't be imported: "+((err&&err.message)||"not a Mould Log export"))}
 });
 $("#exportbtn").onclick=()=>{
-  const cols=["Work order","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Service checklist","To-do","Sub-jobs"];
+  const cols=["Work order","Client order no.","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Service checklist","To-do","Sub-jobs"];
   const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.status||"",l.date,l.dateCompleted,jobTool(l),isGen(m)?"General job":"Mould",m.part||m.area,l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,partsCsv(l),l.checklist?ckSummary(l.checklist.state||{}):""];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),j("notes"),ids.map((id,i)=>{const v=partsCsv(pmVal(l,id));return v?n[i]+": "+v:""}).filter(Boolean).join(" | "),ids.map((id,i)=>{const c=pmVal(l,id).checklist;return c?n[i]+": "+ckSummary(c.state||{}):""}).filter(Boolean).join(" | ")]})(),(l.todos||[]).map(i=>(i.done?"[x] ":"[ ] ")+i.text).join(" | "),jobIds(l).map((id,i)=>{const sm=subMeta(l,id);return sm.no?`${subLabel(l,id)} ${jobNames(l)[i]}: ${sm.status}`:""}).filter(Boolean).join(" | ")].map(q).join(",")}));
+  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.orderNo||"",l.status||"",l.date,l.dateCompleted,jobTool(l),isGen(m)?"General job":"Mould",m.part||m.area,l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,partsCsv(l),l.checklist?ckSummary(l.checklist.state||{}):""];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),j("notes"),ids.map((id,i)=>{const v=partsCsv(pmVal(l,id));return v?n[i]+": "+v:""}).filter(Boolean).join(" | "),ids.map((id,i)=>{const c=pmVal(l,id).checklist;return c?n[i]+": "+ckSummary(c.state||{}):""}).filter(Boolean).join(" | ")]})(),(l.todos||[]).map(i=>(i.done?"[x] ":"[ ] ")+i.text).join(" | "),jobIds(l).map((id,i)=>{const sm=subMeta(l,id);return sm.no?`${subLabel(l,id)} ${jobNames(l)[i]}: ${sm.status}`:""}).filter(Boolean).join(" | ")].map(q).join(",")}));
   saveFile("mould-maintenance-"+today()+".csv",new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
 };
 $("#backupbtn").onclick=()=>{
