@@ -231,6 +231,15 @@ textarea.autogrow{resize:none;overflow:hidden}
 .woren[hidden]{display:none}
 .worenbtns{display:flex;gap:8px;flex-wrap:wrap}
 .woren .btn{padding:8px 14px;font-size:14px}
+.woprocs{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
+.woprocs:empty{display:none}
+.woprocs>.label{margin:0}
+.wproc .cklist{display:flex;flex-direction:column}
+.wproc .procnote{margin-top:10px}
+.wprem{padding-top:10px;text-align:right}
+.wprem .linkish{font-size:13px;color:var(--muted)}
+.wppick{display:flex;flex-direction:column;gap:8px;border:1px dashed var(--line);border-radius:var(--r);padding:10px}
+.wppick .chev{font-weight:700;color:var(--accent)}
 .ordfield{margin-top:12px}
 .ordfield input{width:100%}
 .ordtag{display:inline-block;margin-left:8px;font-size:11.5px;font-weight:600;color:var(--muted);background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:1px 8px;vertical-align:1px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
@@ -635,10 +644,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       </div>
       <div class="fcol fcol-side">
       <div class="pmside" id="pmside">
-      <details class="panel ck" id="ckpanel">
-        <summary><span>Service checklist</span><span class="ckprog" id="ckprog">Not started</span></summary>
-        <div id="cklist" class="cklist"></div>
-      </details>
+      <div class="woprocs" id="f-wprocs"></div>
       <div class="field"><span class="label">Parts used</span><div class="pl" id="f-parts" data-pl="f"></div></div>
       <div class="field">
         <span class="label">Photos &amp; files</span>
@@ -676,10 +682,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
             <div class="field"><label class="label" for="b-notes">Notes</label><textarea id="b-notes" class="autogrow" placeholder="Extra detail, findings or measurements"></textarea></div>
           </div>
           <div class="mcol">
-            <details class="panel ck" id="b-ckpanel">
-              <summary><span>Service checklist</span><span class="ckprog" id="b-ckprog">Not started</span></summary>
-              <div id="b-cklist" class="cklist"></div>
-            </details>
+            <div class="woprocs" id="b-wprocs"></div>
             <div class="field"><span class="label">Parts used</span><div class="pl" id="b-parts" data-pl="b"></div></div>
             <div class="field"><span class="label">Photos &amp; files</span><div id="b-att"></div></div>
           </div>
@@ -783,6 +786,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <div class="xchips" id="pe-chips"></div>
         <div class="combo" style="margin-top:8px"><input id="pe-mq" type="text" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="pe-mlist" placeholder="Type a mould or job name to add it"><div class="combo-list" id="pe-mlist" role="listbox" hidden></div></div>
       </div>
+      <label class="rptchk"><input type="checkbox" id="pe-all"><span>Available on every mould<small>Can be added to any mould's work order, like the service checklist</small></span></label>
       <div class="field"><label class="label" for="pe-doc">Import from a Google Doc</label>
         <div class="worow"><input id="pe-doc" placeholder="Paste the doc's link"><button type="button" class="btn ghost" id="pe-import">Import</button></div>
         <div class="hint">Fills in the steps below from the doc. The link is kept so you can open the original later.</div></div>
@@ -1071,11 +1075,6 @@ function makeChecklist(list,prog,getSt,shotsInput){
   shotsInput.addEventListener("input",()=>{counter.value=shotsInput.value});
   return {sync,setCounter:v=>{counter.value=v??""}};
 }
-let boxCk={};
-const ckMain=makeChecklist($("#cklist"),$("#ckprog"),()=>ckState,$("#f-shots"));
-const ckBox=makeChecklist($("#b-cklist"),$("#b-ckprog"),()=>boxCk,$("#b-shots"));
-function syncChecklist(){ckMain.sync()}
-syncChecklist();ckBox.sync();
 
 // ---- Pasting lists (Google Docs, Word, web pages) into text boxes ----
 // Text boxes can't hold list formatting, so pasted lists become "• " lines (numbered lists keep their numbers, sub-points are indented)
@@ -1558,7 +1557,7 @@ const hasMould=(l,id)=>jobIds(l).includes(id);
 function jobNames(l){return jobIds(l).map((id,i)=>{const m=moulds.find(x=>x.id===id);return m?mlabel(m):((i===0?(l.mouldName||l.mouldNumber):(l.extraMouldNames||[])[i-1])||"Unknown mould")})}
 function jobTool(l){const n=jobNames(l);return n.length?n.join(", "):(l.mouldName||l.mouldNumber||(l.mouldId?"Unknown mould":"Mould not set"))}
 // Per-mould values on a work order: the main mould's are stored at the top level, extra moulds' in perMould
-function pmVal(l,id){if(!id||id===l.mouldId)return {shots:l.shots,faults:l.faults,work:l.work,notes:l.notes,parts:l.parts,partsList:l.partsList,checklist:l.checklist};return (l.perMould&&l.perMould[id])||{}}
+function pmVal(l,id){if(!id||id===l.mouldId)return {shots:l.shots,faults:l.faults,work:l.work,notes:l.notes,parts:l.parts,partsList:l.partsList,checklist:l.checklist,procs:l.procs};return (l.perMould&&l.perMould[id])||{}}
 function subName(id){const m=moulds.find(x=>x.id===id);return String(m?mlabel(m):"Mould").replace(/[\\/|]/g,"-").trim().slice(0,100)||"Mould"}
 // Which moulds get a tab: every mould when the main one is a mould; only the added ones when the main one is a general job
 function tabIdsFor(prim,extras){const all=[...new Set([prim,...(extras||[])].filter(Boolean))];if(all.length<2)return [];const pm=moulds.find(x=>x.id===prim);return pm&&isGen(pm)?all.filter(x=>x!==prim):all}
@@ -1579,12 +1578,12 @@ const woKeys=l=>[normWo(l.wo),...Object.values(l.subs||{}).filter(x=>x&&x.no).ma
 let subPage=null; // the sub-job shown as its own page, if any
 let formPM={}, mainFor=null, boxFor=null, boxActive=null, lastPrimary="";
 let formSubNo={}; // mould id -> sub-job number on this work order
-function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,partsList:plRead(p),ck:{...(p==="f"?ckState:boxCk)}};
+function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,partsList:plRead(p),procs:wpList(p).map(x=>procSnap(x,x.st))};
   if(p==="b"){v.status=segVal("#b-status");v.date=$("#b-date").value;v.done=$("#b-done").value}
   return v}
 function writeSet(p,id){const v=formPM[id]||{};
   $(`#${p}-shots`).value=v.shots??"";$(`#${p}-faults`).value=v.faults||"";$(`#${p}-work`).value=v.work||"";$(`#${p}-notes`).value=v.notes||"";plWrite(p,v.partsList||partsFromText(v.parts));
-  if(p==="f"){ckState={...(v.ck||{})};ckMain.sync();ckMain.setCounter(v.shots)}else{boxCk={...(v.ck||{})};ckBox.sync();ckBox.setCounter(v.shots);
+  if(p==="f"){fProcs=(v.procs||[]).map(x=>procSnap(x,x.st));renderWoProcs("f")}else{bProcs=(v.procs||[]).map(x=>procSnap(x,x.st));renderWoProcs("b");
     // a new sub-job starts with the work order's status and start date
     segSet("#b-status",v.status||segVal("#f-status")||"Pending");$("#b-date").value=v.date??$("#f-date").value;$("#b-done").value=v.done||""}}
 const FORCE="\u0000"; // marks a field set that must be reloaded
@@ -1611,7 +1610,7 @@ function renderPM(){
   const pm=moulds.find(x=>x.id===prim),bm=moulds.find(x=>x.id===boxActive);
   $("#shots-field").hidden=!!(pm&&isGen(pm));$("#b-shots-field").hidden=!!(bm&&isGen(bm));
   if(moved){growAll();renderFormDrive()}
-  renderFormProcs();
+  renderFormProcs();renderWoProcs("f");renderWoProcs("b");
 }
 const curTabsNow=()=>tabIdsFor($("#f-mould").value||lastPrimary,extraIds);
 // ---- Sub-job page: opens from the work order, back returns to it ----
@@ -1756,7 +1755,7 @@ function renderList(){
     return `<button class="mould b-${stClass(s.st).slice(3)}" data-id="${esc(m.id)}" type="button">
       <span><span class="mname">${esc(mlabel(m))}</span>${sub?` <span style="color:var(--muted)">· ${esc(sub)}</span>`:""}</span>
       <span class="stpill ${s.st?stClass(s.st):"none"}" style="align-self:start">${s.st?esc(s.st):"No jobs"}</span>
-      <span class="meta"><span>Last: ${s.last?(s.last.wo?esc(s.last.wo)+" · ":"")+fmtDate(s.last.date)+" · "+esc(s.last.type):"—"}</span><span class="mono">${s.shots?fmtNum(s.shots)+" shots":""}</span>${s.open?`<span class="openjobs">${s.open} open job${s.open===1?"":"s"}</span>`:""}${procFor(m.id).length?`<span>${procFor(m.id).length} procedure${procFor(m.id).length===1?"":"s"}</span>`:""}</span>
+      <span class="meta"><span>Last: ${s.last?(s.last.wo?esc(s.last.wo)+" · ":"")+fmtDate(s.last.date)+" · "+esc(s.last.type):"—"}</span><span class="mono">${s.shots?fmtNum(s.shots)+" shots":""}</span>${s.open?`<span class="openjobs">${s.open} open job${s.open===1?"":"s"}</span>`:""}${procFor(m.id,false).length?`<span>${procFor(m.id,false).length} procedure${procFor(m.id,false).length===1?"":"s"}</span>`:""}</span>
     </button>`};
   const mo=rows.filter(m=>!isGen(m)),ge=rows.filter(m=>isGen(m)&&!isClient(m)),cl=rows.filter(isClient);
   el.innerHTML=jobsHTML+(procHits.length?`<div class="group"><span class="label">Procedures · ${procHits.length}</span>${procListHTML(procHits,true)}</div>`:"")+(mo.length?`<div class="group"><span class="label">Moulds · ${mo.length}</span>${mo.map(card).join("")}</div>`:"")+
@@ -1985,7 +1984,7 @@ function clearForm(){
   $("#f-shots").value="";$("#f-work").value="";$("#f-notes").value="";$("#f-desc").value="";plWrite("f",[]);$("#f-done").value="";
   setExtras([]);
   $("#f-type").selectedIndex=0;$("#f-faults").value="";segReset("#f-status");$("#f-date").value=today();
-  ckState={};ckMain.setCounter("");syncChecklist();
+  fProcs=[];bProcs=[];wpPicker=null;renderWoProcs("f");renderWoProcs("b");
   suggestedWO=nextWO();$("#f-wo").value=suggestedWO;$("#f-order").value="";
   renderFormDrive();
   dirty=false;clearTimeout(saveTimer);
@@ -1998,8 +1997,8 @@ async function startEdit(id,subId){
   await flushSave();
   editingId=id;dirty=false;origWo=l.wo||"";
   resetPM();
-  formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",partsList:l.partsList,ck:{...((l.checklist&&l.checklist.state)||{})}};
-  for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",partsList:v.partsList,ck:{...((v.checklist&&v.checklist.state)||{})}}}
+  formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",partsList:l.partsList,procs:setProcs(l).map(x=>procSnap(x,x.st))};
+  for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",partsList:v.partsList,procs:setProcs(v).map(x=>procSnap(x,x.st))}}
   for(const [x,sm] of Object.entries(l.subs||{})){if(!sm||!formPM[x])continue;if(sm.no)formSubNo[x]=sm.no;Object.assign(formPM[x],{status:sm.status,date:sm.date,done:sm.dateCompleted||""})}
   $("#f-wo").value=l.wo||"";$("#f-order").value=l.orderNo||"";setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);
   formTodos=(l.todos||[]).map(i=>({...i}));mountFormTodos();$("#f-date").value=l.date||today();
@@ -2007,7 +2006,7 @@ async function startEdit(id,subId){
   $("#f-type").value=JOBTYPES.includes(l.type)?l.type:JOBTYPES[0];
   $("#f-work").value=l.work==="Other (see notes)"?"":(l.work||"");$("#f-notes").value=l.notes||"";
   segSet("#f-status",l.status||"Complete");
-  ckState={...((l.checklist&&l.checklist.state)||{})};ckMain.setCounter(l.shots);syncChecklist();
+  fProcs=(formPM[l.mouldId].procs||[]).map(x=>procSnap(x,x.st));wpPicker=null;renderWoProcs("f");
   updateEditBar();setSaveState("saved","All changes saved");
   show("log");growAll();renderFormDrive();
 }
@@ -2040,11 +2039,11 @@ function buildEntry(){
   if($("#f-done").value&&$("#f-done").value<$("#f-date").value)return {error:"date completed is before date started"};
   const m=moulds.find(x=>x.id===mouldId);
   stashPM();
-  const pmClean=id=>{const v=formPM[id]||(id===mouldId?readSet("f"):{});const sh=String(v.shots??"").trim();return {shots:sh===""?null:Number(sh),faults:String(v.faults||"").trim(),work:String(v.work||"").trim(),notes:String(v.notes||"").trim(),...(()=>{const pl=cleanParts(v.partsList||partsFromText(v.parts));return {parts:partsText(pl),partsList:pl}})(),checklist:v.ck&&Object.keys(v.ck).length?{state:{...v.ck}}:null}};
+  const pmClean=id=>{const v=formPM[id]||(id===mouldId?readSet("f"):{});const sh=String(v.shots??"").trim();return {shots:sh===""?null:Number(sh),faults:String(v.faults||"").trim(),work:String(v.work||"").trim(),notes:String(v.notes||"").trim(),...(()=>{const pl=cleanParts(v.partsList||partsFromText(v.parts));return {parts:partsText(pl),partsList:pl}})(),procs:(v.procs||[]).map(x=>procSnap(x,x.st))}};
   const main=pmClean(mouldId), extras=extraIds.filter(x=>x!==mouldId);
   const perMould={};for(const x of extras)perMould[x]=pmClean(x);
   const subs={};for(const x of tabIdsFor(mouldId,extras)){const v=formPM[x]||{};subs[x]={no:formSubNo[x]||null,status:v.status||segVal("#f-status"),date:v.date??$("#f-date").value,dateCompleted:v.done||""}}
-  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,checklist:main.checklist,todos:cleanItems(formTodos),subs,orderNo:$("#f-order").value.trim()}};
+  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,procs:main.procs,todos:cleanItems(formTodos),subs,orderNo:$("#f-order").value.trim()}};
 }
 function markDirty(delay){
   if(!db)return;
@@ -2629,7 +2628,7 @@ document.addEventListener("paste",e=>{
 // Written as a simple outline: "Heading:" starts a section, "* step" is a step, an indented "* step" is a sub-step,
 // "NOTE: …" is a warning shown at the top. Google Docs exports and pasted lists use the same shape.
 let procedures=[], procCur=null, procEditId=null, procMoulds=[], procDelArmed=false;
-const procFor=id=>procedures.filter(p=>(p.mouldIds||[]).includes(id)).sort((a,b)=>String(a.name).localeCompare(String(b.name),undefined,{numeric:true}));
+const procFor=(id,withAll=true)=>procedures.filter(p=>(p.mouldIds||[]).includes(id)||(withAll&&p.allMoulds&&(m=>m&&!isGen(m))(moulds.find(x=>x.id===id)))).sort((a,b)=>String(a.name).localeCompare(String(b.name),undefined,{numeric:true}));
 function procParse(text,withTitle){
   const lines=String(text||"").replace(/^﻿/,"").replace(/\r/g,"").split("\n");
   const P={title:"",notes:[],sections:[]};let sec=null,blank=false,last=null;
@@ -2664,13 +2663,13 @@ function procSaveTicks(id,st){try{if(Object.keys(st).length)localStorage.setItem
 function procLeaves(p){const L=[];(p.sections||[]).forEach((s,si)=>(s.items||[]).forEach((it,ii)=>{if((it.sub||[]).length)it.sub.forEach((k,ki)=>L.push(`${si}.${ii}.${ki}`));else L.push(`${si}.${ii}`)}));return L}
 function procProgress(p,st){const L=procLeaves(p);let d=0,n=0;L.forEach(k=>{if(st[k]==="done")d++;else if(st[k]==="na")n++});const tot=L.length-n;
   return {d,n,tot,txt:!d&&!n?"Not started":(d>=tot&&tot>0?"All done":`${d} of ${tot} done`)+(n?` · ${n} N/A`:""),all:d>=tot&&tot>0}}
-function procMouldNames(p){return (p.mouldIds||[]).map(id=>moulds.find(m=>m.id===id)).filter(Boolean).map(mlabel)}
-function procRowsHTML(p,st,interactive){
-  const row=(k,t,lvl)=>`<div class="ckrow"><label><input type="checkbox" data-pk="${k}"${st[k]==="done"?" checked":""}${st[k]==="na"||!interactive?" disabled":""}><span>${esc(t)}</span></label>${interactive?`<button type="button" class="na" data-pna="${k}" aria-pressed="${st[k]==="na"}">N/A</button>`:""}</div>`;
-  return (p.sections||[]).map((s,si)=>`<div class="cksec">${s.title?`<div class="cksechead"><span>${esc(s.title)}</span>${interactive?`<button type="button" class="linkish" data-pall="${si}">Mark all done</button>`:""}</div>`:""}`+
+function procMouldNames(p){return [...(p.allMoulds?["All moulds"]:[]),...(p.mouldIds||[]).map(id=>moulds.find(m=>m.id===id)).filter(Boolean).map(mlabel)]}
+function procRowsHTML(p,st,interactive,pre){pre=pre||"";
+  const row=(k,t,lvl)=>`<div class="ckrow"><label><input type="checkbox" data-pk="${pre}${k}"${st[k]==="done"?" checked":""}${st[k]==="na"||!interactive?" disabled":""}><span>${esc(t)}</span></label>${interactive?`<button type="button" class="na" data-pna="${pre}${k}" aria-pressed="${st[k]==="na"}">N/A</button>`:""}</div>`;
+  return (p.sections||[]).map((s,si)=>`<div class="cksec">${s.title?`<div class="cksechead"><span>${esc(s.title)}</span>${interactive?`<button type="button" class="linkish" data-pall="${pre}${si}">Mark all done</button>`:""}</div>`:""}`+
     (s.items||[]).map((it,ii)=>{const k=`${si}.${ii}`;if(!(it.sub||[]).length)return row(k,it.t);
       const kids=it.sub.map((x,ki)=>`${k}.${ki}`),dn=kids.filter(x=>st[x]==="done").length,act=kids.filter(x=>st[x]!=="na").length;
-      return `<div class="ckgroup"><label class="ckparent"><input type="checkbox" data-ppar="${k}"${act&&dn>=act?" checked":""}${!interactive?" disabled":""}><span>${esc(it.t)}</span><span class="ckn">${dn}/${act}</span></label><div class="ckkids">${it.sub.map((x,ki)=>row(`${k}.${ki}`,x.t)).join("")}</div></div>`}).join("")+`</div>`).join("");
+      return `<div class="ckgroup"><label class="ckparent"><input type="checkbox" data-ppar="${pre}${k}"${act&&dn>=act?" checked":""}${!interactive?" disabled":""}><span>${esc(it.t)}</span><span class="ckn">${dn}/${act}</span></label><div class="ckkids">${it.sub.map((x,ki)=>row(`${k}.${ki}`,x.t)).join("")}</div></div>`}).join("")+`</div>`).join("");
 }
 function procNotesHTML(p){return (p.notes||[]).map(n=>`<div class="procnote"><b>Note</b><span>${esc(n)}</span></div>`).join("")}
 // ---- Procedure page (follow the steps) ----
@@ -2706,7 +2705,7 @@ function openProcEdit(id,mouldId){
   procEditId=id||null;const p=id?procedures.find(x=>x.id===id):null;
   $("#pe-title").textContent=p?"Edit procedure":"New procedure";
   $("#pe-name").value=p?p.name||"":"";$("#pe-text").value=p?procText(p):"";$("#pe-doc").value=p&&p.source||"";
-  procMoulds=p?[...(p.mouldIds||[])]:(mouldId?[mouldId]:[]);
+  procMoulds=p?[...(p.mouldIds||[])]:(mouldId?[mouldId]:[]);$("#pe-all").checked=!!(p&&p.allMoulds);
   const cur=currentView();if(!PAGES.includes(cur))pageReturn=cur;
   show("procedit");peChips();pePreview();window.scrollTo(0,0);setTimeout(growAll,0);
 }
@@ -2758,7 +2757,7 @@ $("#peform").addEventListener("submit",async e=>{
   if(!name){toast("Give the procedure a name");return}
   if(!procLeaves(P).length){toast("Add at least one step");return}
   const src=$("#pe-doc").value.trim();
-  const doc={name,mouldIds:procMoulds.slice(),notes:P.notes,sections:P.sections.map(s=>({title:s.title,items:s.items.map(it=>({t:it.t,sub:(it.sub||[]).map(k=>({t:k.t}))}))})),source:/^https?:\/\//.test(src)?src:"",updatedAt:new Date().toISOString()};
+  const doc={name,mouldIds:procMoulds.slice(),allMoulds:$("#pe-all").checked,notes:P.notes,sections:P.sections.map(s=>({title:s.title,items:s.items.map(it=>({t:it.t,sub:(it.sub||[]).map(k=>({t:k.t}))}))})),source:/^https?:\/\//.test(src)?src:"",updatedAt:new Date().toISOString()};
   try{
     let id=procEditId;
     if(id){const old=procedures.find(x=>x.id===id);await db.collection("procedures").doc(id).update(doc);
@@ -2777,15 +2776,86 @@ function renderProcLists(){
     el.innerHTML=(procListHTML(sorted,true)||`<div class="small">No procedures yet. Write the steps for a repeating job, like an insert change, once and follow them as a checklist every time.</div>`)+`<button type="button" class="btn ghost" data-pnew="" style="margin-top:10px">+ New procedure</button>`}
   if(current){const h=$("#histproc");if(h){const l=procFor(current);
     h.innerHTML=`<div class="row"><span class="label" style="margin:0">Procedures</span><button type="button" class="linkish" data-pnew="${esc(current)}">+ New</button></div>`+(procListHTML(l,false)||`<div class="small">No procedures for this ${kindName(moulds.find(m=>m.id===current))} yet.</div>`)}}
-  renderFormProcs();
+  renderFormProcs();if(!$("#v-log").hidden){renderWoProcs("f");renderWoProcs("b")}
 }
-function renderFormProcs(){const el=$("#f-procs");if(!el)return;
+function renderFormProcs(){const el=$("#f-procs");if(!el)return;el.hidden=true;return;
   const ids=pmIds(),list=procedures.filter(p=>(p.mouldIds||[]).some(id=>ids.includes(id)));
   el.hidden=!list.length;el.innerHTML=list.length?`<span>Procedures:</span> `+list.map(p=>`<button type="button" class="linkish" data-popen="${esc(p.id)}">${esc(p.name)}</button>`).join(" · "):""}
 document.addEventListener("click",async e=>{
   const o=e.target.closest("[data-popen]");if(o){e.preventDefault();if(!$("#v-log").hidden)await flushSave();openProc(o.dataset.popen);return}
   const n=e.target.closest("[data-pnew]");if(n){openProcEdit(null,n.dataset.pnew||null)}
 });
+
+// ---------- Procedures on work orders ----------
+// A procedure added to a work order is copied onto it (its steps plus that job's own ticks), so every work
+// order keeps its own record and later edits to the procedure don't change finished jobs.
+// Stored per mould like the other fields: procs:[{pid,name,notes,sections,st}]
+// The service checklist is a procedure available on every mould; older work orders' checklist ticks carry over.
+const SERVICE_PID="service";
+const SERVICE_TPL={name:"Service checklist",allMoulds:true,notes:[],sections:CHECKLIST.map(s=>({title:s.sec,items:s.items.map(it=>({t:it.t,sub:(it.sub||[]).map(k=>({t:k.t}))}))}))};
+const CK_KEYMAP=(()=>{const m={};CHECKLIST.forEach((s,si)=>s.items.forEach((it,ii)=>{if(it.sub)it.sub.forEach((k,ki)=>m[k.id]=`${si}.${ii}.${ki}`);else m[it.id]=`${si}.${ii}`}));return m})();
+function procSnap(p,st){return {pid:p.pid||p.id||"",name:p.name||"Procedure",notes:[...(p.notes||[])],sections:(p.sections||[]).map(s=>({title:s.title||"",items:(s.items||[]).map(it=>({t:it.t,sub:(it.sub||[]).map(k=>({t:k.t}))}))})),st:{...(st||{})}}}
+function setProcs(v){
+  if(v&&Array.isArray(v.procs))return v.procs;
+  const st=v&&v.checklist&&v.checklist.state;
+  if(st&&Object.keys(st).length){const m={};for(const[k,x]of Object.entries(st))if(CK_KEYMAP[k])m[CK_KEYMAP[k]]=x;return [procSnap({...SERVICE_TPL,id:SERVICE_PID},m)]}
+  return [];
+}
+let fProcs=[],bProcs=[],wpOpen=new Set(),wpPicker=null,wpRemArmed=null;
+const wpList=p=>p==="f"?fProcs:bProcs;
+const wpFor=p=>p==="f"?mainFor:boxFor;
+function renderWoProcs(p){
+  const el=$(p==="f"?"#f-wprocs":"#b-wprocs");if(!el)return;
+  const mid=wpFor(p),list=wpList(p);
+  if(!mid||mid===FORCE){el.innerHTML="";return}
+  const m=moulds.find(x=>x.id===mid),avail=procFor(mid).filter(x=>!list.some(a=>a.pid===x.id));
+  el.innerHTML=`<span class="label">Procedures</span>`+list.map((sn,i)=>{const pr=procProgress(sn,sn.st||{}),key=`${p}|${i}`,ok=`${p}|${sn.pid}|${i}`;
+    return `<details class="panel ck wproc" data-wpk="${ok}"${wpOpen.has(ok)?" open":""}><summary><span>${esc(sn.name)}</span><span class="ckprog${pr.all?" done":""}">${esc(pr.txt)}</span></summary>
+      <div class="cklist">${procNotesHTML(sn)}${procRowsHTML(sn,sn.st||{},true,key+"|")}
+      <div class="wprem"><button type="button" class="linkish" data-wprem="${key}"${wpRemArmed===key?' style="color:var(--bad)"':""}>${wpRemArmed===key?"Tap again to remove it from this work order":"Remove from this work order"}</button></div></div></details>`}).join("")+
+    (wpPicker===p?`<div class="wppick"><div class="small">Add to this ${m?kindName(m):"job"}:</div>${avail.length?`<div class="proclinks">${avail.map(x=>`<button type="button" class="procrow" data-wpick="${p}|${esc(x.id)}"><span class="pn">${esc(x.name||"Untitled")}${x.allMoulds?"<small>Available on every mould</small>":""}</span><span class="ckprog">${procLeaves(x).length} steps</span><span class="chev" aria-hidden="true">+</span></button>`).join("")}</div>`:`<div class="small">No other procedures for this ${m?kindName(m):"job"}. Create one from the Procedures panel on the Moulds tab.</div>`}<button type="button" class="linkish" data-wpcancel="1">Cancel</button></div>`
+      :`<button type="button" class="addmould" data-wpadd="${p}">+ Add a procedure</button>`);
+}
+function wpChanged(p){renderWoProcs(p);markDirty(250)}
+$("#logform").addEventListener("toggle",e=>{const d=e.target;if(!d.matches||!d.matches("details.wproc"))return;if(d.open)wpOpen.add(d.dataset.wpk);else wpOpen.delete(d.dataset.wpk)},true);
+$("#logform").addEventListener("change",e=>{const t=e.target;const k=t.dataset&&(t.dataset.pk||t.dataset.ppar);if(!k||!k.includes("|"))return;
+  const[p,i,key]=k.split("|"),sn=wpList(p)[+i];if(!sn)return;sn.st=sn.st||{};
+  if(t.dataset.pk){if(t.checked)sn.st[key]="done";else delete sn.st[key]}
+  else{const[si,ii]=key.split(".").map(Number);const it=sn.sections[si].items[ii];it.sub.forEach((x,ki)=>{const kk=`${key}.${ki}`;if(sn.st[kk]==="na")return;if(t.checked)sn.st[kk]="done";else delete sn.st[kk]})}
+  wpChanged(p)});
+$("#logform").addEventListener("click",e=>{const t=e.target;
+  const na=t.closest("[data-pna]");if(na&&na.dataset.pna.includes("|")){const[p,i,key]=na.dataset.pna.split("|"),sn=wpList(p)[+i];if(!sn)return;sn.st=sn.st||{};if(sn.st[key]==="na")delete sn.st[key];else sn.st[key]="na";wpChanged(p);return}
+  const all=t.closest("[data-pall]");if(all&&all.dataset.pall.includes("|")){const[p,i,si]=all.dataset.pall.split("|"),sn=wpList(p)[+i];if(!sn)return;sn.st=sn.st||{};procLeaves(sn).filter(k=>k.split(".")[0]===si&&sn.st[k]!=="na").forEach(k=>sn.st[k]="done");wpChanged(p);return}
+  const add=t.closest("[data-wpadd]");if(add){wpPicker=add.dataset.wpadd;renderWoProcs(wpPicker);return}
+  if(t.closest("[data-wpcancel]")){const p=wpPicker;wpPicker=null;if(p)renderWoProcs(p);return}
+  const pick=t.closest("[data-wpick]");if(pick){const[p,pid]=pick.dataset.wpick.split("|"),pr=procedures.find(x=>x.id===pid);if(!pr)return;
+    const list=wpList(p);list.push(procSnap(pr,{}));wpOpen.add(`${p}|${pr.id}|${list.length-1}`);wpPicker=null;wpChanged(p);return}
+  const rem=t.closest("[data-wprem]");if(rem){const key=rem.dataset.wprem;
+    if(wpRemArmed!==key){wpRemArmed=key;const[p]=key.split("|");renderWoProcs(p);setTimeout(()=>{if(wpRemArmed===key){wpRemArmed=null;renderWoProcs(p)}},4000);return}
+    const[p,i]=key.split("|");wpRemArmed=null;wpList(p).splice(+i,1);wpChanged(p);return}
+});
+// Rows for reports and the backup file
+function procRptRows(sn){const st=sn.st||{},rows=[];(sn.notes||[]).forEach(n=>rows.push({note:n}));
+  (sn.sections||[]).forEach((s,si)=>{if(s.title)rows.push({sec:s.title});(s.items||[]).forEach((it,ii)=>{const k=`${si}.${ii}`;
+    if((it.sub||[]).length){rows.push({t:it.t,group:true});it.sub.forEach((x,ki)=>rows.push({t:x.t,st:st[`${k}.${ki}`],lvl:1}))}
+    else rows.push({t:it.t,st:st[k],counter:/reading recorded/i.test(it.t)})})});
+  return rows}
+function mdProcs(list,h){return (list||[]).map(sn=>{const st=sn.st||{};let md=`\n${h} ${sn.name}\n\n**${procProgress(sn,st).txt}**\n`;
+  (sn.notes||[]).forEach(n=>md+=`\n> **Note:** ${n}\n`);
+  const mark=k=>st[k]==="done"?"[x]":"[ ]",na=k=>st[k]==="na"?" _(N/A)_":"";
+  (sn.sections||[]).forEach((s,si)=>{md+=s.title?`\n**${s.title}**\n\n`:"\n";(s.items||[]).forEach((it,ii)=>{const k=`${si}.${ii}`;
+    if((it.sub||[]).length)md+=`- **${it.t}**\n`+it.sub.map((x,ki)=>`  - ${mark(k+"."+ki)} ${x.t}${na(k+"."+ki)}`).join("\n")+"\n";else md+=`- ${mark(k)} ${it.t}${na(k)}\n`})});
+  return md}).join("")}
+// The service checklist exists once as a procedure (made the first time; deleting it is respected)
+let serviceSeedTried=false;
+async function ensureServiceProc(fromCache){
+  if(serviceSeedTried||fromCache||!db||procedures.some(p=>p.id===SERVICE_PID))return;serviceSeedTried=true;
+  try{const s=await db.doc("settings/app").get();const d=s&&s.exists?s.data():{};if(d&&d.serviceSeeded)return;
+    const now=new Date().toISOString();
+    await db.collection("procedures").doc(SERVICE_PID).set({...SERVICE_TPL,mouldIds:[],source:"",createdAt:now,updatedAt:now});
+    await db.doc("settings/app").set({...(d||{}),serviceSeeded:true});
+  }catch(e){serviceSeedTried=false}
+}
 
 // ---------- Work hours ----------
 // Each entry: {date, tech, wo, sub, logId, mouldId, hours}. "2601-1" puts the hours against that sub-job's mould.
@@ -2945,7 +3015,7 @@ function reportModel(l,onlyId){
     if(rptHas(v.work))out.push({t:"field",label:"Work done",text:v.work});
     if(rptHas(v.notes))out.push({t:"field",label:"Notes",text:v.notes});
     const pl=cleanParts(v.partsList||partsFromText(v.parts));if(pl.length)out.push({t:"parts",label:"Parts used",items:pl});
-    const st=(v.checklist&&v.checklist.state)||{};if(Object.keys(st).length)out.push({t:"check",label:"Service checklist",state:st,shots:v.shots});
+    setProcs(v).forEach(sn=>out.push({t:"check",label:sn.name,summary:procProgress(sn,sn.st||{}).txt,rows:procRptRows(sn),shots:v.shots}));
     return out};
   if(single){const v=pmVal(l,single),m=mOf(single);if(!(m&&isGen(m))&&rptHas(v.shots))g("Shot count",fmtNum(v.shots))}
   B.push({t:"grid",items:grid});
@@ -3112,15 +3182,16 @@ function buildPdf(R,photos,logo){
       y+=4;continue}
     if(b.t==="todo"){y+=2;for(const it of b.items){const lines=pdfWrap(winBytes(it.text||""),"",FS,CW-16);
         lines.forEach((s,i)=>{need(LH+1);y+=LH+1;if(i===0)box(M,y,it.done?"done":"");txt(s,M+16,y,"",FS,it.done?C.muted:C.ink)})}y+=4;continue}
-    if(b.t==="check"){label(b.label);need(LH);y+=LH;txt(winBytes(ckSummary(b.state)),M,y,"B",FS,C.ink);
-      for(const r of rptCkRows(b.state)){
+    if(b.t==="check"){label(b.label);need(LH);y+=LH;txt(winBytes(b.summary),M,y,"B",FS,C.ink);
+      for(const r of b.rows){
+        if(r.note){const ls=pdfWrap(winBytes("Note: "+r.note),"B",9.6,CW-12);need(LH*ls.length+8);y+=6;fill(M,y,3,ls.length*13+4,C.amber);ls.forEach(l=>{y+=13;txt(l,M+10,y,"B",9.6,"b4530a")});y+=4;continue}
         if(r.sec){need(LH*3+6);y+=LH+4;txt(winBytes(r.sec),M,y,"B",9.2,C.muted);continue}
-        const x=M+(r.lvl?16:0);
-        if(r.group){need(LH);y+=LH;txt(winBytes(r.t),x,y,"",9.8,C.ink);continue}
-        need(LH);y+=LH;
+        const x=M+(r.lvl?16:0),w=CW-(x-M)-16;
+        if(r.group){pdfWrap(winBytes(r.t),"",9.8,w+16).forEach(l=>{need(LH);y+=LH;txt(l,x,y,"",9.8,C.ink)});continue}
         const extra=r.counter&&rptHas(b.shots)?"   (reading: "+fmtNum(b.shots)+")":"";
-        if(r.st==="na"){txt("N/A",x-1,y,"B",6.8,C.muted);txt(winBytes(r.t),x+16,y,"",9.8,C.muted)}
-        else{box(x,y,r.st);txt(winBytes(r.t+extra),x+16,y,"",9.8,r.st==="done"?C.ink:C.muted)}}
+        pdfWrap(winBytes(r.t+extra),"",9.8,w).forEach((l,i)=>{need(LH);y+=LH;
+          if(i===0){if(r.st==="na")txt("N/A",x-1,y,"B",6.8,C.muted);else box(x,y,r.st)}
+          txt(l,x+16,y,"",9.8,r.st==="done"?C.ink:C.muted)})}
       y+=4;continue}
   }
   // Photos
@@ -3241,8 +3312,9 @@ function buildDocx(R,photos,logo){
       b.items.forEach(p=>{const t=run("•\t",{sz:10.5,color:ink})+(p.url?`<w:hyperlink r:id="${relLink(p.url)}">${run(p.text||p.url,{sz:10.5,color:"1A5FB4",u:true})}</w:hyperlink>`:run(p.text,{sz:10.5,color:ink}));
         body.push(P(t,{after:40,line:276,ind:`<w:ind w:left="360" w:hanging="260"/>`,tabs:`<w:tabs><w:tab w:val="left" w:pos="360"/></w:tabs>`}))});continue}
     if(b.t==="todo"){b.items.forEach(it=>body.push(P(box(it.done?"done":"")+run("  "+(it.text||""),{sz:10.5,color:it.done?muted:ink}),{after:40,line:276,ind:`<w:ind w:left="340" w:hanging="340"/>`})));continue}
-    if(b.t==="check"){body.push(label(b.label));body.push(P(run(ckSummary(b.state),{b:true,sz:10.5,color:ink}),{after:60}));
-      for(const r of rptCkRows(b.state)){
+    if(b.t==="check"){body.push(label(b.label));body.push(P(run(b.summary,{b:true,sz:10.5,color:ink}),{after:60}));
+      for(const r of b.rows){
+        if(r.note){body.push(P(run("Note: ",{b:true,sz:9.5,color:"B4530A"})+run(r.note,{b:true,sz:9.5,color:ink}),{before:60,after:60,shd:"FBE9DA",bdr:`<w:pBdr><w:left w:val="single" w:sz="24" w:space="6" w:color="${amber}"/></w:pBdr>`,ind:`<w:ind w:left="140"/>`}));continue}
         if(r.sec){body.push(P(run(r.sec,{b:true,sz:9.5,color:muted}),{before:120,after:40,keep:true}));continue}
         const left=r.lvl?340:0;
         if(r.group){body.push(P(run(r.t,{sz:10,color:ink}),{after:30,keep:true,ind:`<w:ind w:left="${left}"/>`}));continue}
@@ -3442,7 +3514,7 @@ function workOrderMarkdown(l){
       md+=`\n## ${sm.no?subLabel(l,id)+" · ":""}${names[i]}\n`;
       if(sm.no)md+=`\n**Status:** ${sm.status} · **Started:** ${sm.date?fmtDate(sm.date):"–"} · **Completed:** ${sm.dateCompleted?fmtDate(sm.dateCompleted):"–"}\n`;
       if(!(mm&&isGen(mm)))md+=`\n**Shot count:** ${v.shots!=null&&v.shots!==""?fmtNum(v.shots):"–"}\n`;
-      md+=`\n### Inspection / faults found\n\n${mdBlock(v.faults)}\n\n### Work done\n\n${mdBlock(v.work)}\n\n### Notes\n\n${mdBlock(v.notes)}\n\n### Parts used\n\n${partsMd(v)}\n\n### Service checklist\n\n`+mdChecklist(v.checklist,v.shots,"####")});
+      md+=`\n### Inspection / faults found\n\n${mdBlock(v.faults)}\n\n### Work done\n\n${mdBlock(v.work)}\n\n### Notes\n\n${mdBlock(v.notes)}\n\n### Parts used\n\n${partsMd(v)}\n`+mdProcs(setProcs(v),"###")});
   }else{
   md+=`\n## Inspection / faults found\n\n${mdBlock(l.faults)}\n`;
   md+=`\n## Work done\n\n${mdBlock(l.work)}\n`;
@@ -3450,7 +3522,7 @@ function workOrderMarkdown(l){
   }
   if(jobIds(l).length<2){
   md+=`\n## Parts used\n\n${partsMd(l)}\n`;
-  md+=`\n## Service checklist\n\n`+mdChecklist(l.checklist,l.shots);
+  md+=mdProcs(setProcs(l),"##");
   }
   md+=jobIds(l).length>1?`\n## Photos & files\n\nStored in this Google Drive folder, in a subfolder for each mould.\n`:`\n## Photos & files\n\nStored in this Google Drive folder.\n`;
   return md+`\n---\n_Backed up automatically by Mould Log on ${new Date().toLocaleString()}._\n`;
@@ -3711,7 +3783,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.14-34";
+const APP_VERSION="2026.10.14-35";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -3742,7 +3814,7 @@ function startData(){
   stopData();
   unsubs.push(db.collection("moulds").onSnapshot(s=>{moulds=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>mlabel(a).localeCompare(mlabel(b),undefined,{numeric:true,sensitivity:"base"}));loaded.m=true;renderAll();renderImportHint()},e=>{loaded.m=true;renderAll();dataError(e)}));
   unsubs.push(db.collection("logs").onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint()},e=>dataError(e)));
-  unsubs.push(db.collection("procedures").onSnapshot(s=>{procedures=s.docs.map(d=>({id:d.id,...d.data()}));renderProcLists();renderProc();renderList()},e=>dataError(e)));
+  unsubs.push(db.collection("procedures").onSnapshot(s=>{procedures=s.docs.map(d=>({id:d.id,...d.data()}));renderProcLists();renderProc();renderList();ensureServiceProc(!!(s.metadata&&s.metadata.fromCache))},e=>dataError(e)));
   unsubs.push(db.collection("hours").onSnapshot(s=>{hoursList=s.docs.map(d=>({id:d.id,...d.data()}));renderHours();renderFormHours()},e=>dataError(e)));
   unsubs.push(db.collection("todolists").onSnapshot(s=>{todoLists=s.docs.map(d=>({id:d.id,...d.data()}));renderTodo()},e=>dataError(e)));
   unsubs.push(db.doc("settings/drive").onSnapshot(s=>{
@@ -3793,9 +3865,9 @@ $("#import-file").addEventListener("change",async e=>{
   }catch(err){toast("That file couldn't be imported: "+((err&&err.message)||"not a Mould Log export"))}
 });
 $("#exportbtn").onclick=()=>{
-  const cols=["Work order","Client order no.","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Service checklist","To-do","Sub-jobs"];
+  const cols=["Work order","Client order no.","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Procedures","To-do","Sub-jobs"];
   const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.orderNo||"",l.status||"",l.date,l.dateCompleted,jobTool(l),kindTitle(m),isClient(m)?[m.company,m.contact,m.phone].filter(Boolean).join(" · "):(m.part||m.area),l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,partsCsv(l),l.checklist?ckSummary(l.checklist.state||{}):""];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),j("notes"),ids.map((id,i)=>{const v=partsCsv(pmVal(l,id));return v?n[i]+": "+v:""}).filter(Boolean).join(" | "),ids.map((id,i)=>{const c=pmVal(l,id).checklist;return c?n[i]+": "+ckSummary(c.state||{}):""}).filter(Boolean).join(" | ")]})(),(l.todos||[]).map(i=>(i.done?"[x] ":"[ ] ")+i.text).join(" | "),jobIds(l).map((id,i)=>{const sm=subMeta(l,id);return sm.no?`${subLabel(l,id)} ${jobNames(l)[i]}: ${sm.status}`:""}).filter(Boolean).join(" | ")].map(q).join(",")}));
+  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.orderNo||"",l.status||"",l.date,l.dateCompleted,jobTool(l),kindTitle(m),isClient(m)?[m.company,m.contact,m.phone].filter(Boolean).join(" · "):(m.part||m.area),l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,partsCsv(l),setProcs(l).map(sn=>sn.name+": "+procProgress(sn,sn.st||{}).txt).join("; ")];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),j("notes"),ids.map((id,i)=>{const v=partsCsv(pmVal(l,id));return v?n[i]+": "+v:""}).filter(Boolean).join(" | "),ids.map((id,i)=>{const c=setProcs(pmVal(l,id));return c.length?n[i]+": "+c.map(sn=>sn.name+" "+procProgress(sn,sn.st||{}).txt).join(", "):""}).filter(Boolean).join(" | ")]})(),(l.todos||[]).map(i=>(i.done?"[x] ":"[ ] ")+i.text).join(" | "),jobIds(l).map((id,i)=>{const sm=subMeta(l,id);return sm.no?`${subLabel(l,id)} ${jobNames(l)[i]}: ${sm.status}`:""}).filter(Boolean).join(" | ")].map(q).join(",")}));
   saveFile("mould-maintenance-"+today()+".csv",new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
 };
 $("#backupbtn").onclick=()=>{
