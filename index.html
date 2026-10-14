@@ -335,6 +335,13 @@ textarea.autogrow{resize:none;overflow:hidden}
 .lb button.lb-del{background:rgba(255,255,255,.14)}.lb button.lb-del.armed{background:#c0392b;color:#fff}
 .lb-body{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 16px 8px;overflow:hidden;touch-action:pinch-zoom}
 .lb-body img,.lb-body video{max-width:100%;max-height:100%;object-fit:contain}
+.lb-body img{transform-origin:center center;will-change:transform;user-select:none;-webkit-user-drag:none}
+.lb-body img.zoomed{cursor:grab}.lb-body img.grabbing{cursor:grabbing}
+@media (hover:hover) and (pointer:fine){.lb-body{cursor:zoom-out}.lb-body img{cursor:zoom-in}.lb-body img.zoomed{cursor:grab}.lb-body img.grabbing{cursor:grabbing}}
+.lb-body{position:relative}
+.lb .lb-zoom{position:absolute;right:16px;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:2;background:rgba(0,0,0,.7);font-family:var(--mono);font-size:13px}
+.lb .lb-zoom[hidden]{display:none}
+html.lbopen,html.lbopen body{overflow:hidden}
 .lb-body .doc{text-align:center;color:#c9d3da;max-width:320px}
 .lb-body .doc b{display:block;font-family:var(--mono);font-size:32px;color:#f2f5f7;margin-bottom:8px}
 .drive{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
@@ -982,6 +989,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <button type="button" id="lb-close">Close</button>
   </div>
   <div class="lb-body" id="lb-body"></div>
+  <button type="button" class="lb-zoom" id="lb-zoom" hidden title="Back to fit (double-click the photo)">100%</button>
   <div class="lb-foot" id="lb-foot" hidden>
     <button type="button" id="lb-prev">‹ Prev</button>
     <span id="lb-count"></span>
@@ -3640,10 +3648,10 @@ function sizedThumb(link,size){
   return link.includes("?")?link:link+"=s"+size;
 }
 function viewerSize(){return Math.min(2400,Math.round(Math.max(screen.width||1200,screen.height||800)*(window.devicePixelRatio||1)))}
-function openViewer(list,i){lbList=list.slice();lbIdx=i;$("#lb").hidden=false;try{history.pushState({ml:"viewer"},"")}catch(e){}renderViewer();$("#lb-close").focus()}
+function openViewer(list,i){lbList=list.slice();lbIdx=i;$("#lb").hidden=false;document.documentElement.classList.add("lbopen");try{history.pushState({ml:"viewer"},"")}catch(e){}renderViewer();$("#lb-close").focus()}
 function closeViewer(fromBack){
   if($("#lb").hidden)return;
-  $("#lb").hidden=true;$("#lb-body").innerHTML="";lbBlob=null;
+  $("#lb").hidden=true;$("#lb-body").innerHTML="";lbBlob=null;lbZoomReset();document.documentElement.classList.remove("lbopen");
   // Closed with a button or swipe: remove the viewer's history entry too
   if(fromBack!==true){try{if(history.state&&history.state.ml==="viewer"){skipPop++;history.back()}}catch(e){}}
 }
@@ -3663,7 +3671,7 @@ async function showFull(f,body){
   try{const blob=await getFull(f);if(!lbList[lbIdx]||lbList[lbIdx].id!==want)return;
     lbBlob=blob;lbFull=true;
     body.innerHTML=String(f.mimeType).startsWith("video/")?`<video src="${fullCache.get(f.id)}" controls playsinline></video>`:`<img src="${fullCache.get(f.id)}" alt="${esc(f.name)}">`;
-    $("#lb-full").hidden=true;
+    $("#lb-full").hidden=true;lbApplyZoom();
   }catch(e){if(lbList[lbIdx]&&lbList[lbIdx].id===want)body.innerHTML=`<div class="doc">${e.code==="needs_token"||e.code==="needs_scope"?"Reconnect Google Drive to view this photo.":esc(e.message||"Couldn't load this file.")}</div>`}
   finally{$("#lb-full").disabled=false;$("#lb-full").textContent="Full size"}
 }
@@ -3674,7 +3682,7 @@ function renderViewer(){
   const open=$("#lb-open");open.hidden=!f.webViewLink;open.href=f.webViewLink||"#";open.textContent=window.innerWidth<600?"Drive ↗":"Open in Drive";
   $("#lb-save").hidden=false;
   $("#lb-foot").hidden=lbList.length<2;$("#lb-count").textContent=`${lbIdx+1} of ${lbList.length}`;
-  const body=$("#lb-body");lbBlob=blobCache.get(f.id)||null;lbFull=false;
+  const body=$("#lb-body");lbBlob=blobCache.get(f.id)||null;lbFull=false;lbZoomReset();
   const isImg=String(f.mimeType).startsWith("image/");
   if(fullCache.has(f.id)){showFull(f,body);preloadAround();return}
   if(isImg&&f.thumbnailLink){
@@ -3726,6 +3734,38 @@ $("#lb-close").onclick=()=>closeViewer();
   },{passive:true});
   body.addEventListener("touchcancel",()=>{tracking=false;setT(0,0,true)},{passive:true});
 })();
+// ---- Mouse: scroll wheel zooms (around the pointer), drag pans when zoomed, double-click zooms in / back,
+// clicking the dark area around the photo closes the viewer ----
+let lbZ=1,lbTX=0,lbTY=0,lbDrag=null,lbDragged=false,lbFullAsked=false,lbTouchAt=0;
+$("#lb").addEventListener("touchstart",()=>{lbTouchAt=Date.now()},{passive:true});
+const lbByTouch=()=>Date.now()-lbTouchAt<1000; // phones keep their own pinch-zoom and swipes
+const lbImg=()=>$("#lb-body").querySelector("img");
+function lbClamp(){const im=lbImg(),b=$("#lb-body");if(!im)return;
+  const mx=Math.max(0,(im.offsetWidth*lbZ-b.clientWidth)/2+40),my=Math.max(0,(im.offsetHeight*lbZ-b.clientHeight)/2+40);
+  lbTX=Math.max(-mx,Math.min(mx,lbTX));lbTY=Math.max(-my,Math.min(my,lbTY))}
+function lbApplyZoom(){const im=lbImg();if(!im)return;
+  im.style.transition=lbDrag?"none":"transform .08s ease-out";
+  im.style.transform=lbZ===1?"":`translate(${lbTX}px,${lbTY}px) scale(${lbZ})`;
+  im.classList.toggle("zoomed",lbZ>1);$("#lb-zoom").hidden=lbZ===1;$("#lb-zoom").textContent=Math.round(lbZ*100)+"%";
+  // zoomed in on Drive's screen-sized copy: fetch the full-resolution original
+  const f=lbList[lbIdx];if(lbZ>1.4&&!lbFull&&!lbFullAsked&&f&&String(f.mimeType).startsWith("image/")){lbFullAsked=true;showFull(f,$("#lb-body"))}}
+function lbZoomReset(){lbZ=1;lbTX=0;lbTY=0;lbDrag=null;lbFullAsked=false;const im=lbImg();if(im)im.style.transform="";$("#lb-zoom").hidden=true}
+function lbZoomAt(z2,px,py){const im=lbImg();if(!im)return;z2=Math.max(1,Math.min(8,z2));
+  const r=im.getBoundingClientRect(),cx=r.left+r.width/2-lbTX,cy=r.top+r.height/2-lbTY; // untransformed centre
+  if(z2===1){lbTX=0;lbTY=0}else{lbTX=px-cx-z2*(px-cx-lbTX)/lbZ;lbTY=py-cy-z2*(py-cy-lbTY)/lbZ}
+  lbZ=z2;lbClamp();lbApplyZoom()}
+$("#lb").addEventListener("wheel",e=>{e.preventDefault();if(!lbImg())return;
+  const step=Math.exp(-Math.sign(e.deltaY)*Math.min(Math.abs(e.deltaY),100)/300);lbZoomAt(lbZ*step,e.clientX,e.clientY)},{passive:false});
+$("#lb-body").addEventListener("mousedown",e=>{if(e.button!==0||lbByTouch())return;lbDragged=false;
+  if(lbZ>1&&e.target.tagName==="IMG"){e.preventDefault();lbDrag={x:e.clientX,y:e.clientY,tx:lbTX,ty:lbTY};lbImg().classList.add("grabbing")}});
+window.addEventListener("mousemove",e=>{if(!lbDrag)return;const dx=e.clientX-lbDrag.x,dy=e.clientY-lbDrag.y;if(Math.abs(dx)+Math.abs(dy)>3)lbDragged=true;
+  lbTX=lbDrag.tx+dx;lbTY=lbDrag.ty+dy;lbClamp();lbApplyZoom()});
+window.addEventListener("mouseup",()=>{if(!lbDrag)return;lbDrag=null;const im=lbImg();if(im)im.classList.remove("grabbing")});
+$("#lb-body").addEventListener("dragstart",e=>e.preventDefault());
+$("#lb-body").addEventListener("dblclick",e=>{if(e.target.tagName!=="IMG"||lbByTouch())return;e.preventDefault();lbZoomAt(lbZ>1?1:2.5,e.clientX,e.clientY)});
+$("#lb-body").addEventListener("click",e=>{if(lbDragged){lbDragged=false;return}
+  if(e.target===$("#lb-body"))closeViewer()}); // the dark area around the photo
+$("#lb-zoom").onclick=()=>{lbZoomReset()};
 $("#lb-prev").onclick=()=>{lbIdx=(lbIdx-1+lbList.length)%lbList.length;renderViewer()};
 $("#lb-next").onclick=()=>{lbIdx=(lbIdx+1)%lbList.length;renderViewer()};
 document.addEventListener("keydown",e=>{if($("#lb").hidden)return;if(e.key==="Escape")closeViewer();else if(e.key==="ArrowLeft"&&lbList.length>1)$("#lb-prev").click();else if(e.key==="ArrowRight"&&lbList.length>1)$("#lb-next").click()});
@@ -3827,7 +3867,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-38";
+const APP_VERSION="2026.10.15-39";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
