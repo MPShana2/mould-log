@@ -193,6 +193,24 @@ textarea.autogrow{resize:none;overflow:hidden}
 .attbtns label:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #logform.dropping{outline:2px dashed var(--accent);outline-offset:6px;border-radius:var(--r)}
 .vh{position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;overflow:hidden;clip-path:inset(50%);pointer-events:none}
+.thumb{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.thumb .tick{display:none}
+.attgrid.selecting .thumb .tick{display:block;position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.35);box-shadow:0 1px 3px rgba(0,0,0,.4);z-index:1}
+.attgrid.selecting .thumb.picked{outline:3px solid var(--accent);outline-offset:-3px}
+.attgrid.selecting .thumb.picked img{transform:scale(.9);border-radius:6px}
+.thumb img{transition:transform .12s ease}
+.attgrid.selecting .thumb.picked .tick{background:var(--accent);border-color:var(--accent)}
+.attgrid.selecting .thumb.picked .tick::after{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;border:solid #111;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+.selgo{display:block;margin:0 0 8px auto;font-size:13px}
+.selbar{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--hdr-h,63px) + 40px);z-index:3;display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:var(--steel);color:var(--bg);border-radius:12px;padding:6px 8px;margin:0 0 10px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.selbar .seln{flex:1;font-weight:700;font-size:14px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:400px){.selbar .selw{display:none}}
+.selbar button{font:inherit;font-size:13px;font-weight:600;background:rgba(127,127,127,.22);color:inherit;border:0;border-radius:999px;padding:7px 10px;cursor:pointer;white-space:nowrap}
+.selbar button:disabled{opacity:.45;cursor:default}
+.selbar button.ready{background:var(--accent);color:var(--accent-ink)}
+.selbar .selx{width:32px;height:32px;padding:0;font-size:15px}
+.selbar .seldel.armed{background:#c0392b;color:#fff}
+.lb button.ready{background:var(--accent);color:#111}
 .attgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
 .attgrid:empty{display:none}
 .thumb{position:relative;width:100%;aspect-ratio:1;max-width:100%;border-radius:8px;overflow:hidden;background:var(--sunk);border:1px solid var(--line);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;font:inherit;color:var(--muted)}
@@ -264,6 +282,7 @@ textarea.autogrow{resize:none;overflow:hidden}
 .lb{position:fixed;inset:0;z-index:20;background:rgba(8,12,16,.95);color:#f2f5f7;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 .lb-bar,.lb-foot{display:flex;align-items:center;gap:8px;padding:10px 16px}
 .lb-foot{justify-content:center}
+@media (max-width:600px){.lb .lb-bar{flex-wrap:wrap;row-gap:8px;justify-content:flex-end}.lb .lb-bar .nm{flex:1 0 100%;order:-1;font-size:14px}.lb .lb-bar{gap:6px;padding:10px 12px}.lb .lb-bar button,.lb .lb-bar a{padding:7px 11px;font-size:13.5px}}
 .lb-bar .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .lb button,.lb a{font:inherit;font-size:14px;color:#f2f5f7;background:rgba(255,255,255,.14);border:0;border-radius:999px;padding:8px 14px;cursor:pointer;text-decoration:none}
 .lb button.lb-del{background:rgba(255,255,255,.14)}.lb button.lb-del.armed{background:#c0392b;color:#fff}
@@ -859,6 +878,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <a id="lb-open" href="#" target="_blank" rel="noopener" hidden>Open</a>
     <button type="button" id="lb-full" hidden>Full size</button>
     <button type="button" id="lb-del" class="lb-del">Delete</button>
+    <button type="button" id="lb-share">Share</button>
     <button type="button" id="lb-save" hidden>Save</button>
     <button type="button" id="lb-close">Close</button>
   </div>
@@ -2355,7 +2375,8 @@ function driveBody(t){
   const items=st.items||[];
   const imgs=items.map((f,i)=>({f,i})).filter(x=>String(x.f.mimeType).startsWith("image/"));
   const others=items.map((f,i)=>({f,i})).filter(x=>!String(x.f.mimeType).startsWith("image/"));
-  const grid=imgs.length?`<div class="attgrid">${imgs.map(({f,i})=>`<button type="button" class="thumb" data-dview="${esc(num)}|${i}" aria-label="View ${esc(f.name)}">${f.thumbnailLink?`<img class="dthumb" src="${esc(sizedThumb(f.thumbnailLink,400))}" referrerpolicy="no-referrer" alt="" loading="lazy">`:""}<span class="ext"${f.thumbnailLink?" hidden":""}>IMG</span></button>`).join("")}</div>`:"";
+  const selOn=sel.key===num;
+  const grid=imgs.length?`<div class="attgrid${selOn?" selecting":""}">${imgs.map(({f,i})=>`<button type="button" class="thumb${selOn&&sel.ids.has(f.id)?" picked":""}" data-dview="${esc(num)}|${i}" aria-label="${selOn?(sel.ids.has(f.id)?"Unselect ":"Select "):"View "}${esc(f.name)}"${selOn?` aria-pressed="${sel.ids.has(f.id)}"`:""}><span class="tick" aria-hidden="true"></span>${f.thumbnailLink?`<img class="dthumb" src="${esc(sizedThumb(f.thumbnailLink,400))}" referrerpolicy="no-referrer" alt="" loading="lazy" draggable="false">`:""}<span class="ext"${f.thumbnailLink?" hidden":""}>IMG</span></button>`).join("")}</div>`:"";
   const rows=others.map(({f,i})=>{
     const isDir=f.mimeType===FOLDER_MT;
     const meta=isDir?"Folder":[fmtSize(f.size),f.modifiedTime?fmtDate(String(f.modifiedTime).slice(0,10)):""].filter(Boolean).join(" · ");
@@ -2364,7 +2385,7 @@ function driveBody(t){
       :`<a class="drow" href="${esc(f.webViewLink||"#")}" target="_blank" rel="noopener">${inner}</a>`;
   }).join("");
   return `<div class="dhead"><span class="small">${crumbs}<b>${esc(cur.name)}</b></span><a class="small" href="${esc(cur.url||("https://drive.google.com/drive/folders/"+cur.id))}" target="_blank" rel="noopener">Open in Drive ↗</a></div>`+
-    (items.length?grid+(rows?`<div class="dlist">${rows}</div>`:""):`<div class="small">This folder is empty.</div>`)+
+    (items.length?(imgs.length?selBar(num,imgs.map(x=>x.f)):"")+grid+(rows?`<div class="dlist">${rows}</div>`:""):`<div class="small">This folder is empty.</div>`)+
     (st.next?`<button type="button" class="btn ghost" style="margin-top:8px" data-dmore="${esc(num)}"${st.loadingMore?" disabled":""}>${st.loadingMore?"Loading…":"Load more"}</button>`:"");
 }
 function drivePanelFor(t){
@@ -3154,8 +3175,9 @@ async function showFull(f,body){
 }
 function renderViewer(){
   const f=lbList[lbIdx];if(!f)return closeViewer();resetDel();
+  {const sb=$("#lb-share");sb.disabled=false;sb.textContent="Share";sb.classList.remove("ready")}
   {const tk=fileTaken(f),d=tk&&new Date(tk);$("#lb-name").textContent=f.name+(d&&!isNaN(d)?" · "+d.toLocaleString(undefined,{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"}):"")}
-  const open=$("#lb-open");open.hidden=!f.webViewLink;open.href=f.webViewLink||"#";open.textContent="Open in Drive";
+  const open=$("#lb-open");open.hidden=!f.webViewLink;open.href=f.webViewLink||"#";open.textContent=window.innerWidth<600?"Drive ↗":"Open in Drive";
   $("#lb-save").hidden=false;
   $("#lb-foot").hidden=lbList.length<2;$("#lb-count").textContent=`${lbIdx+1} of ${lbList.length}`;
   const body=$("#lb-body");lbBlob=blobCache.get(f.id)||null;lbFull=false;
@@ -3218,6 +3240,86 @@ $("#lb-save").onclick=async()=>{const f=lbList[lbIdx];if(!f)return;
   try{saveFile(f.name,lbBlob||await getFull(f))}catch(e){toast(e.code==="needs_token"?"Reconnect Google Drive to save this photo":"Couldn't save this file")}
   finally{btn.disabled=false;btn.textContent="Save"}};
 
+// ---- Sharing photos (phone share sheet: messages, email, WhatsApp, contacts…) ----
+// Photos are downloaded from Drive first. The share sheet has to open straight from a tap, so if the
+// download takes too long the button turns into "Tap to share" and the next tap opens it instantly.
+let sharePrep=null; // {key, files:[File]}
+async function shareDriveFiles(list,btn,label){
+  const key=list.map(f=>f.id).join(",");
+  const done=()=>{if(btn){btn.disabled=false;btn.textContent=label||"Share"}};
+  const linksOnly=async()=>{const text=list.map(f=>`${f.name}: ${f.webViewLink||""}`).join("\n");
+    try{if(navigator.share){await navigator.share({title:list.length===1?list[0].name:`${list.length} photos`,text});return}}catch(e){if(e&&e.name==="AbortError")return}
+    try{await navigator.clipboard.writeText(text);toast("Drive links copied. Paste them into a message or email.")}catch(e){toast("Sharing isn't available in this browser")}};
+  try{
+    if(!(sharePrep&&sharePrep.key===key)){
+      if(!navigator.share||!navigator.canShare){await linksOnly();return}
+      const files=[];
+      for(let i=0;i<list.length;i++){const f=list[i];
+        if(btn){btn.disabled=true;btn.textContent=list.length>1?`Preparing ${i+1} of ${list.length}…`:"Preparing…"}
+        const b=await getFull(f);files.push(new File([b],f.name||"photo.jpg",{type:b.type&&b.type!=="application/octet-stream"?b.type:(f.mimeType||"image/jpeg")}))}
+      if(!navigator.canShare({files})){done();await linksOnly();return}
+      sharePrep={key,files};
+    }
+    try{await navigator.share({files:sharePrep.files});sharePrep=null;done()}
+    catch(e){
+      if(e&&e.name==="AbortError"){done();return}
+      if(e&&e.name==="NotAllowedError"){if(btn){btn.disabled=false;btn.textContent="Tap to share";btn.classList.add("ready")}return}
+      throw e;
+    }
+  }catch(e){done();toast(e&&(e.code==="needs_token"||e.code==="needs_scope")?"Reconnect Google Drive, then try again":"Couldn't share: "+((e&&e.message)||"unknown error"))}
+}
+$("#lb-share").onclick=()=>{const f=lbList[lbIdx];if(f)shareDriveFiles([f],$("#lb-share"))};
+
+// ---- Selecting several photos: long-press a photo (or tap Select), then tap more ----
+let sel={key:null,ids:new Set()},selDelArmed=false,lpTimer=null,lpFired=false,lpStart=null;
+const selItems=()=>{const st=sel.key&&driveState[sel.key];return st&&st.items?st.items.filter(f=>sel.ids.has(f.id)):[]};
+function selStart(key,id){sel={key,ids:new Set(id?[id]:[])};selDelArmed=false;sharePrep=null;renderAttViews();if(navigator.vibrate)try{navigator.vibrate(25)}catch(e){}}
+function selEnd(){if(!sel.key)return;sel={key:null,ids:new Set()};selDelArmed=false;sharePrep=null;renderAttViews()}
+function selToggle(id){if(sel.ids.has(id))sel.ids.delete(id);else sel.ids.add(id);selDelArmed=false;sharePrep=null;
+  if(!sel.ids.size){selEnd();return}renderAttViews()}
+function selBar(num,imgs){
+  if(sel.key!==num)return imgs.length>1?`<button type="button" class="linkish selgo" data-selstart="${esc(num)}">Select</button>`:"";
+  const n=sel.ids.size;
+  return `<div class="selbar" role="toolbar" aria-label="Selected photos"><button type="button" class="selx" data-selx="1" aria-label="Cancel selection">✕</button><span class="seln">${n}<span class="selw"> selected</span></span>`+
+    `<button type="button" data-selall="${esc(num)}">${n===imgs.length?"None":"All"}</button>`+
+    `<button type="button" data-selshare="1"${n?"":" disabled"}>Share</button><button type="button" data-selsave="1"${n?"":" disabled"}>Save</button>`+
+    `<button type="button" class="seldel${selDelArmed?" armed":""}" data-seldel="1"${n?"":" disabled"}>${selDelArmed?`Delete ${n}?`:"Delete"}</button></div>`;
+}
+// Long-press detection on photo tiles (touch and mouse)
+document.addEventListener("pointerdown",e=>{const t=e.target.closest(".thumb[data-dview]");if(!t||e.button>0)return;
+  lpFired=false;lpStart={x:e.clientX,y:e.clientY};clearTimeout(lpTimer);
+  lpTimer=setTimeout(()=>{const[num,i]=t.dataset.dview.split("|");const st=driveState[num];const f=st&&st.items[+i];if(!f)return;
+    lpFired=true;if(sel.key===num)selToggle(f.id);else selStart(num,f.id)},480)});
+document.addEventListener("pointermove",e=>{if(lpStart&&Math.hypot(e.clientX-lpStart.x,e.clientY-lpStart.y)>10){clearTimeout(lpTimer);lpStart=null}});
+["pointerup","pointercancel"].forEach(ev=>document.addEventListener(ev,()=>{clearTimeout(lpTimer);lpStart=null}));
+document.addEventListener("contextmenu",e=>{if(e.target.closest(".thumb[data-dview]"))e.preventDefault()});
+// Taps: while selecting, a tap on a photo ticks it instead of opening the viewer
+document.addEventListener("click",async e=>{
+  const th=e.target.closest(".thumb[data-dview]");
+  if(th&&(lpFired||sel.key)){e.preventDefault();e.stopImmediatePropagation();
+    if(lpFired){lpFired=false;return}
+    const[num,i]=th.dataset.dview.split("|");const st=driveState[num];const f=st&&st.items[+i];if(!f)return;
+    if(sel.key!==num)selStart(num,f.id);else selToggle(f.id);return}
+  const t=e.target;
+  if(t.closest("[data-selstart]")){selStart(t.closest("[data-selstart]").dataset.selstart);return}
+  if(t.closest("[data-selx]")){selEnd();return}
+  const all=t.closest("[data-selall]");if(all){const st=driveState[sel.key];const imgs=(st&&st.items||[]).filter(f=>String(f.mimeType).startsWith("image/"));
+    sel.ids=sel.ids.size===imgs.length?new Set():new Set(imgs.map(f=>f.id));selDelArmed=false;sharePrep=null;renderAttViews();return}
+  const sh=t.closest("[data-selshare]");if(sh){const list=selItems();if(list.length>30){toast("Share up to 30 photos at a time");return}shareDriveFiles(list,sh);return}
+  const sv=t.closest("[data-selsave]");if(sv){const list=selItems();sv.disabled=true;
+    try{for(let i=0;i<list.length;i++){sv.textContent=`Saving ${i+1} of ${list.length}…`;saveFile(list[i].name,await getFull(list[i]));await new Promise(r=>setTimeout(r,350))}toast(`Saved ${list.length} photo${list.length===1?"":"s"}`)}
+    catch(err){toast(err&&err.code==="needs_token"?"Reconnect Google Drive, then try again":"Couldn't save every photo")}
+    sv.disabled=false;sv.textContent="Save";return}
+  const dl=t.closest("[data-seldel]");if(dl){
+    if(!selDelArmed){selDelArmed=true;renderAttViews();setTimeout(()=>{if(selDelArmed){selDelArmed=false;renderAttViews()}},4000);return}
+    const list=selItems(),key=sel.key;dl.disabled=true;dl.textContent="Deleting…";let n=0;
+    try{for(const f of list){await driveFetch(DAPI+"files/"+encodeURIComponent(f.id)+"?supportsAllDrives=true",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({trashed:true})});n++;
+        const st=driveState[key];if(st&&st.items)st.items=st.items.filter(x=>x.id!==f.id)}}
+    catch(err){toast(err&&err.code==="needs_token"?"Reconnect Google Drive, then try again":"Couldn't delete every photo")}
+    selEnd();if(n)toast(`Deleted ${n} photo${n===1?"":"s"}. Restore from the Bin in Google Drive if needed.`);return}
+},true);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&sel.key&&$("#lb").hidden)selEnd()});
+
 // Settings: which Drive folder holds the work order folders
 function parseFolderId(s){s=String(s||"").trim();const m=s.match(/folders\/([A-Za-z0-9_-]{10,})/)||s.match(/[?&]id=([A-Za-z0-9_-]{10,})/);if(m)return m[1];return /^[A-Za-z0-9_-]{10,}$/.test(s)?s:""}
 function renderDriveSettings(){
@@ -3231,7 +3333,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.14-28";
+const APP_VERSION="2026.10.14-29";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
