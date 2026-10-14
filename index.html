@@ -2081,7 +2081,7 @@ async function driveFetch(url,opts={}){
   return res;
 }
 async function dList(q,pageToken){
-  const p=new URLSearchParams({q,pageSize:"100",fields:"nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,thumbnailLink)",orderBy:"folder,name",supportsAllDrives:"true",includeItemsFromAllDrives:"true"});
+  const p=new URLSearchParams({q,pageSize:"100",fields:"nextPageToken,files(id,name,mimeType,size,modifiedTime,createdTime,webViewLink,thumbnailLink,imageMediaMetadata(time))",orderBy:"folder,name",supportsAllDrives:"true",includeItemsFromAllDrives:"true"});
   if(pageToken)p.set("pageToken",pageToken);
   return (await driveFetch(DAPI+"files?"+p)).json();
 }
@@ -2300,6 +2300,21 @@ setInterval(()=>{if(queueCache.length)processQueue()},60000);
 
 // ---- Drive folder browsing ----
 const driveState={}; // per work order number: {status, stack:[{id,name,url}], items, next, err, label}
+// When a photo or file was taken: the camera date Google Drive reads from the photo, else a date in the
+// file name (PXL_20261003_101010.jpg, IMG-20261003-WA0001.jpg, Screenshot_2026-10-03…), else when it reached Drive
+function fileTaken(f){
+  const t=f&&f.imageMediaMetadata&&f.imageMediaMetadata.time;
+  const m=t&&String(t).match(/^(\d{4})[:-](\d{2})[:-](\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+  if(m&&m[1]>"1990")return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`;
+  const n=String(f&&f.name||"").match(/(20\d{2})[-_]?([01]\d)[-_]?([0-3]\d)(?:[-_ ]?([0-2]\d)[-_.]?([0-5]\d)[-_.]?([0-5]\d))?/);
+  if(n&&+n[2]>=1&&+n[2]<=12&&+n[3]>=1&&+n[3]<=31)return `${n[1]}-${n[2]}-${n[3]}T${n[4]||"00"}:${n[5]||"00"}:${n[6]||"00"}`;
+  const c=f&&(f.createdTime||f.modifiedTime),d=c&&new Date(c);
+  return d&&!isNaN(d)?new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,19):"";
+}
+// Folders first (by name), then newest first
+function sortDriveItems(list){return list.slice().sort((a,b)=>{const fa=a.mimeType===FOLDER_MT,fb=b.mimeType===FOLDER_MT;
+  if(fa!==fb)return fa?-1:1;if(fa)return String(a.name).localeCompare(String(b.name),undefined,{numeric:true});
+  return fileTaken(b).localeCompare(fileTaken(a))||String(a.name).localeCompare(String(b.name),undefined,{numeric:true})})}
 async function driveLoad(key,more){
   const st=driveState[key]||(driveState[key]={stack:[]});
   if(!driveRoot)return;
@@ -2313,8 +2328,10 @@ async function driveLoad(key,more){
       st.stack=[{id:f.id,name:f.name,url:f.webViewLink}];
     }
     const cur=st.stack[st.stack.length-1];
-    const p=await dList(`'${dq(cur.id)}' in parents and trashed=false`,more?st.next:undefined);
-    st.items=more?[...(st.items||[]),...(p.files||[])]:(p.files||[]);
+    // load up to 5 pages at once so the newest-first order covers the whole folder
+    let p=await dList(`'${dq(cur.id)}' in parents and trashed=false`,more?st.next:undefined),got=[...(p.files||[])],pages=1;
+    while(p.nextPageToken&&pages<5){p=await dList(`'${dq(cur.id)}' in parents and trashed=false`,p.nextPageToken);got=got.concat(p.files||[]);pages++}
+    st.items=sortDriveItems(more?[...(st.items||[]),...got]:got);
     st.next=p.nextPageToken||null;st.status="ready";
   }catch(err){st.status=err&&(err.code==="needs_token"||err.code==="needs_scope")?err.code:"error";st.err=err}
   st.loadingMore=false;renderAttViews();
@@ -2626,7 +2643,7 @@ function reportModel(l,onlyId){
 async function rptDriveFiles(l,onlyId,withPhotos,progress){
   const num=woNum(l.wo);if(!num||!hasToken())return null;
   const folder=await findWoFolder(num);if(!folder)return {groups:[],files:[],skipped:0};
-  const listAll=async id=>{let out=[],tok;do{const r=await dList(`'${dq(id)}' in parents and trashed=false`,tok);out=out.concat(r.files||[]);tok=r.nextPageToken}while(tok);return out};
+  const listAll=async id=>{let out=[],tok;do{const r=await dList(`'${dq(id)}' in parents and trashed=false`,tok);out=out.concat(r.files||[]);tok=r.nextPageToken}while(tok);return sortDriveItems(out)};
   const tabs=tabIdsFor(l.mouldId,l.extraMouldIds),root=await listAll(folder.id);
   const subTitle=name=>{const id=tabs.find(x=>subName(x)===name);return id?`${subLabel(l,id)}  ${jobNames(l)[jobIds(l).indexOf(id)]||name}`:name};
   let sets=[];
@@ -3137,7 +3154,7 @@ async function showFull(f,body){
 }
 function renderViewer(){
   const f=lbList[lbIdx];if(!f)return closeViewer();resetDel();
-  $("#lb-name").textContent=f.name;
+  {const tk=fileTaken(f),d=tk&&new Date(tk);$("#lb-name").textContent=f.name+(d&&!isNaN(d)?" · "+d.toLocaleString(undefined,{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"}):"")}
   const open=$("#lb-open");open.hidden=!f.webViewLink;open.href=f.webViewLink||"#";open.textContent="Open in Drive";
   $("#lb-save").hidden=false;
   $("#lb-foot").hidden=lbList.length<2;$("#lb-count").textContent=`${lbIdx+1} of ${lbList.length}`;
@@ -3214,7 +3231,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.14-27";
+const APP_VERSION="2026.10.14-28";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
