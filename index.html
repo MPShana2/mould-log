@@ -885,6 +885,9 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <form class="panel" id="mouldedit" hidden autocomplete="off">
       <h2 style="font-size:17px">Edit details</h2>
       <div class="field"><label class="label" for="e-name">Name</label><input id="e-name" required></div>
+      <div class="field"><span class="label">Category</span>
+        <div class="seg" id="e-kind" role="group" aria-label="Category"><button type="button" data-v="mould" aria-pressed="true">Mould</button><button type="button" data-v="generic" aria-pressed="false">General job</button><button type="button" data-v="client" aria-pressed="false">Client work</button></div>
+        <div class="hint" id="e-kindhint" hidden></div></div>
       <div class="stackcol" id="e-mouldfields">
         <div class="field"><label class="label" for="e-part">Part / product</label><input id="e-part" placeholder="e.g. 38mm flip-top cap"></div>
         <div class="grid2">
@@ -1771,11 +1774,31 @@ $("#histhead").addEventListener("click",e=>{if(e.target.closest("#meditbtn"))ope
 function openMouldEdit(){
   const m=moulds.find(x=>x.id===current);if(!m)return;const gen=isGen(m);
   $("#e-name").value=mlabel(m);$("#e-part").value=m.part||"";$("#e-cav").value=m.cavities||"";$("#e-mat").value=m.material||"";$("#e-comp").value=m.company||"";$("#complist").innerHTML=companies().map(c=>`<option value="${esc(c)}">`).join("");$("#e-area").value=m.area||"";
-  const cli=isClient(m);$("#e-mouldfields").hidden=gen;$("#e-genfields").hidden=!gen||cli;$("#e-clifields").hidden=!cli;
+  segSet("#e-kind",kindOf(m));editKindFields();
   $("#e-ccomp").value=m.company||"";$("#e-ccontact").value=m.contact||"";$("#e-cphone").value=m.phone||"";$("#e-cemail").value=m.email||"";$("#e-caddr").value=m.address||"";setTimeout(growAll,0);
   resetMouldDel();
   $("#mouldedit").hidden=false;$("#e-name").focus();
 }
+// Category: changing it keeps the history, work orders, photos, hours and procedures; only labels and fields change
+const kindOf=m=>isClient(m)?"client":isGen(m)?"generic":"mould";
+const KIND_NAME={mould:"mould",generic:"general job",client:"client work"};
+// Work orders where this one is the main job and other moulds are added: a mould as the main job is a sub-job
+// itself, a general or client job isn't, so those work orders are re-arranged when crossing that line
+const kindAffected=id=>logs.filter(l=>l.mouldId===id&&(l.extraMouldIds||[]).length);
+function editKindFields(){
+  const m=moulds.find(x=>x.id===current);if(!m)return;const k=segVal("#e-kind")||kindOf(m);
+  // carry the company across between the mould and client fields
+  if(k==="client"&&!$("#e-ccomp").value)$("#e-ccomp").value=$("#e-comp").value;
+  if(k==="mould"&&!$("#e-comp").value)$("#e-comp").value=$("#e-ccomp").value;
+  $("#e-mouldfields").hidden=k!=="mould";$("#e-genfields").hidden=k!=="generic";$("#e-clifields").hidden=k!=="client";
+  const was=kindOf(m),h=$("#e-kindhint");
+  if(k===was){h.hidden=true;h.textContent=""}
+  else{const n=(was==="mould")!==(k==="mould")?kindAffected(m.id).length:0;
+    h.hidden=false;const an=x=>(x==="client"?"":"a ")+KIND_NAME[x];h.textContent=`Changes it from ${an(was)} to ${an(k)} when you save. Its history, work orders, photos, hours and procedures stay as they are.`+
+      (n?` ${n} work order${n===1?" has":"s have"} other moulds added to this one; ${k==="mould"?"it becomes a numbered sub-job on "+(n===1?"it":"them"):"it stops being a sub-job on "+(n===1?"it":"them")+" and goes back to the main work order"}.`:"")}
+  setTimeout(growAll,0);
+}
+segBind("#e-kind");$("#e-kind").addEventListener("click",()=>setTimeout(editKindFields,0));
 let mdelArmed=false;
 function resetMouldDel(){
   const m=moulds.find(x=>x.id===current);if(!m)return;const kind=kindName(m);
@@ -1799,8 +1822,15 @@ $("#mouldedit").addEventListener("submit",async e=>{
   const m=moulds.find(x=>x.id===current);if(!m)return;
   const name=$("#e-name").value.trim();if(!name){toast("Enter a name");return}
   if(moulds.some(x=>x.id!==m.id&&mlabel(x).toLowerCase()===name.toLowerCase())){toast(name+" is already used by another mould or job");return}
-  const patch=isClient(m)?{name,company:$("#e-ccomp").value.trim(),contact:$("#e-ccontact").value.trim(),phone:$("#e-cphone").value.trim(),email:$("#e-cemail").value.trim(),address:$("#e-caddr").value.trim()}:isGen(m)?{name,area:$("#e-area").value.trim()}:{name,part:$("#e-part").value.trim(),cavities:$("#e-cav").value.trim(),material:$("#e-mat").value.trim(),company:$("#e-comp").value.trim()};
-  try{await db.collection("moulds").doc(m.id).update({...patch,updatedAt:new Date().toISOString()});$("#mouldedit").hidden=true;toast("Details saved")}
+  const k=segVal("#e-kind")||kindOf(m),was=kindOf(m);
+  const patch=k==="client"?{name,company:$("#e-ccomp").value.trim(),contact:$("#e-ccontact").value.trim(),phone:$("#e-cphone").value.trim(),email:$("#e-cemail").value.trim(),address:$("#e-caddr").value.trim()}:k==="generic"?{name,area:$("#e-area").value.trim()}:{name,part:$("#e-part").value.trim(),cavities:$("#e-cav").value.trim(),material:$("#e-mat").value.trim(),company:$("#e-comp").value.trim()};
+  patch.kind=k==="mould"?"":k;
+  try{await db.collection("moulds").doc(m.id).update({...patch,updatedAt:new Date().toISOString()});
+    // a main job turning into a mould becomes a sub-job on work orders with other moulds: give it the next number
+    if(was!=="mould"&&k==="mould"){for(const l of kindAffected(m.id)){if(l.subs&&l.subs[m.id]&&l.subs[m.id].no)continue;
+      const nx=Math.max(0,...Object.values(l.subs||{}).map(x=>x&&x.no||0))+1;
+      try{await db.collection("logs").doc(l.id).update({subs:{...(l.subs||{}),[m.id]:{no:nx,status:l.status||"Pending",date:l.date||"",dateCompleted:l.dateCompleted||""}},updatedAt:new Date().toISOString()})}catch(e){}}}
+    $("#mouldedit").hidden=true;toast(k===was?"Details saved":`Changed to ${KIND_NAME[k]}`)}
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 function renderHist(){
@@ -3681,7 +3711,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.14-33";
+const APP_VERSION="2026.10.14-34";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
