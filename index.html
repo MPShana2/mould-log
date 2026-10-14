@@ -354,8 +354,8 @@ details.ck>summary span:first-child{flex:1}
 #mouldedit [hidden]{display:none!important}
 .mdel{border-top:1px solid var(--line);margin-top:18px;padding-top:14px}
 .mdel p{margin:0 0 10px}
-.btn.danger{color:var(--bad);border-color:var(--bad)}
-.btn.danger.armed{background:var(--bad);color:#fff}
+.btn.ghost.danger{background:transparent;color:var(--bad);border-color:var(--bad)}
+.btn.ghost.danger.armed{background:var(--bad);color:var(--bg);border-color:var(--bad)}
 .combo{position:relative}
 .xchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.xchips:empty{display:none}
 .xchip{display:inline-flex;align-items:center;gap:2px;background:var(--sunk);border-radius:999px;padding:4px 4px 4px 12px;font-size:14px;font-weight:600}
@@ -2598,7 +2598,7 @@ function renderProc(){
       <div class="prochead"><div><h2 class="proctitle">${esc(p.name||"Untitled procedure")}</h2>${names.length?`<div class="procfor">${names.map(n=>`<span>${esc(n)}</span>`).join("")}</div>`:""}</div><span class="ckprog${pr.all?" done":""}">${esc(pr.txt)}</span></div>
       ${procNotesHTML(p)}
       <div class="proclist">${procRowsHTML(p,st,true)||`<div class="small">No steps yet. Tap Edit to add them.</div>`}</div>
-      <div class="attbtns" style="margin:0"><button type="button" class="btn ghost" data-preset="1"${pr.d||pr.n?"":" disabled"}>Clear ticks</button><button type="button" class="btn ghost" data-pedit="${esc(p.id)}">Edit</button>${p.source?`<a class="btn ghost" href="${esc(p.source)}" target="_blank" rel="noopener">Original doc ↗</a>`:""}<button type="button" class="btn ghost danger" data-pdel="1">${procDelArmed?"Tap again to delete":"Delete"}</button></div>
+      <div class="attbtns" style="margin:0"><button type="button" class="btn ghost" data-preset="1"${pr.d||pr.n?"":" disabled"}>Clear ticks</button><button type="button" class="btn ghost" data-pedit="${esc(p.id)}">Edit</button>${p.source?`<a class="btn ghost" href="${esc(p.source)}" target="_blank" rel="noopener">Original doc ↗</a>`:""}<button type="button" class="btn ghost danger${procDelArmed?" armed":""}" data-pdel="1">${procDelArmed?"Tap again to delete":"Delete"}</button></div>
       <div class="hint" style="margin:0">Ticks are kept on this device until you clear them.</div>
     </div>`;
 }
@@ -3551,7 +3551,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.14-30";
+const APP_VERSION="2026.10.14-31";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
