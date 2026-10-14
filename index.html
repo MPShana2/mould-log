@@ -227,6 +227,10 @@ textarea.autogrow{resize:none;overflow:hidden}
 .etabs button[aria-pressed="true"]{color:var(--fg);border-bottom-color:var(--accent)}
 .epanel{padding-top:8px}
 .epanel .attbtns{margin:10px 0 0}
+.woren{margin-top:10px;background:var(--warn-bg);border-left:4px solid var(--warn);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.woren[hidden]{display:none}
+.worenbtns{display:flex;gap:8px;flex-wrap:wrap}
+.woren .btn{padding:8px 14px;font-size:14px}
 .ordfield{margin-top:12px}
 .ordfield input{width:100%}
 .ordtag{display:inline-block;margin-left:8px;font-size:11.5px;font-weight:600;color:var(--muted);background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:1px 8px;vertical-align:1px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
@@ -568,6 +572,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
           <button class="btn ghost" id="wonext" type="button">Next no.</button>
         </div>
         <div class="hint">Filled in automatically. Type over it to use your own number.</div>
+        <div class="woren" id="f-woren" hidden></div>
         <div class="ordfield"><label class="label" for="f-order">Client order no.</label><input id="f-order" maxlength="80" autocomplete="off" placeholder="Optional, for external contract work"></div>
         <div class="hrline" id="f-hrs" hidden></div>
         <div class="subsec" id="subsec" hidden>
@@ -1939,7 +1944,7 @@ function renderAll(){
   renderSelect();renderList();if(!$("#v-hist").hidden)renderHist();renderProcLists();if(!$("#v-proc").hidden)renderProc();if(!$("#v-log").hidden&&document.activeElement!==$("#f-wo"))renderFormDrive();
 }
 
-let editingId=null;
+let editingId=null, origWo=null;
 function segSet(id,v){const bs=[...$(id).querySelectorAll("button")];const hit=bs.find(b=>b.dataset.v===v)||bs[0];bs.forEach(b=>b.setAttribute("aria-pressed",b===hit?"true":"false"))}
 let formTodos=[];
 function mountFormTodos(){if(clInst.form)clInst.form.pending=false;clMount("form",formTodos,items=>{formTodos=items;clInst.form.pending=false;markDirty(600)})}
@@ -1961,7 +1966,7 @@ async function startEdit(id,subId){
   const l=logs.find(x=>x.id===id);if(!l)return;
   returnTab=["all","todo"].includes(currentView())?currentView():"open";
   await flushSave();
-  editingId=id;dirty=false;
+  editingId=id;dirty=false;origWo=l.wo||"";
   resetPM();
   formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",partsList:l.partsList,ck:{...((l.checklist&&l.checklist.state)||{})}};
   for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",partsList:v.partsList,ck:{...((v.checklist&&v.checklist.state)||{})}}}
@@ -1977,7 +1982,7 @@ async function startEdit(id,subId){
   show("log");growAll();renderFormDrive();
 }
 function endEdit(){
-  editingId=null;
+  editingId=null;origWo=null;
   clearForm();updateEditBar();setSaveState("idle");
 }
 function updateEditBar(){
@@ -1986,7 +1991,7 @@ function updateEditBar(){
   $("#edittitle").textContent=subPage?(editingId?"Editing ":"New sub-job ")+subNo:(editingId?("Editing "+(wo||"job")):"New job");
   $("#canceledit").hidden=!editingId&&!subPage;$("#exportrpt").hidden=!editingId;$("#canceledit").textContent=subPage?"Back":"Done";
   $("#savebtn").textContent=editingId?"Done":"Save job";
-  renderFormHours();
+  renderFormHours();renderWoRename();
 }
 
 // ---------- Autosave ----------
@@ -1999,6 +2004,8 @@ function buildEntry(){
   const mouldId=$("#f-mould").value;
   if(!mouldId)return {error:mq().value.trim()?"pick a mould or job from the list":"choose a mould or general job"};
   const wo=$("#f-wo").value.trim().toUpperCase();if(!wo)return {error:"enter a work order number"};
+  {const dupe=logs.find(x=>x.id!==editingId&&normWo(x.wo)===normWo(wo));
+   if(dupe&&!(editingId&&normWo(origWo)===normWo(wo)))return {error:`work order ${wo} is already used by ${jobTool(dupe)}`}}
   if(!$("#f-date").value)return {error:"enter a start date"};
   if($("#f-done").value&&$("#f-done").value<$("#f-date").value)return {error:"date completed is before date started"};
   const m=moulds.find(x=>x.id===mouldId);
@@ -2025,10 +2032,11 @@ async function autosave(){
   saving=(async()=>{
     try{
       const now=new Date().toISOString();
-      if(editingId){await db.collection("logs").doc(editingId).update({...b.entry,updatedAt:now})}
+      if(editingId){await db.collection("logs").doc(editingId).update({...b.entry,updatedAt:now});
+        if(origWo&&normWo(origWo)!==normWo(b.entry.wo)){const from=origWo;origWo=b.entry.wo;await woNumberChanged(editingId,from,b.entry.wo)}}
       else{const ref=await db.collection("logs").add({...b.entry,createdAt:now});editingId=ref.id;updateEditBar()}
       if(!dirty)setSaveState("saved","All changes saved");
-      scheduleBackup(editingId);
+      if(!woRenames[editingId])scheduleBackup(editingId);
       updateEditBar();
     }catch(err){
       dirty=true;
@@ -2175,7 +2183,7 @@ document.addEventListener("click",e=>{
   if(autoRenewBusy||!currentUser||!driveEver()||!driveOk||!navigator.onLine)return;
   if(gToken&&gExp>Date.now()+10*60000)return;
   if(Date.now()<autoRenewAt)return;
-  if(e.target.closest&&e.target.closest("[data-dconnect],[data-dconsent],[data-gphotos],[data-rptgo],#signin,#acct-signout,#drive-connect"))return;
+  if(e.target.closest&&e.target.closest("[data-dconnect],[data-dconsent],[data-gphotos],[data-rptgo],[data-woren],#signin,#acct-signout,#drive-connect"))return;
   if(!(window.google&&google.accounts&&google.accounts.oauth2))return;
   autoRenewBusy=true;autoRenewAt=Date.now()+60000;
   requestToken("").then(()=>{autoRenewBusy=false})
@@ -3296,6 +3304,78 @@ $("#rpt-go").onclick=async()=>{
 $("#rpt-dl").onclick=()=>{if(!rptFile)return;const a=document.createElement("a");a.href=URL.createObjectURL(rptFile);a.download=rptFile.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)};
 $("#rpt-share").onclick=async()=>{if(!rptFile)return;try{await navigator.share({files:[rptFile],title:rptFile.name})}catch(e){if(e&&e.name!=="AbortError")toast("Couldn't share. Try Download instead.")}};
 
+// ---------- Changing a work order's number ----------
+// The new number is checked against other work orders, work hours follow automatically, and the Drive
+// folder (and its backup file) can be renamed to match. Until that's decided the Drive backup waits, so it
+// doesn't make a second folder. Pending renames are kept on this device: {logId:{from,to}}
+var woRenames={};try{woRenames=JSON.parse(localStorage.getItem("ml_worenames")||"{}")||{}}catch(e){}
+function saveWoRenames(){try{localStorage.setItem("ml_worenames",JSON.stringify(woRenames))}catch(e){}}
+async function woNumberChanged(logId,from,to){
+  const r=woRenames[logId];
+  woRenames[logId]={from:r?r.from:from,to};
+  if(normWo(woRenames[logId].from)===normWo(to))delete woRenames[logId]; // changed back
+  saveWoRenames();renderWoRename();
+  // work hours on this work order show the new number
+  const hs=hoursList.filter(h=>h.logId===logId||(!h.logId&&normWo(h.wo)===normWo(from)));
+  for(const h of hs){try{await db.collection("hours").doc(h.id).update({wo:to,logId})}catch(e){}}
+  if(!woRenames[logId])scheduleBackup(logId);
+}
+function renderWoRename(){
+  const el=$("#f-woren");if(!el)return;const r=editingId&&woRenames[editingId];
+  if(!r||!driveRoot){el.hidden=true;return}
+  el.hidden=false;
+  el.innerHTML=`<span>Work order number changed from <b>#${esc(r.from)}</b> to <b>#${esc(r.to)}</b>. Rename its Google Drive folder to match?</span><span class="worenbtns"><button type="button" class="btn" data-woren="go">Rename folder</button><button type="button" class="btn ghost" data-woren="skip">Not now</button></span>`;
+}
+const dPatch=(id,q,body)=>driveFetch(DAPI+"files/"+encodeURIComponent(id)+"?supportsAllDrives=true"+(q||""),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});
+async function dChildren(id){let out=[],tok;do{const r=await dList(`'${dq(id)}' in parents and trashed=false`,tok);out=out.concat(r.files||[]);tok=r.nextPageToken}while(tok);return out}
+function forgetWoDrive(num){delete folderCache[num];delete backupFileIds[num];
+  for(const k of Object.keys(driveState))if(k===num||k.startsWith(num+"/"))delete driveState[k];
+  for(const k of Object.keys(subCache))if(k.startsWith(num+"/"))delete subCache[k]}
+// Moves everything from one folder into another; same-named subfolders (one per mould) are merged
+async function mergeFolder(fromId,toId){
+  const dest=await dChildren(toId);
+  for(const f of await dChildren(fromId)){
+    const same=dest.find(x=>x.name===f.name&&x.mimeType===f.mimeType);
+    if(same&&f.mimeType===FOLDER_MT){await mergeFolder(f.id,same.id);await dPatch(f.id,"",{trashed:true});continue}
+    if(same&&/ Work order\.md$/.test(f.name)){await dPatch(f.id,"",{trashed:true});continue} // the newer backup wins
+    await dPatch(f.id,`&addParents=${encodeURIComponent(toId)}&removeParents=${encodeURIComponent(fromId)}`);
+  }
+}
+async function renameWoDrive(logId){
+  const r=woRenames[logId];if(!r)return;
+  const a=woNum(r.from),b=woNum(r.to);
+  if(!a||!b||a===b){delete woRenames[logId];saveWoRenames();return "same"}
+  forgetWoDrive(a);forgetWoDrive(b);
+  const oldF=await findWoFolder(a);
+  if(!oldF){delete woRenames[logId];saveWoRenames();return "none"}
+  const newF=await findWoFolder(b);
+  const swap=s=>String(s).replace(new RegExp(`(^|[^0-9])${a}(?![0-9])`),`$1${b}`);
+  if(newF&&newF.id!==oldF.id){
+    const oldMd=(await dChildren(oldF.id)).find(f=>f.name===`#${a} Work order.md`);if(oldMd)await dPatch(oldMd.id,"",{trashed:true}); // rewritten under the new number
+    await mergeFolder(oldF.id,newF.id);await dPatch(oldF.id,"",{trashed:true});}
+  else{
+    await dPatch(oldF.id,"",{name:swap(oldF.name)});
+    const md=(await dChildren(oldF.id)).find(f=>f.name===`#${a} Work order.md`);
+    if(md)await dPatch(md.id,"",{name:`#${b} Work order.md`});
+  }
+  forgetWoDrive(a);forgetWoDrive(b);
+  delete woRenames[logId];saveWoRenames();
+  return newF&&newF.id!==oldF.id?"merged":"renamed";
+}
+document.addEventListener("click",async e=>{
+  const btn=e.target.closest("[data-woren]");if(!btn||!editingId)return;
+  const id=editingId,r=woRenames[id];if(!r)return;
+  if(btn.dataset.woren==="skip"){delete woRenames[id];saveWoRenames();renderWoRename();scheduleBackup(id);toast(`Left the Drive folder as #${r.from}`);return}
+  btn.disabled=true;btn.textContent="Renaming…";
+  try{
+    if(!hasToken())await requestToken("");
+    const res=await renameWoDrive(id);
+    toast(res==="none"?`No Drive folder for #${r.from}, so there was nothing to rename`:res==="merged"?`Moved everything from #${r.from} into the #${r.to} folder`:`Drive folder renamed to #${r.to}`);
+    scheduleBackup(id);renderWoRename();renderFormDrive();
+  }catch(err){btn.disabled=false;btn.textContent="Rename folder";
+    toast(err&&(err.code==="needs_token"||err.code==="needs_scope")?"Connect Google Drive, then try again":"Couldn't rename: "+((err&&err.message)||"unknown error"))}
+});
+
 // ---------- Work order backups (Markdown file in the work order's Drive folder) ----------
 // Each work order is written to "#2549 Work order.md" in its Drive folder a few seconds after it changes.
 // Backups that can't run yet (offline, Drive not connected) wait on this device and catch up later.
@@ -3387,6 +3467,7 @@ async function processBackups(){
       if(!driveRoot||!hasToken()||!navigator.onLine)break;
       const l=logs.find(x=>x.id===id);
       if(!l||!woNum(l.wo)){delete backupPending[id];continue}
+      if(woRenames[id])continue; // wait until the Drive folder rename is decided
       const stamp=backupPending[id];
       try{
         await writeBackup(l);
@@ -3600,7 +3681,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.14-32";
+const APP_VERSION="2026.10.14-33";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
