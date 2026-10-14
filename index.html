@@ -1612,7 +1612,7 @@ const woKeys=l=>[normWo(l.wo),...Object.values(l.subs||{}).filter(x=>x&&x.no).ma
 let subPage=null; // the sub-job shown as its own page, if any
 let formPM={}, mainFor=null, boxFor=null, boxActive=null, lastPrimary="";
 let formSubNo={}; // mould id -> sub-job number on this work order
-function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,partsList:plRead(p),procs:wpList(p).map(x=>procSnap(x,x.st)),updates:updClean(updList(p))};
+function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,partsList:plRead(p),procs:wpList(p).map(x=>procSnap(x,x.st)),updates:updClean(updWithDraft(p))};
   if(p==="b"){v.status=segVal("#b-status");v.date=$("#b-date").value;v.done=$("#b-done").value;v.type=$("#b-type").value;v.desc=$("#b-desc").value}
   return v}
 function writeSet(p,id){const v=formPM[id]||{};
@@ -2136,7 +2136,10 @@ async function autosave(){
   await saving;saving=null;busySave=false;
   if(saveAgain||dirty){saveAgain=false;if(dirty)return autosave()}
 }
+function updCommitOpen(){if(!updOpen)return;const p=updOpen.p,L=updWithDraft(p);
+  if(p==="f")fUpds=L;else bUpds=L;updOpen=null;renderUpd(p)}
 async function flushSave(){
+  if(updOpen&&!$("#v-log").hidden){updCommitOpen();if(db&&editingId)dirty=true}
   clearTimeout(saveTimer);
   if(saving)await saving;
   if(dirty)await autosave();
@@ -2937,6 +2940,13 @@ let fUpds=[],bUpds=[],updOpen=null; // updOpen: {p, id} while adding (id null) o
 const updList=p=>p==="f"?fUpds:bUpds;
 const updClean=list=>(list||[]).filter(u=>u&&String(u.text||"").trim()).map(u=>({id:u.id||("u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),date:u.date||today(),text:String(u.text).trim()})).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 const updNewest=list=>updClean(list).slice().reverse();
+function updWithDraft(p){
+  const L=updList(p).map(u=>({...u}));if(!updOpen||updOpen.p!==p)return L;
+  const box=$(p==="f"?"#f-upd":"#b-upd"),ta=box&&box.querySelector(".updt");if(!ta)return L;
+  const text=ta.value.trim(),date=box.querySelector(".updd").value||today();if(!text)return L;
+  if(updOpen.id){const u=L.find(x=>x.id===updOpen.id);if(u){u.text=text;u.date=date}}else L.push({id:updOpen.draft,date,text});
+  return L;
+}
 function renderUpd(p){
   const el=$(p==="f"?"#f-upd":"#b-upd");if(!el)return;
   const list=updNewest(updList(p)),open=updOpen&&updOpen.p===p?updOpen:null,ed=open&&open.id?list.find(u=>u.id===open.id):null;
@@ -2952,8 +2962,8 @@ function renderUpd(p){
 }
 let updDelArmed=null;
 $("#logform").addEventListener("click",e=>{const t=e.target;
-  const add=t.closest("[data-updadd]");if(add){updOpen={p:add.dataset.updadd,id:null};renderUpd(updOpen.p);return}
-  const cancel=t.closest("[data-updcancel]");if(cancel){const p=cancel.dataset.updcancel;updOpen=null;renderUpd(p);return}
+  const add=t.closest("[data-updadd]");if(add){updOpen={p:add.dataset.updadd,id:null,draft:"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)};renderUpd(updOpen.p);return}
+  const cancel=t.closest("[data-updcancel]");if(cancel){const p=cancel.dataset.updcancel;updOpen=null;renderUpd(p);markDirty(250);return}
   const ed=t.closest("[data-updedit]");if(ed){const[p,id]=ed.dataset.updedit.split("|");updOpen={p,id};renderUpd(p);return}
   const del=t.closest("[data-upddel]");if(del){const key=del.dataset.upddel,[p,id]=key.split("|");
     if(updDelArmed!==key){updDelArmed=key;del.textContent="Tap again to delete";del.style.color="var(--bad)";setTimeout(()=>{if(updDelArmed===key){updDelArmed=null;renderUpd(p)}},4000);return}
@@ -2962,7 +2972,7 @@ $("#logform").addEventListener("click",e=>{const t=e.target;
     if(!text){toast("Write what happened first");box.querySelector(".updt").focus();return}
     const L=updList(p);
     if(updOpen&&updOpen.id){const u=L.find(x=>x.id===updOpen.id);if(u){u.text=text;u.date=date}}
-    else L.push({id:"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),date,text});
+    else L.push({id:(updOpen&&updOpen.draft)||("u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),date,text});
     const ro=box.querySelector(".updro");if(ro&&ro.checked){segSet(p==="f"?"#f-status":"#b-status","In progress");toast(p==="b"?"Update added and sub-job reopened":"Update added and work order reopened")}
     updOpen=null;renderUpd(p);markDirty(250);return}
 });
@@ -3933,7 +3943,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-41";
+const APP_VERSION="2026.10.15-42";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
