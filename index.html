@@ -1066,6 +1066,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <p>This copy of Mould Log hasn't been set up yet. Add your Firebase settings and Google client ID to <code>config.js</code>.</p>
     </div>
     <div class="gate-msg" id="gate-msg" role="status" aria-live="polite"></div>
+    <p id="gate-skip" hidden style="margin-top:14px"><button class="btn ghost" type="button" id="gate-skipbtn" style="color:inherit;border-color:currentColor">Open now · update next time</button></p>
   </div>
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
@@ -4238,16 +4239,20 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-55";
+const APP_VERSION="2026.10.15-56";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
   const g=$("#gate");g.hidden=false;
   $("#gate-setup").hidden=kind!=="setup";
   $("#gate-signin").hidden=kind!=="signin";
+  if(kind!=="loading")$("#gate-skip").hidden=true;
   $("#gate-msg").textContent=msg||"";
 }
-function hideGate(){$("#gate").hidden=true}
+// At launch the loading screen stays up briefly while the app checks for a new version, so an update
+// happens behind it instead of jumping from the app back to the loading screen
+var gateHold=null,updatingApp=false;
+function hideGate(){if(gateHold){gateHold.then(()=>{if(currentUser&&!updatingApp)$("#gate").hidden=true});return}if(!updatingApp)$("#gate").hidden=true}
 $("#signin").addEventListener("click",async()=>{
   const btn=$("#signin");btn.disabled=true;$("#gate-msg").textContent="";
   try{
@@ -4388,12 +4393,25 @@ else{
   setTimeout(()=>{if(!currentUser&&!$("#gate").hidden&&$("#gate-signin").hidden)showGate("signin","Can't reach the sign-in service yet. Check your connection, then sign in.")},10000);
 }
 if("serviceWorker" in navigator){
-  // When a new version of the app is published, switch to it straight away
-  const hadController=!!navigator.serviceWorker.controller;let reloading=false;
-  // …unless you're in the middle of something: then the new version simply loads next time the app is opened
-  const busyNow=()=>!$("#v-log").hidden||!$("#lb").hidden||!!(document.activeElement&&document.activeElement.matches("input,textarea,select"));
-  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!hadController||reloading||busyNow())return;reloading=true;flushSave().finally(()=>location.reload())});
-  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{r.update().catch(()=>{});document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")r.update().catch(()=>{})})}).catch(()=>{}));
+  // A new version found while the app is opening: keep the loading screen up ("Updating…"), let it install, then
+  // reload into it. Found any later (slow signal, or while you're using it): it's used the next time the app opens.
+  const hadController=!!navigator.serviceWorker.controller;let reloading=false,launching=hadController,release=null;
+  if(hadController)gateHold=new Promise(r=>release=r);
+  const endHold=()=>{launching=false;if(release){const r=release;release=null;gateHold=null;r()}};
+  setTimeout(endHold,1500);
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&updatingApp&&!reloading){reloading=true;location.reload()}});
+  // On a slow signal you can skip it (after a few seconds); it gives up by itself after 45 seconds
+  const skipUpdate=()=>{if(reloading||!updatingApp)return;updatingApp=false;$("#gate-skip").hidden=true;endHold();if(currentUser)hideGate();else showGate("loading","Starting…")};
+  $("#gate-skipbtn").onclick=skipUpdate;
+  const onFound=()=>{if(!launching||updatingApp)return;updatingApp=true;showGate("loading","Updating Mould Log…");
+    setTimeout(()=>{if(updatingApp&&!reloading){$("#gate-msg").textContent="Updating Mould Log… (slow connection)";$("#gate-skip").hidden=false}},5000);
+    setTimeout(skipUpdate,45000)};
+  navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{
+    if(r.installing)onFound();
+    r.addEventListener("updatefound",onFound);
+    r.update().then(()=>{if(!r.installing&&!updatingApp)endHold()},endHold);
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")r.update().catch(()=>{})});
+  }).catch(endHold);
 }
 </script>
 <script type="module">
