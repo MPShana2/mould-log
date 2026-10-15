@@ -3106,7 +3106,7 @@ function renderHrz(p){
   if(!mid||mid===FORCE){el.innerHTML="";return}
   if(!v){const pv=hrzPrev(mid);el.innerHTML=`<button type="button" class="addmould" data-hrzadd="${p}">+ Hot runner readings${pv?` <span class="hrzlast">(last: ${pv.v.n} zones on #${esc(pv.wo)})</span>`:""}</button>`;return}
   const pv=hrzPrev(mid),flags=hrzFlags(v),cell=(i,c)=>{const val=v.z[i][c],ol=/^ol$/i.test(val),last=pv&&pv.v.z[i]?pv.v.z[i][c]:"";
-    return `<td><div class="hrzc${ol?" ol":""}${flags[c+i]?" dev":""}"><input class="mono" inputmode="decimal" autocomplete="off" data-hrz="${p}|${i}|${c}" value="${esc(val)}" placeholder="${esc(last||"Ω")}" aria-label="Zone ${i+1} ${c==="h"?"heater":"thermocouple"} ohms"><button type="button" class="hrzol" data-hrzol="${p}|${i}|${c}" aria-pressed="${ol}" title="Open circuit">OL</button></div></td>`};
+    return `<td><div class="hrzc${ol?" ol":""}${flags[c+i]?" dev":""}"><input class="mono" inputmode="decimal" enterkeyhint="${c==="t"&&i===v.n-1?"done":"next"}" autocomplete="off" data-hrz="${p}|${i}|${c}" value="${esc(val)}" placeholder="${esc(last||"Ω")}" aria-label="Zone ${i+1} ${c==="h"?"heater":"thermocouple"} ohms"><button type="button" class="hrzol" data-hrzol="${p}|${i}|${c}" aria-pressed="${ol}" title="Open circuit">OL</button></div></td>`};
   el.innerHTML=`<div class="hrzbox"><div class="hrzhead"><span class="hrztitle">Hot runner readings</span>
       <span class="hrzn"><button type="button" data-hrzstep="${p}|-1" aria-label="One less zone">−</button><input class="mono" type="number" inputmode="numeric" min="1" max="64" value="${v.n}" data-hrzn="${p}" aria-label="Number of zones"><button type="button" data-hrzstep="${p}|1" aria-label="One more zone">+</button><span>zones</span></span></div>
     <table class="hrzt"><thead><tr><th>Zone</th><th>Heater Ω</th><th>T/C Ω</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr><th>Z${i+1}</th>${cell(i,"h")}${cell(i,"t")}</tr>`).join("")}</tbody></table>
@@ -3122,8 +3122,12 @@ $("#logform").addEventListener("input",e=>{const t=e.target;
 $("#logform").addEventListener("change",e=>{const t=e.target;if(t.dataset&&t.dataset.hrzn){const n=Math.min(64,Math.max(1,parseInt(t.value,10)||1));hrzResize(t.dataset.hrzn,n)}});
 $("#logform").addEventListener("keydown",e=>{const t=e.target;
   if(t.dataset&&t.dataset.hrzn&&e.key==="Enter"){e.preventDefault();t.blur();return}
-  // Enter moves down the column, like a spreadsheet
-  if(t.dataset&&t.dataset.hrz&&e.key==="Enter"){e.preventDefault();const[p,i,c]=t.dataset.hrz.split("|"),nx=$(`[data-hrz="${p}|${+i+1}|${c}"]`)||(c==="h"?$(`[data-hrz="${p}|0|t"]`):null);if(nx){nx.focus();nx.select()}else t.blur()}});
+  // Enter / Next moves down the column, like a spreadsheet, keeping the keyboard up
+  if(t.dataset&&t.dataset.hrz&&(e.key==="Enter"||e.keyCode===13)){e.preventDefault();hrzNext(t)}});
+function hrzNext(t){const[p,i,c]=t.dataset.hrz.split("|"),nx=$(`[data-hrz="${p}|${+i+1}|${c}"]`)||(c==="h"?$(`[data-hrz="${p}|0|t"]`):null);
+  if(nx){nx.focus({preventScroll:true});nx.scrollIntoView({block:"nearest"});try{nx.select()}catch(e){}return true}t.blur();return false}
+// Phone keyboards' Go / Next key can submit the form instead of sending Enter: treat that as "next cell" too
+document.addEventListener("submit",e=>{const a=document.activeElement;if(a&&a.dataset&&a.dataset.hrz&&e.target.id==="logform"){e.preventDefault();e.stopImmediatePropagation();hrzNext(a)}},true);
 $("#logform").addEventListener("click",e=>{const t=e.target;
   const add=t.closest("[data-hrzadd]");if(add){const p=add.dataset.hrzadd,pv=hrzPrev(hrzMouldOf(p));hrzSet(p,hrzClean({n:pv?pv.v.n:4,z:[]}));renderHrz(p);markDirty(400);
     const first=$(`[data-hrz="${p}|0|h"]`);if(first)first.focus();return}
@@ -4112,7 +4116,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-47";
+const APP_VERSION="2026.10.15-48";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
