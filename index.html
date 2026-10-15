@@ -285,7 +285,8 @@ textarea.autogrow{resize:none;overflow:hidden}
 .wipewarn{margin:0;color:var(--warn);font-weight:600}
 .hrz{margin-top:8px}
 .hrzlast{font-weight:500;color:var(--muted);font-size:13px}
-.hrzbox{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden}
+.hrzbox{overflow:hidden}
+.hrzbox>.hrzhead{border-top:1px solid var(--line)}
 .hrzhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;background:var(--sunk)}
 .hrztitle{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
 .hrzn{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:var(--muted)}
@@ -1674,7 +1675,7 @@ function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults
 function writeSet(p,id){const v=formPM[id]||{};
   $(`#${p}-shots`).value=v.shots??"";$(`#${p}-faults`).value=v.faults||"";$(`#${p}-work`).value=v.work||"";$(`#${p}-notes`).value=v.notes||"";plWrite(p,v.partsList||partsFromText(v.parts));
   if(updOpen&&updOpen.p===p)updOpen=null;
-  hrzSet(p,hrzClean(v.hrz));renderHrz(p,true);
+  hrzSet(p,hrzClean(v.hrz));hrzOpen[p]=false;renderHrz(p,true);
   if(p==="f"){fProcs=(v.procs||[]).map(x=>procSnap(x,x.st));renderWoProcs("f");fUpds=updClean(v.updates);renderUpd("f")}else{bProcs=(v.procs||[]).map(x=>procSnap(x,x.st));renderWoProcs("b");bUpds=updClean(v.updates);renderUpd("b");
     // a new sub-job starts with the work order's status and start date
     segSet("#b-status",v.status||segVal("#f-status")||"Pending");$("#b-date").value=v.date??$("#f-date").value;$("#b-done").value=v.done||"";
@@ -3090,7 +3091,10 @@ $("#logform").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.classL
 
 // ---------- Hot runner readings: heater and thermocouple resistance (Ω) per zone ----------
 // Stored per mould like the other fields: hrz:{n, z:[{h,t}]}. "OL" = open circuit (what the meter shows).
-let fHrz=null,bHrz=null;
+let fHrz=null,bHrz=null,hrzOpen={f:false,b:false};
+// The one-line summary shown when the table is folded away
+function hrzSummary(v){const filled=v.z.filter(r=>r.h||r.t||r.ho||r.to).length,ol=v.z.reduce((a,r)=>a+(r.ho?1:0)+(r.to?1:0),0),fl=v.z.filter(r=>r.f).length;
+  return `${v.n} zone${v.n===1?"":"s"}`+(filled<v.n?` · ${filled} done`:"")+(ol?` · ${ol} OL`:"")+(fl?` · ${fl} flagged`:"")}
 const hrzList=p=>p==="f"?fHrz:bHrz;
 const hrzSet=(p,v)=>{if(p==="f")fHrz=v;else bHrz=v};
 function hrzClean(v){if(!v||!(+v.n>0))return null;const n=Math.min(64,Math.max(1,Math.round(+v.n)));
@@ -3119,13 +3123,14 @@ function renderHrz(p,force){
       return `<input class="hrzl mono" autocapitalize="characters" autocomplete="off" enterkeyhint="next" data-hrz="${p}|${i}|l" value="${esc(val)}" placeholder="${esc(sug||"Label")}" aria-label="Zone ${i+1} label">`},
     cell=(i,c)=>{const val=v.z[i][c],ol=!!v.z[i][c+"o"],last=pv&&pv.v.z[i]?hrzShow(pv.v.z[i],c):"";
     return `<td><div class="hrzc${ol?" ol":""}"><input class="mono" inputmode="decimal" enterkeyhint="${c==="t"&&i===v.n-1?"done":"next"}" autocomplete="off" data-hrz="${p}|${i}|${c}" value="${esc(val)}" placeholder="${esc(last||"Ω")}" aria-label="Zone ${i+1} ${c==="h"?"heater":"thermocouple"} ohms"><button type="button" class="hrzol" data-hrzol="${p}|${i}|${c}" aria-pressed="${ol}" title="Open circuit">OL</button></div></td>`};
-  el.innerHTML=`<div class="hrzbox"><div class="hrzhead"><span class="hrztitle">Hot runner readings</span>
+  el.innerHTML=`<details class="panel ck hrzbox" data-hrzd="${p}"${hrzOpen[p]?" open":""}><summary><span>Hot runner readings</span><span class="ckprog hrzsum">${esc(hrzSummary(v))}</span></summary><div class="hrzhead"><span class="hrztitle">Zones</span>
       <span class="hrzn"><button type="button" data-hrzstep="${p}|-1" aria-label="One less zone">−</button><input class="mono" type="number" inputmode="numeric" min="1" max="64" value="${v.n}" data-hrzn="${p}" aria-label="Number of zones"><button type="button" data-hrzstep="${p}|1" aria-label="One more zone">+</button><span>zones</span></span></div>
     <table class="hrzt"><thead><tr><th>Zone</th><th>Heater Ω</th><th>T/C Ω</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr class="${r.f?"flag":""}"><th><button type="button" class="hrzz" data-hrzflag="${p}|${i}" aria-pressed="${r.f}" title="Flag this zone">Z${i+1}</button>${lab(i)}</th>${cell(i,"h")}${cell(i,"t")}</tr>`).join("")}</tbody></table>
     <div class="hrzfoot">${pv?`<span>Grey numbers: last readings, #${esc(pv.wo)}${pv.date?" · "+esc(fmtDate(pv.date)):""}.</span> `:""}<span class="hrzkey"><i class="k-dev"></i> flagged (tap a zone number)</span> <span class="hrzkey"><i class="k-ol"></i> open circuit</span>
-      <button type="button" class="linkish" data-hrzdel="${p}">Remove table</button></div></div>`;
+      <button type="button" class="linkish" data-hrzdel="${p}">Remove table</button></div></details>`;
 }
 function hrzRefresh(p){const el=$(p==="f"?"#f-hrz":"#b-hrz"),v=hrzList(p);if(!el||!v)return;
+  const sm=el.querySelector(".hrzsum");if(sm)sm.textContent=hrzSummary(v);
   el.querySelectorAll("[data-hrz]:not(.hrzl)").forEach(inp=>{const[,i,c]=inp.dataset.hrz.split("|"),ol=!!v.z[+i][c+"o"];
     inp.parentElement.classList.toggle("ol",ol);inp.parentElement.querySelector(".hrzol").setAttribute("aria-pressed",String(ol))});
   el.querySelectorAll("[data-hrzflag]").forEach(b=>{const i=+b.dataset.hrzflag.split("|")[1],f=!!v.z[i].f;b.setAttribute("aria-pressed",String(f));b.closest("tr").classList.toggle("flag",f)})}
@@ -3133,7 +3138,8 @@ function hrzResize(p,n){const v=hrzList(p)||{n:0,z:[]};hrzSet(p,hrzClean({n,z:v.
 $("#logform").addEventListener("input",e=>{const t=e.target;
   if(t.dataset&&t.dataset.hrz){const[p,i,c]=t.dataset.hrz.split("|"),v=hrzList(p);if(!v)return;
     if(c==="l"){v.z[+i].l=t.value.trim().toUpperCase();const nx=$(`[data-hrz="${p}|${+i+1}|l"]`);if(nx&&!nx.value)nx.placeholder=hrzNextLabel(v.z[+i].l)||"Label";return}
-    v.z[+i][c]=t.value.trim();return}});
+    v.z[+i][c]=t.value.trim();const sm=t.closest(".hrz").querySelector(".hrzsum");if(sm)sm.textContent=hrzSummary(v);return}});
+$("#logform").addEventListener("toggle",e=>{const d=e.target;if(d.dataset&&d.dataset.hrzd)hrzOpen[d.dataset.hrzd]=d.open},true);
 $("#logform").addEventListener("change",e=>{const t=e.target;if(t.dataset&&t.dataset.hrzn){const n=Math.min(64,Math.max(1,parseInt(t.value,10)||1));hrzResize(t.dataset.hrzn,n)}});
 $("#logform").addEventListener("keydown",e=>{const t=e.target;
   if(t.dataset&&t.dataset.hrzn&&e.key==="Enter"){e.preventDefault();t.blur();return}
@@ -3146,7 +3152,7 @@ function hrzNext(t){const[p,i,c]=t.dataset.hrz.split("|");
 // Phone keyboards' Go / Next key can submit the form instead of sending Enter: treat that as "next cell" too
 document.addEventListener("submit",e=>{const a=document.activeElement;if(a&&a.dataset&&a.dataset.hrz&&e.target.id==="logform"){e.preventDefault();e.stopImmediatePropagation();hrzNext(a)}},true);
 $("#logform").addEventListener("click",e=>{const t=e.target;
-  const add=t.closest("[data-hrzadd]");if(add){const p=add.dataset.hrzadd,pv=hrzPrev(hrzMouldOf(p));hrzSet(p,hrzClean({n:pv?pv.v.n:4,z:pv?pv.v.z.map(r=>({l:r.l})):[]}));renderHrz(p,true);markDirty(400);
+  const add=t.closest("[data-hrzadd]");if(add){const p=add.dataset.hrzadd,pv=hrzPrev(hrzMouldOf(p));hrzSet(p,hrzClean({n:pv?pv.v.n:4,z:pv?pv.v.z.map(r=>({l:r.l})):[]}));hrzOpen[p]=true;renderHrz(p,true);markDirty(400);
     const first=$(`[data-hrz="${p}|0|h"]`);if(first)first.focus();return}
   const st=t.closest("[data-hrzstep]");if(st){const[p,d]=st.dataset.hrzstep.split("|"),v=hrzList(p);if(v)hrzResize(p,Math.min(64,Math.max(1,v.n+ +d)));return}
   const ol=t.closest("[data-hrzol]");if(ol){const[p,i,c]=ol.dataset.hrzol.split("|"),v=hrzList(p);if(!v)return;const r=v.z[+i];r[c+"o"]=!r[c+"o"]; // the typed value is kept
@@ -4137,7 +4143,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-50";
+const APP_VERSION="2026.10.15-51";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
