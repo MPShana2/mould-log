@@ -248,6 +248,17 @@ textarea.autogrow{resize:none;overflow:hidden}
 .attgrid:empty{display:none}
 .thumb{position:relative;width:100%;aspect-ratio:1;max-width:100%;border-radius:8px;overflow:hidden;background:var(--sunk);border:1px solid var(--line);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;font:inherit;color:var(--muted)}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.vbadge{position:absolute;left:6px;bottom:6px;display:inline-flex;align-items:center;gap:5px;padding:3px 7px 3px 6px;border-radius:999px;background:rgba(0,0,0,.62);color:#fff;font:600 11px/1 var(--mono);pointer-events:none}
+.vbadge i{width:0;height:0;border-style:solid;border-width:5px 0 5px 8px;border-color:transparent transparent transparent #fff}
+.vbadge:not(:has(b)){padding:5px 6px 5px 8px}
+.updph .vbadge{left:4px;bottom:4px;padding:2px 5px}
+.lb button.vposter{position:relative;border:0;padding:0;background:#000;cursor:pointer;display:grid;place-items:center;max-width:100%;max-height:100%;min-width:min(320px,90vw);min-height:200px;border-radius:6px;overflow:hidden;cursor:pointer}
+.lb-body .vposter img{cursor:pointer}
+.vposter img{display:block;max-width:100%;max-height:calc(100vh - 160px);object-fit:contain;opacity:.85}
+.vposter .vplay{position:absolute;inset:0;margin:auto;width:76px;height:76px;border-radius:50%;background:rgba(0,0,0,.55);border:2px solid rgba(255,255,255,.9);display:grid;place-items:center}
+.vposter .vplay i{width:0;height:0;margin-left:6px;border-style:solid;border-width:15px 0 15px 24px;border-color:transparent transparent transparent #fff}
+.vposter:disabled .vplay{opacity:.4}
+.vposter .vinfo{position:absolute;left:0;right:0;bottom:10px;text-align:center;color:#fff;font:600 13px/1.3 var(--mono);text-shadow:0 1px 3px #000}
 .thumb .ext{font-family:var(--mono);font-weight:600;font-size:14px;color:var(--steel)}
 .thumb .fn{font-size:10px;padding:0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .thumb.busy{cursor:default;animation:pulse 1.2s ease-in-out infinite}
@@ -2474,7 +2485,7 @@ async function driveFetch(url,opts={}){
   return res;
 }
 async function dList(q,pageToken){
-  const p=new URLSearchParams({q,pageSize:"100",fields:"nextPageToken,files(id,name,mimeType,size,modifiedTime,createdTime,webViewLink,thumbnailLink,imageMediaMetadata(time))",orderBy:"folder,name",supportsAllDrives:"true",includeItemsFromAllDrives:"true"});
+  const p=new URLSearchParams({q,pageSize:"100",fields:"nextPageToken,files(id,name,mimeType,size,modifiedTime,createdTime,webViewLink,thumbnailLink,imageMediaMetadata(time),videoMediaMetadata(durationMillis))",orderBy:"folder,name",supportsAllDrives:"true",includeItemsFromAllDrives:"true"});
   if(pageToken)p.set("pageToken",pageToken);
   return (await driveFetch(DAPI+"files?"+p)).json();
 }
@@ -2511,7 +2522,7 @@ async function ensureFolder(num,label,sub){
 const dkey=t=>t.sub?t.num+"/"+t.sub:t.num;
 async function dUpload(folderId,blob,name,type){
   const meta={name,parents:[folderId],mimeType:type};
-  const fields="fields=id,name,mimeType,size,webViewLink,thumbnailLink,modifiedTime&supportsAllDrives=true";
+  const fields="fields=id,name,mimeType,size,webViewLink,thumbnailLink,modifiedTime,createdTime,videoMediaMetadata(durationMillis)&supportsAllDrives=true";
   if(blob.size<=5*1024*1024){
     const b="mouldlog"+Math.random().toString(36).slice(2);
     const body=new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: ${type}\r\n\r\n`,blob,`\r\n--${b}--`]);
@@ -2713,6 +2724,11 @@ function fileTaken(f){
   return d&&!isNaN(d)?new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,19):"";
 }
 // Folders first (by name), then newest first
+// Photos and videos share the gallery; videos get a play badge (and their length, once Drive has processed them)
+const isVideo=f=>String(f&&f.mimeType||"").startsWith("video/");
+const isMediaF=f=>String(f&&f.mimeType||"").startsWith("image/")||isVideo(f);
+function vidLen(f){const ms=+(f&&f.videoMediaMetadata&&f.videoMediaMetadata.durationMillis);if(!(ms>0))return "";const t=Math.round(ms/1000),h=Math.floor(t/3600),m=Math.floor(t%3600/60),sec=t%60;return (h?h+":"+String(m).padStart(2,"0"):m)+":"+String(sec).padStart(2,"0")}
+const vidBadge=f=>isVideo(f)?`<span class="vbadge" aria-hidden="true"><i></i>${vidLen(f)?`<b>${vidLen(f)}</b>`:""}</span>`:"";
 function sortDriveItems(list){return list.slice().sort((a,b)=>{const fa=a.mimeType===FOLDER_MT,fb=b.mimeType===FOLDER_MT;
   if(fa!==fb)return fa?-1:1;if(fa)return String(a.name).localeCompare(String(b.name),undefined,{numeric:true});
   return fileTaken(b).localeCompare(fileTaken(a))||String(a.name).localeCompare(String(b.name),undefined,{numeric:true})})}
@@ -2754,10 +2770,10 @@ function driveBody(t){
   const cur=st.stack[st.stack.length-1];
   const crumbs=st.stack.length>1?`<button type="button" class="linkish" data-dback="${esc(num)}">← Back</button> · `:(st.parent?`<a href="${esc(st.parent.url||("https://drive.google.com/drive/folders/"+st.parent.id))}" target="_blank" rel="noopener">#${esc(t.num)}</a> / `:"");
   const items=st.items||[];
-  const imgs=items.map((f,i)=>({f,i})).filter(x=>String(x.f.mimeType).startsWith("image/"));
-  const others=items.map((f,i)=>({f,i})).filter(x=>!String(x.f.mimeType).startsWith("image/"));
+  const imgs=items.map((f,i)=>({f,i})).filter(x=>isMediaF(x.f));
+  const others=items.map((f,i)=>({f,i})).filter(x=>!isMediaF(x.f));
   const selOn=sel.key===num;
-  const grid=imgs.length?`<div class="attgrid${selOn?" selecting":""}">${imgs.map(({f,i})=>`<button type="button" class="thumb${selOn&&sel.ids.has(f.id)?" picked":""}" data-dview="${esc(num)}|${i}" aria-label="${selOn?(sel.ids.has(f.id)?"Unselect ":"Select "):"View "}${esc(f.name)}"${selOn?` aria-pressed="${sel.ids.has(f.id)}"`:""}><span class="tick" aria-hidden="true"></span>${f.thumbnailLink?`<img class="dthumb" src="${esc(sizedThumb(f.thumbnailLink,400))}" referrerpolicy="no-referrer" alt="" loading="lazy" draggable="false">`:""}<span class="ext"${f.thumbnailLink?" hidden":""}>IMG</span></button>`).join("")}</div>`:"";
+  const grid=imgs.length?`<div class="attgrid${selOn?" selecting":""}">${imgs.map(({f,i})=>`<button type="button" class="thumb${selOn&&sel.ids.has(f.id)?" picked":""}" data-dview="${esc(num)}|${i}" aria-label="${selOn?(sel.ids.has(f.id)?"Unselect ":"Select "):"View "}${esc(f.name)}"${selOn?` aria-pressed="${sel.ids.has(f.id)}"`:""}><span class="tick" aria-hidden="true"></span>${f.thumbnailLink?`<img class="dthumb" src="${esc(sizedThumb(f.thumbnailLink,400))}" referrerpolicy="no-referrer" alt="" loading="lazy" draggable="false">`:""}<span class="ext"${f.thumbnailLink?" hidden":""}>${isVideo(f)?"VIDEO":"IMG"}</span>${vidBadge(f)}</button>`).join("")}</div>`:"";
   const rows=others.map(({f,i})=>{
     const isDir=f.mimeType===FOLDER_MT;
     const meta=isDir?"Folder":[fmtSize(f.size),f.modifiedTime?fmtDate(String(f.modifiedTime).slice(0,10)):""].filter(Boolean).join(" · ");
@@ -2852,7 +2868,7 @@ document.addEventListener("click",async e=>{
   const f=t.closest("[data-dfolder]");if(f){const[num,i]=f.dataset.dfolder.split("|");const st=driveState[num];const it=st&&st.items[+i];if(it){st.stack.push({id:it.id,name:it.name,url:it.webViewLink});st.items=[];driveLoad(num)}return}
   const b=t.closest("[data-dback]");if(b){const st=driveState[b.dataset.dback];if(st&&st.stack.length>1){st.stack.pop();st.items=[];driveLoad(b.dataset.dback)}return}
   const m=t.closest("[data-dmore]");if(m){driveLoad(m.dataset.dmore,true);return}
-  const v=t.closest("[data-dview]");if(v){const[num,i]=v.dataset.dview.split("|");const st=driveState[num];if(!st)return;const imgs=st.items.filter(x=>String(x.mimeType).startsWith("image/"));lbNum=num;openViewer(imgs,Math.max(0,imgs.indexOf(st.items[+i])));return}
+  const v=t.closest("[data-dview]");if(v){const[num,i]=v.dataset.dview.split("|");const st=driveState[num];if(!st)return;const imgs=st.items.filter(isMediaF);lbNum=num;openViewer(imgs,Math.max(0,imgs.indexOf(st.items[+i])));return}
   const qr=t.closest("[data-qretry]");if(qr){const it=queueCache.find(x=>x.id===qr.dataset.qretry);if(it){it.err="";it.retry=true;await qPut(it);await refreshQueue();if(!hasToken())connectDrive();processQueue()}return}
   const qra=t.closest("[data-qretryall]");if(qra){e.preventDefault();for(const it of queueCache.filter(x=>x.err&&qKey(x)===qra.dataset.qretryall)){it.err="";it.retry=true;await qPut(it)}await refreshQueue();if(!hasToken())connectDrive();processQueue();return}
   const qda=t.closest("[data-qdelall]");if(qda){e.preventDefault();const ids=queueCache.filter(x=>x.err&&qKey(x)===qda.dataset.qdelall).map(x=>x.id);for(const id of ids)await qDel(id);await refreshQueue();toast(ids.length>1?`Removed ${ids.length} files from the upload list`:"Removed from upload list");return}
@@ -3158,7 +3174,7 @@ function updThumbs(p,names,removable){
   if(t&&!st&&driveRoot&&hasToken()){driveState[key]={stack:[],status:"loading",label:t.label,num:t.num,sub:t.sub||""};setTimeout(()=>driveLoad(key),0)}
   const items=(st&&st.items)||[],q=queueCache.filter(x=>t&&x.num===t.num&&(x.sub||"")===(t.sub||""));
   return `<div class="updphotos">${names.map(n=>{const f=items.find(x=>x.name===n),up=q.some(x=>x.name===n);
-    const img=f&&f.thumbnailLink?`<img src="${esc(sizedThumb(f.thumbnailLink,240))}" referrerpolicy="no-referrer" alt="" draggable="false">`:`<span class="ext">${up?"↑":"IMG"}</span>`;
+    const img=(f&&f.thumbnailLink?`<img src="${esc(sizedThumb(f.thumbnailLink,240))}" referrerpolicy="no-referrer" alt="" draggable="false">`:`<span class="ext">${up?"↑":/\.(mp4|mov|m4v|3gp|webm|mkv)$/i.test(n)||isVideo(f)?"VIDEO":"IMG"}</span>`)+vidBadge(f);
     return `<span class="updph"><button type="button" class="thumb" ${f?`data-updview="${esc(key)}|${esc(n)}|${esc(names.join("\u0001"))}"`:"disabled"} title="${esc(n)}${up?" (uploading)":""}">${img}</button>${removable?`<button type="button" class="updphx" data-updphx="${p}|${esc(n)}" aria-label="Remove ${esc(n)} from this update">×</button>`:""}</span>`}).join("")}</div>`;
 }
 function renderUpd(p){
@@ -4058,9 +4074,15 @@ function preloadAround(){
   (slowNet()?[lbIdx+1]:[lbIdx+1,lbIdx-1,lbIdx+2]).forEach(j=>{const f=lbList[(j+lbList.length)%lbList.length];
     if(f&&f.thumbnailLink&&String(f.mimeType).startsWith("image/")){const im=new Image();im.referrerPolicy="no-referrer";im.src=sizedThumb(f.thumbnailLink,viewerSize())}});
 }
-async function getFull(f){
+async function getFull(f,onProgress){
   if(blobCache.has(f.id))return blobCache.get(f.id);
-  const blob=await (await driveFetch(DAPI+"files/"+encodeURIComponent(f.id)+"?alt=media&supportsAllDrives=true")).blob();
+  const res=await driveFetch(DAPI+"files/"+encodeURIComponent(f.id)+"?alt=media&supportsAllDrives=true");
+  let blob;
+  const total=+res.headers.get("content-length")||+f.size||0;
+  if(onProgress&&res.body&&total){const rd=res.body.getReader(),parts=[];let got=0;
+    for(;;){const {done,value}=await rd.read();if(done)break;parts.push(value);got+=value.length;onProgress(got,total)}
+    blob=new Blob(parts,{type:res.headers.get("content-type")||f.mimeType||""})}
+  else blob=await res.blob();
   blobCache.set(f.id,blob);fullCache.set(f.id,URL.createObjectURL(blob));
   if(blobCache.size>12){const k=blobCache.keys().next().value;blobCache.delete(k);const u=fullCache.get(k);if(u)URL.revokeObjectURL(u);fullCache.delete(k)}
   return blob;
@@ -4083,6 +4105,11 @@ function renderViewer(){
   $("#lb-foot").hidden=lbList.length<2;$("#lb-count").textContent=`${lbIdx+1} of ${lbList.length}`;
   const body=$("#lb-body");lbBlob=blobCache.get(f.id)||null;lbFull=false;lbZoomReset();
   const isImg=String(f.mimeType).startsWith("image/");
+  if(isVideo(f)){$("#lb-full").hidden=true;
+    if(fullCache.has(f.id)){body.innerHTML=`<video src="${fullCache.get(f.id)}" controls playsinline></video>`;lbFull=true;return}
+    // Videos load only when you press play (they can be large); Open in Drive streams them instead
+    body.innerHTML=`<button type="button" class="vposter" id="lb-vplay" aria-label="Play ${esc(f.name)}">${f.thumbnailLink?`<img src="${esc(sizedThumb(f.thumbnailLink,viewerSize()))}" referrerpolicy="no-referrer" alt="" draggable="false">`:""}<span class="vplay" aria-hidden="true"><i></i></span><span class="vinfo">${[vidLen(f),f.size?fmtSize(f.size):""].filter(Boolean).join(" · ")}</span></button>`;
+    $("#lb-vplay").onclick=()=>playVideo(f,body);return}
   if(fullCache.has(f.id)){showFull(f,body);preloadAround();return}
   if(isImg&&f.thumbnailLink){
     $("#lb-full").hidden=false;
@@ -4091,6 +4118,14 @@ function renderViewer(){
     $("#lb-img").addEventListener("error",()=>showFull(f,body),{once:true});
     preloadAround();
   }else{$("#lb-full").hidden=true;body.innerHTML=`<div class="doc">Loading…</div>`;showFull(f,body)}
+}
+async function playVideo(f,body){
+  const btn=$("#lb-vplay"),info=btn&&btn.querySelector(".vinfo");if(btn)btn.disabled=true;
+  const want=f.id;if(info)info.textContent="Loading video…";
+  try{const blob=await getFull(f,(got,total)=>{if(info&&lbList[lbIdx]&&lbList[lbIdx].id===want)info.textContent=`Loading video… ${Math.round(100*got/total)}%`});
+    if(!lbList[lbIdx]||lbList[lbIdx].id!==want)return;
+    lbBlob=blob;lbFull=true;body.innerHTML=`<video src="${fullCache.get(f.id)}" controls autoplay playsinline></video>`;
+  }catch(e){if(lbList[lbIdx]&&lbList[lbIdx].id===want){if(btn)btn.disabled=false;if(info)info.textContent=e.code==="needs_token"||e.code==="needs_scope"?"Reconnect Google Drive to play this video":"Couldn't load the video. Tap to try again, or open it in Drive."}}
 }
 $("#lb-full").onclick=()=>{const f=lbList[lbIdx];if(f)showFull(f,$("#lb-body"))};
 let lbNum=null,delArmed=null;
@@ -4138,7 +4173,7 @@ $("#lb-close").onclick=()=>closeViewer();
 let lbZ=1,lbTX=0,lbTY=0,lbDrag=null,lbDragged=false,lbFullAsked=false,lbTouchAt=0;
 $("#lb").addEventListener("touchstart",()=>{lbTouchAt=Date.now()},{passive:true});
 const lbByTouch=()=>Date.now()-lbTouchAt<1000; // phones keep their own pinch-zoom and swipes
-const lbImg=()=>$("#lb-body").querySelector("img");
+const lbImg=()=>$("#lb-body").querySelector(":scope > img");
 function lbClamp(){const im=lbImg(),b=$("#lb-body");if(!im)return;
   const mx=Math.max(0,(im.offsetWidth*lbZ-b.clientWidth)/2+40),my=Math.max(0,(im.offsetHeight*lbZ-b.clientHeight)/2+40);
   lbTX=Math.max(-mx,Math.min(mx,lbTX));lbTY=Math.max(-my,Math.min(my,lbTY))}
@@ -4236,7 +4271,7 @@ document.addEventListener("click",async e=>{
   const t=e.target;
   if(t.closest("[data-selstart]")){selStart(t.closest("[data-selstart]").dataset.selstart);return}
   if(t.closest("[data-selx]")){selEnd();return}
-  const all=t.closest("[data-selall]");if(all){const st=driveState[sel.key];const imgs=(st&&st.items||[]).filter(f=>String(f.mimeType).startsWith("image/"));
+  const all=t.closest("[data-selall]");if(all){const st=driveState[sel.key];const imgs=(st&&st.items||[]).filter(isMediaF);
     sel.ids=sel.ids.size===imgs.length?new Set():new Set(imgs.map(f=>f.id));selDelArmed=false;sharePrep=null;renderAttViews();return}
   const sh=t.closest("[data-selshare]");if(sh){const list=selItems();if(list.length>30){toast("Share up to 30 photos at a time");return}shareDriveFiles(list,sh);return}
   const sv=t.closest("[data-selsave]");if(sv){const list=selItems();sv.disabled=true;
@@ -4266,7 +4301,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-58";
+const APP_VERSION="2026.10.16-59";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
