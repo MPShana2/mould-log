@@ -49,6 +49,10 @@ body{font-family:var(--body);font-size:15px;line-height:1.45}
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bar);color:var(--bar-fg);padding-block:16px 12px;border-bottom:3px solid var(--accent);margin:0 -16px 16px;padding-inline:16px;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 header.top .sub{color:var(--bar-muted)}
 header.top{align-items:center}
+.syncnote{margin-left:auto;margin-right:12px;font-size:12px;font-weight:600;color:var(--bar-muted);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.syncnote::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);animation:syncpulse 1.4s ease-in-out infinite}
+@keyframes syncpulse{50%{opacity:.3}}
+.syncnote[hidden]{display:none}
 .menubtn{border:0;background:none;color:var(--bar-fg);width:44px;height:44px;margin:-8px -10px -8px 0;border-radius:10px;display:grid;place-items:center;cursor:pointer}
 .menubtn:hover,.menubtn[aria-expanded="true"]{background:#1d1d1d}
 .menu{position:absolute;right:12px;top:calc(100% + 6px);z-index:30;min-width:240px;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 34px rgba(0,0,0,.28);padding:6px;display:flex;flex-direction:column}
@@ -648,6 +652,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
   <header class="top">
     <h1>Mould <span>Log</span></h1>
     <div class="sub" id="countline" hidden>Loading…</div>
+    <span class="syncnote" id="syncnote" role="status" hidden></span>
     <button type="button" class="menubtn" id="menubtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="menu" id="menu" role="menu" hidden>
       <button type="button" role="menuitem" data-page="hours"><span>Work hours</span><small>Log time · monthly totals</small></button>
@@ -1597,6 +1602,8 @@ function show(view){
   if(view!=="log"&&subPage){stashPM();subPage=null;$("#logform").classList.remove("subpage")}
   ["log","open","all","todo","moulds","hist",...PAGES].forEach(v=>$("#v-"+v).hidden=v!==view);
   closeMenu();
+  if(view==="open")renderOpen();
+  if(view==="moulds")renderList();
   if(view==="all")renderAllJobs();
   if(view==="todo")renderTodo(true);
   if(view==="hours"){hrConfirm=null;renderHours()}
@@ -1863,6 +1870,7 @@ function renderList(){
   const mScore=m=>jobMoulds.has(m.id)?3:searchScore([m.name,m.number,m.part,m.material,m.area,m.company,m.contact,m.phone,m.email].join(" "),q);
   const rows=q?moulds.filter(m=>mScore(m)>0).sort((a,b)=>mScore(b)-mScore(a)):moulds;
   const el=$("#mouldlist");
+  if($("#v-moulds").hidden&&el.childElementCount&&loaded.m)return; // hidden: drawn when it's shown
   if(!loaded.m){el.innerHTML='<div class="empty">Loading…</div>';return}
   if(!moulds.length){el.innerHTML='<div class="empty"><strong>Nothing registered yet</strong>Open “Add a mould” or “Add a general job” above. Each one keeps its own maintenance history.</div>';return}
   const procHits=q?procedures.filter(p=>searchScore([p.name,...procMouldNames(p)].join(" "),q)>0):[];
@@ -2071,6 +2079,7 @@ function renderOpen(){
   const n=open.length,tc=$("#tabcount");tc.textContent=n;tc.hidden=!n;
   $("#opencount").textContent=n?`${n} open`:"";
   const el=$("#openlist");
+  if($("#v-open").hidden&&el.childElementCount&&loaded.l)return; // hidden: drawn when it's shown (keeps saving snappy)
   if(!loaded.l&&db){el.innerHTML='<div class="empty">Loading work orders…</div>';return}
   if(!n){el.innerHTML='<div class="empty"><strong>No open work orders</strong>Jobs marked Pending, In progress or On hold will show here until they\'re set to Complete.</div>';return}
   // Mould work first, general jobs (no mould on them at all) in their own list underneath
@@ -2191,6 +2200,13 @@ function updateEditBar(){
 
 // ---------- Autosave ----------
 let dirty=false, saveTimer=null, saving=null, saveAgain=false, busySave=false;
+// Changes waiting for the server (saved on this device already)
+let syncCount=0,syncTimer=null;
+function syncShow(){const el=$("#syncnote");if(!el)return;const on=syncCount>0;
+  el.hidden=!on;if(on)el.textContent=navigator.onLine?"Syncing…":"Offline · saved on this device";
+  const ss=$("#savestate");if(ss&&ss.classList.contains("saved"))ss.textContent=savedText()}
+const savedText=()=>syncCount>0?(navigator.onLine?"Saved on this device · syncing":"Saved on this device · will sync when online"):"All changes saved";
+window.addEventListener("online",syncShow);window.addEventListener("offline",syncShow);
 function setSaveState(kind,text){
   const el=$("#savestate");el.className="savestate "+(kind||"");
   el.textContent=text||(kind==="idle"?"Autosaves once a mould and work order no. are set":"");
@@ -2230,7 +2246,7 @@ async function autosave(){
       if(editingId){await db.collection("logs").doc(editingId).update({...b.entry,updatedAt:now});
         if(origWo&&normWo(origWo)!==normWo(b.entry.wo)){const from=origWo;origWo=b.entry.wo;await woNumberChanged(editingId,from,b.entry.wo)}}
       else{const ref=await db.collection("logs").add({...b.entry,createdAt:now});editingId=ref.id;updateEditBar()}
-      if(!dirty)setSaveState("saved","All changes saved");
+      if(!dirty)setSaveState("saved",savedText());
       if(!woRenames[editingId])scheduleBackup(editingId);
       updateEditBar();
     }catch(err){
@@ -3978,8 +3994,9 @@ function closeViewer(fromBack){
   // Closed with a button or swipe: remove the viewer's history entry too
   if(fromBack!==true){try{if(history.state&&history.state.ml==="viewer"){skipPop++;history.back()}}catch(e){}}
 }
+function slowNet(){const c=navigator.connection;return !!(c&&(c.saveData||/(^|-)2g$|^3g$/.test(c.effectiveType||"")))}
 function preloadAround(){
-  [lbIdx+1,lbIdx-1,lbIdx+2].forEach(j=>{const f=lbList[(j+lbList.length)%lbList.length];
+  (slowNet()?[lbIdx+1]:[lbIdx+1,lbIdx-1,lbIdx+2]).forEach(j=>{const f=lbList[(j+lbList.length)%lbList.length];
     if(f&&f.thumbnailLink&&String(f.mimeType).startsWith("image/")){const im=new Image();im.referrerPolicy="no-referrer";im.src=sizedThumb(f.thumbnailLink,viewerSize())}});
 }
 async function getFull(f){
@@ -4190,7 +4207,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-53";
+const APP_VERSION="2026.10.15-54";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -4324,6 +4341,9 @@ window.MouldApp={
     $("#exportbtn").hidden=false;
     startData();renderAccount();refreshQueue().then(processQueue);setTimeout(processBackups,6000);
   },
+  syncPending(n){syncCount=n;clearTimeout(syncTimer);
+    // only mention it if the server is slow to confirm
+    if(n>0)syncTimer=setTimeout(syncShow,1200);else syncShow()},
   writeError(e){
     if(e&&e.code==="permission-denied")dataError(e);
     else toast("Couldn't sync a change: "+((e&&(e.message||e.code))||"unknown error"));
@@ -4339,7 +4359,9 @@ else{
 if("serviceWorker" in navigator){
   // When a new version of the app is published, switch to it straight away
   const hadController=!!navigator.serviceWorker.controller;let reloading=false;
-  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloading){reloading=true;flushSave().finally(()=>location.reload())}});
+  // …unless you're in the middle of something: then the new version simply loads next time the app is opened
+  const busyNow=()=>!$("#v-log").hidden||!$("#lb").hidden||!!(document.activeElement&&document.activeElement.matches("input,textarea,select"));
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!hadController||reloading||busyNow())return;reloading=true;flushSave().finally(()=>location.reload())});
   window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{r.update().catch(()=>{});document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")r.update().catch(()=>{})})}).catch(()=>{}));
 }
 </script>
@@ -4356,7 +4378,9 @@ else{
   try{fs=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()}),ignoreUndefinedProperties:true})}
   catch(e){fs=F.initializeFirestore(app,{ignoreUndefinedProperties:true})}
   // Writes apply on this device straight away; the server confirms later (or when back online)
-  const settle=p=>{p.catch(e=>window.MouldApp.writeError(e));return Promise.race([p,new Promise(r=>setTimeout(()=>r("pending"),2500))])};
+  // The app carries on after a moment rather than waiting for the server on a weak signal; a later failure still shows
+  let pend=0;const sync=d=>{pend+=d;window.MouldApp.syncPending(pend)};
+  const settle=p=>{sync(1);p.then(()=>sync(-1),e=>{sync(-1);window.MouldApp.writeError(e)});return Promise.race([p,new Promise(r=>setTimeout(()=>r("pending"),300))])};
   const snapDoc=s=>({id:s.id,exists:s.exists(),data:()=>s.data(),metadata:s.metadata});
   const wrapQ=q=>({
     orderBy:(f,d)=>wrapQ(F.query(q,F.orderBy(f,d||"asc"))),
