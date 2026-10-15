@@ -294,7 +294,11 @@ textarea.autogrow{resize:none;overflow:hidden}
 .hrzt{width:100%;border-collapse:collapse}
 .hrzt th,.hrzt td{padding:4px 6px;border-top:1px solid var(--line);text-align:left}
 .hrzt thead th{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-top:0;padding-top:6px}
-.hrzt tbody th{font-family:var(--mono);font-size:14px;width:44px;color:var(--fg)}
+.hrzt tbody th{font-family:var(--mono);font-size:14px;width:96px;color:var(--fg);white-space:nowrap}
+.hrzz{display:inline-block;width:30px}
+.hrzl{width:58px;padding:7px 5px;font-size:13.5px;text-transform:uppercase;vertical-align:middle}
+.hrzl::placeholder{color:var(--muted);opacity:.55;text-transform:none}
+@media (max-width:380px){.hrzt tbody th{width:84px}.hrzl{width:50px}.hrzz{width:26px}}
 .hrzt tbody tr:nth-child(even){background:var(--sunk)}
 .hrzc{display:flex;align-items:center;gap:4px;border-radius:8px}
 .hrzc input{flex:1;min-width:0;width:100%;padding:7px 8px;font-size:15px}
@@ -1669,7 +1673,7 @@ function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults
 function writeSet(p,id){const v=formPM[id]||{};
   $(`#${p}-shots`).value=v.shots??"";$(`#${p}-faults`).value=v.faults||"";$(`#${p}-work`).value=v.work||"";$(`#${p}-notes`).value=v.notes||"";plWrite(p,v.partsList||partsFromText(v.parts));
   if(updOpen&&updOpen.p===p)updOpen=null;
-  hrzSet(p,hrzClean(v.hrz));renderHrz(p);
+  hrzSet(p,hrzClean(v.hrz));renderHrz(p,true);
   if(p==="f"){fProcs=(v.procs||[]).map(x=>procSnap(x,x.st));renderWoProcs("f");fUpds=updClean(v.updates);renderUpd("f")}else{bProcs=(v.procs||[]).map(x=>procSnap(x,x.st));renderWoProcs("b");bUpds=updClean(v.updates);renderUpd("b");
     // a new sub-job starts with the work order's status and start date
     segSet("#b-status",v.status||segVal("#f-status")||"Pending");$("#b-date").value=v.date??$("#f-date").value;$("#b-done").value=v.done||"";
@@ -2080,7 +2084,7 @@ function clearForm(){
   $("#f-shots").value="";$("#f-work").value="";$("#f-notes").value="";$("#f-desc").value="";plWrite("f",[]);$("#f-done").value="";
   setExtras([]);
   $("#f-type").selectedIndex=0;$("#f-faults").value="";segReset("#f-status");$("#f-date").value=today();
-  fProcs=[];bProcs=[];wpPicker=null;renderWoProcs("f");renderWoProcs("b");fUpds=[];bUpds=[];updOpen=null;renderUpd("f");renderUpd("b");fHrz=null;bHrz=null;renderHrz("f");renderHrz("b");
+  fProcs=[];bProcs=[];wpPicker=null;renderWoProcs("f");renderWoProcs("b");fUpds=[];bUpds=[];updOpen=null;renderUpd("f");renderUpd("b");fHrz=null;bHrz=null;renderHrz("f",true);renderHrz("b",true);
   suggestedWO=nextWO();$("#f-wo").value=suggestedWO;$("#f-order").value="";
   renderFormDrive();
   dirty=false;clearTimeout(saveTimer);
@@ -3089,8 +3093,11 @@ let fHrz=null,bHrz=null;
 const hrzList=p=>p==="f"?fHrz:bHrz;
 const hrzSet=(p,v)=>{if(p==="f")fHrz=v;else bHrz=v};
 function hrzClean(v){if(!v||!(+v.n>0))return null;const n=Math.min(64,Math.max(1,Math.round(+v.n)));
-  const z=Array.from({length:n},(_,i)=>{const r=(v.z||[])[i]||{};return {h:String(r.h??"").trim(),t:String(r.t??"").trim()}});return {n,z}}
-const hrzHasData=v=>!!(v&&v.z&&v.z.some(r=>r.h||r.t));
+  const z=Array.from({length:n},(_,i)=>{const r=(v.z||[])[i]||{};return {l:String(r.l??"").trim().toUpperCase(),h:String(r.h??"").trim(),t:String(r.t??"").trim()}});return {n,z}}
+const hrzHasData=v=>!!(v&&v.z&&v.z.some(r=>r.h||r.t||r.l));
+const hrzHasLabels=v=>!!(v&&v.z&&v.z.some(r=>r.l));
+// Suggested next label: G01 → G02, M09 → M10, NL → NL
+function hrzNextLabel(prev){const m=String(prev||"").match(/^(.*?)(\d+)$/);if(!m)return prev||"";return m[1]+String(+m[2]+1).padStart(m[2].length,"0")}
 const hrzMouldOf=p=>p==="f"?mainFor:boxFor;
 // The most recent readings for this mould on another work order (shown faintly as a guide)
 function hrzPrev(mid){if(!mid)return null;
@@ -3101,47 +3108,58 @@ const hrzNum=s=>{const x=parseFloat(String(s).replace(",","."));return isFinite(
 function hrzFlags(v){const flag={};["h","t"].forEach(c=>{const nums=v.z.map(r=>hrzNum(r[c])).filter(x=>x!==null&&x>0).sort((a,b)=>a-b);
   if(nums.length<3)return;const med=nums[Math.floor(nums.length/2)];
   v.z.forEach((r,i)=>{const x=hrzNum(r[c]);if(x!==null&&med>0&&Math.abs(x-med)/med>0.25)flag[c+i]=true})});return flag}
-function renderHrz(p){
+function renderHrz(p,force){
   const el=$(p==="f"?"#f-hrz":"#b-hrz");if(!el)return;const v=hrzList(p),mid=hrzMouldOf(p);
-  if(!mid||mid===FORCE){el.innerHTML="";return}
+  if(!mid||mid===FORCE){el.innerHTML="";el.dataset.sig="";return}
+  // Same table already on screen: don't redraw it (that would close the phone keyboard mid-entry)
+  const sig=mid+"|"+(v?v.n:"none")+"|"+editingId;
+  if(!force&&el.dataset.sig===sig&&el.firstChild){if(v)hrzRefreshFlags(p);return}
+  el.dataset.sig=sig;
   if(!v){const pv=hrzPrev(mid);el.innerHTML=`<button type="button" class="addmould" data-hrzadd="${p}">+ Hot runner readings${pv?` <span class="hrzlast">(last: ${pv.v.n} zones on #${esc(pv.wo)})</span>`:""}</button>`;return}
-  const pv=hrzPrev(mid),flags=hrzFlags(v),cell=(i,c)=>{const val=v.z[i][c],ol=/^ol$/i.test(val),last=pv&&pv.v.z[i]?pv.v.z[i][c]:"";
+  const pv=hrzPrev(mid),flags=hrzFlags(v),lab=i=>{const val=v.z[i].l,sug=(pv&&pv.v.z[i]&&pv.v.z[i].l)||(i?hrzNextLabel(v.z[i-1].l):"");
+      return `<input class="hrzl mono" autocapitalize="characters" autocomplete="off" enterkeyhint="next" data-hrz="${p}|${i}|l" value="${esc(val)}" placeholder="${esc(sug||"Label")}" aria-label="Zone ${i+1} label">`},
+    cell=(i,c)=>{const val=v.z[i][c],ol=/^ol$/i.test(val),last=pv&&pv.v.z[i]?pv.v.z[i][c]:"";
     return `<td><div class="hrzc${ol?" ol":""}${flags[c+i]?" dev":""}"><input class="mono" inputmode="decimal" enterkeyhint="${c==="t"&&i===v.n-1?"done":"next"}" autocomplete="off" data-hrz="${p}|${i}|${c}" value="${esc(val)}" placeholder="${esc(last||"Ω")}" aria-label="Zone ${i+1} ${c==="h"?"heater":"thermocouple"} ohms"><button type="button" class="hrzol" data-hrzol="${p}|${i}|${c}" aria-pressed="${ol}" title="Open circuit">OL</button></div></td>`};
   el.innerHTML=`<div class="hrzbox"><div class="hrzhead"><span class="hrztitle">Hot runner readings</span>
       <span class="hrzn"><button type="button" data-hrzstep="${p}|-1" aria-label="One less zone">−</button><input class="mono" type="number" inputmode="numeric" min="1" max="64" value="${v.n}" data-hrzn="${p}" aria-label="Number of zones"><button type="button" data-hrzstep="${p}|1" aria-label="One more zone">+</button><span>zones</span></span></div>
-    <table class="hrzt"><thead><tr><th>Zone</th><th>Heater Ω</th><th>T/C Ω</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr><th>Z${i+1}</th>${cell(i,"h")}${cell(i,"t")}</tr>`).join("")}</tbody></table>
+    <table class="hrzt"><thead><tr><th>Zone</th><th>Heater Ω</th><th>T/C Ω</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr><th><span class="hrzz">Z${i+1}</span>${lab(i)}</th>${cell(i,"h")}${cell(i,"t")}</tr>`).join("")}</tbody></table>
     <div class="hrzfoot">${pv?`<span>Grey numbers: last readings, #${esc(pv.wo)}${pv.date?" · "+esc(fmtDate(pv.date)):""}.</span> `:""}<span class="hrzkey"><i class="k-dev"></i> well off the other zones</span> <span class="hrzkey"><i class="k-ol"></i> open circuit</span>
       <button type="button" class="linkish" data-hrzdel="${p}">Remove table</button></div></div>`;
 }
 function hrzRefreshFlags(p){const el=$(p==="f"?"#f-hrz":"#b-hrz"),v=hrzList(p);if(!el||!v)return;const flags=hrzFlags(v);
-  el.querySelectorAll("[data-hrz]").forEach(inp=>{const[,i,c]=inp.dataset.hrz.split("|"),box=inp.parentElement,val=v.z[+i][c];
+  el.querySelectorAll("[data-hrz]:not(.hrzl)").forEach(inp=>{const[,i,c]=inp.dataset.hrz.split("|"),box=inp.parentElement,val=v.z[+i][c];
     box.classList.toggle("dev",!!flags[c+i]);box.classList.toggle("ol",/^ol$/i.test(val));box.querySelector(".hrzol").setAttribute("aria-pressed",String(/^ol$/i.test(val)))})}
-function hrzResize(p,n){const v=hrzList(p)||{n:0,z:[]};hrzSet(p,hrzClean({n,z:v.z}));renderHrz(p);markDirty(400)}
+function hrzResize(p,n){const v=hrzList(p)||{n:0,z:[]};hrzSet(p,hrzClean({n,z:v.z}));renderHrz(p,true);markDirty(400)}
 $("#logform").addEventListener("input",e=>{const t=e.target;
-  if(t.dataset&&t.dataset.hrz){const[p,i,c]=t.dataset.hrz.split("|"),v=hrzList(p);if(!v)return;v.z[+i][c]=t.value.trim();hrzRefreshFlags(p);return}});
+  if(t.dataset&&t.dataset.hrz){const[p,i,c]=t.dataset.hrz.split("|"),v=hrzList(p);if(!v)return;
+    if(c==="l"){v.z[+i].l=t.value.trim().toUpperCase();const nx=$(`[data-hrz="${p}|${+i+1}|l"]`);if(nx&&!nx.value)nx.placeholder=hrzNextLabel(v.z[+i].l)||"Label";return}
+    v.z[+i][c]=t.value.trim();hrzRefreshFlags(p);return}});
 $("#logform").addEventListener("change",e=>{const t=e.target;if(t.dataset&&t.dataset.hrzn){const n=Math.min(64,Math.max(1,parseInt(t.value,10)||1));hrzResize(t.dataset.hrzn,n)}});
 $("#logform").addEventListener("keydown",e=>{const t=e.target;
   if(t.dataset&&t.dataset.hrzn&&e.key==="Enter"){e.preventDefault();t.blur();return}
   // Enter / Next moves down the column, like a spreadsheet, keeping the keyboard up
   if(t.dataset&&t.dataset.hrz&&(e.key==="Enter"||e.keyCode===13)){e.preventDefault();hrzNext(t)}});
-function hrzNext(t){const[p,i,c]=t.dataset.hrz.split("|"),nx=$(`[data-hrz="${p}|${+i+1}|${c}"]`)||(c==="h"?$(`[data-hrz="${p}|0|t"]`):null);
+function hrzNext(t){const[p,i,c]=t.dataset.hrz.split("|");
+  if(c==="l"&&!t.value.trim()&&t.placeholder&&t.placeholder!=="Label"){t.value=t.placeholder;t.dispatchEvent(new Event("input",{bubbles:true}))}
+  const nx=$(`[data-hrz="${p}|${+i+1}|${c}"]`)||(c==="l"?$(`[data-hrz="${p}|0|h"]`):c==="h"?$(`[data-hrz="${p}|0|t"]`):null);
   if(nx){nx.focus({preventScroll:true});nx.scrollIntoView({block:"nearest"});try{nx.select()}catch(e){}return true}t.blur();return false}
 // Phone keyboards' Go / Next key can submit the form instead of sending Enter: treat that as "next cell" too
 document.addEventListener("submit",e=>{const a=document.activeElement;if(a&&a.dataset&&a.dataset.hrz&&e.target.id==="logform"){e.preventDefault();e.stopImmediatePropagation();hrzNext(a)}},true);
 $("#logform").addEventListener("click",e=>{const t=e.target;
-  const add=t.closest("[data-hrzadd]");if(add){const p=add.dataset.hrzadd,pv=hrzPrev(hrzMouldOf(p));hrzSet(p,hrzClean({n:pv?pv.v.n:4,z:[]}));renderHrz(p);markDirty(400);
+  const add=t.closest("[data-hrzadd]");if(add){const p=add.dataset.hrzadd,pv=hrzPrev(hrzMouldOf(p));hrzSet(p,hrzClean({n:pv?pv.v.n:4,z:pv?pv.v.z.map(r=>({l:r.l})):[]}));renderHrz(p,true);markDirty(400);
     const first=$(`[data-hrz="${p}|0|h"]`);if(first)first.focus();return}
   const st=t.closest("[data-hrzstep]");if(st){const[p,d]=st.dataset.hrzstep.split("|"),v=hrzList(p);if(v)hrzResize(p,Math.min(64,Math.max(1,v.n+ +d)));return}
   const ol=t.closest("[data-hrzol]");if(ol){const[p,i,c]=ol.dataset.hrzol.split("|"),v=hrzList(p);if(!v)return;const r=v.z[+i];r[c]=/^ol$/i.test(r[c])?"":"OL";
     const inp=$(`[data-hrz="${p}|${i}|${c}"]`);if(inp)inp.value=r[c];hrzRefreshFlags(p);markDirty(400);return}
   const del=t.closest("[data-hrzdel]");if(del){const p=del.dataset.hrzdel;
     if(hrzHasData(hrzList(p))&&del.dataset.armed!=="1"){del.dataset.armed="1";del.textContent="Tap again to remove the readings";del.style.color="var(--bad)";setTimeout(()=>{if(del.isConnected){del.dataset.armed="";del.textContent="Remove table";del.style.color=""}},4000);return}
-    hrzSet(p,null);renderHrz(p);markDirty(250);return}
+    hrzSet(p,null);renderHrz(p,true);markDirty(250);return}
 });
 // For reports and backups
-const hrzRows=v=>v.z.map((r,i)=>[`Z${i+1}`,r.h||"–",r.t||"–"]);
-function hrzMd(v){v=hrzClean(v);if(!hrzHasData(v))return "";return `\n**Hot runner readings (Ω)**\n\n| Zone | Heater | T/C |\n|---|---|---|\n`+hrzRows(v).map(r=>`| ${r.join(" | ")} |`).join("\n")+"\n"}
-const hrzCsv=v=>{v=hrzClean(v);return hrzHasData(v)?v.z.map((r,i)=>`Z${i+1} H ${r.h||"-"} / TC ${r.t||"-"}`).join("; "):""};
+const hrzRows=v=>v.z.map((r,i)=>hrzHasLabels(v)?[`Z${i+1}`,r.l||"–",r.h||"–",r.t||"–"]:[`Z${i+1}`,r.h||"–",r.t||"–"]);
+const hrzCols=v=>hrzHasLabels(v)?["Zone","Label","Heater (Ω)","T/C (Ω)"]:["Zone","Heater (Ω)","T/C (Ω)"];
+function hrzMd(v){v=hrzClean(v);if(!hrzHasData(v))return "";return `\n**Hot runner readings (Ω)**\n\n| ${hrzCols(v).join(" | ")} |\n|${hrzCols(v).map(()=>"---").join("|")}|\n`+hrzRows(v).map(r=>`| ${r.join(" | ")} |`).join("\n")+"\n"}
+const hrzCsv=v=>{v=hrzClean(v);return hrzHasData(v)?v.z.map((r,i)=>`Z${i+1}${r.l?" ("+r.l+")":""} H ${r.h||"-"} / TC ${r.t||"-"}`).join("; "):""};
 
 // ---------- Work hours ----------
 // Each entry: {date, tech, wo, sub, logId, mouldId, hours}. "2601-1" puts the hours against that sub-job's mould.
@@ -3298,7 +3316,7 @@ function reportModel(l,onlyId){
   const showFields=id=>{const v=pmVal(l,id),m=mOf(id),out=[];
     if(!(m&&isGen(m))&&rptHas(v.shots))out.push({t:"field",label:"Shot count",text:fmtNum(v.shots)});
     if(rptHas(v.faults))out.push({t:"field",label:"Inspection / faults found",text:v.faults});
-    {const hz=hrzClean(v.hrz);if(hrzHasData(hz))out.push({t:"table",label:"Hot runner readings",cols:["Zone","Heater (Ω)","T/C (Ω)"],rows:hrzRows(hz),insp:true})}
+    {const hz=hrzClean(v.hrz);if(hrzHasData(hz))out.push({t:"table",label:"Hot runner readings",cols:hrzCols(hz),rows:hrzRows(hz),insp:true})}
     if(rptHas(v.work))out.push({t:"field",label:"Work done",text:v.work});
     {const u=updClean(v.updates);if(u.length)out.push({t:"field",label:"Updates",text:u.map(x=>`• ${fmtDate(x.date)} – ${x.text.replace(/\n+/g," / ")}${(x.files||[]).length?` (photo${x.files.length>1?"s":""}: ${x.files.join(", ")})`:""}`).join("\n")})}
     if(rptHas(v.notes))out.push({t:"field",label:"Notes",text:v.notes});
@@ -4116,7 +4134,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-48";
+const APP_VERSION="2026.10.15-49";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
