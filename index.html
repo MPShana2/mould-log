@@ -552,8 +552,20 @@ details.ck>summary span:first-child{flex:1}
 .allfilters{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
 .allfilters select{width:auto}
 .group{display:flex;flex-direction:column;gap:8px}
-.group+.group{margin-top:14px}
+.group+.group,.cogroups+.group{margin-top:14px}
 .openjobs{color:var(--steel);font-weight:600}
+.group.cohead{margin-bottom:-6px}
+.cogroups{display:flex;flex-direction:column;gap:8px}
+.cogroup{border:1px solid var(--line);border-radius:10px;background:var(--sunk)}
+.cogroup>summary{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;list-style:none;min-height:48px}
+.cogroup>summary::-webkit-details-marker{display:none}
+.cogroup .coname{font-weight:700;font-size:16px;flex:1;min-width:0;overflow-wrap:anywhere}
+.cogroup.unassigned .coname{color:var(--muted);font-style:italic}
+.cogroup .cometa{font-size:13px;color:var(--muted);white-space:nowrap}
+.cogroup .cometa b{color:var(--steel)}
+.cogroup .chev{color:var(--muted);font-size:20px;line-height:1;transition:transform .15s}
+.cogroup[open] .chev{transform:rotate(90deg)}
+.cogroup>.group{padding:0 10px 10px}
 details summary{cursor:pointer;font-weight:600;color:var(--steel)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 /* ---------- Desktop layout (wide windows only; phones keep the layout above) ---------- */
@@ -1897,17 +1909,32 @@ function renderList(){
     jobHits.slice(0,30).map(l=>{const st=l.status||"Complete";
       return `<button type="button" class="worow2" data-jobopen="${esc(l.id)}" aria-label="Open ${esc(l.wo||"job")}"><span class="wo">${esc(l.wo||"—")}</span><span class="tool">${esc(jobTool(l))}<br><span style="font-size:12px;color:var(--muted)">${l.orderNo?"Order "+esc(l.orderNo)+" · ":""}${esc(l.type||"")} · ${fmtDate(l.date)}</span></span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`}).join("")+
     `</div></div>`:"";
-  const card=m=>{const s=summary(m);const sub=isClient(m)?[m.company,m.contact].filter(Boolean).join(" · "):[m.part||m.area,m.company].filter(Boolean).join(" · ");
+  const card=(m,inCo)=>{const s=summary(m);const sub=isClient(m)?[m.company,m.contact].filter(Boolean).join(" · "):[m.part||m.area,inCo?"":m.company].filter(Boolean).join(" · ");
     return `<button class="mould b-${stClass(s.st).slice(3)}" data-id="${esc(m.id)}" type="button">
       <span><span class="mname">${esc(mlabel(m))}</span>${sub?` <span style="color:var(--muted)">· ${esc(sub)}</span>`:""}</span>
       <span class="stpill ${s.st?stClass(s.st):"none"}" style="align-self:start">${s.st?esc(s.st):"No jobs"}</span>
       <span class="meta"><span>Last: ${s.last?(s.last.wo?esc(s.last.wo)+" · ":"")+fmtDate(s.last.date)+" · "+esc(s.last.type):"—"}</span><span class="mono">${s.shots?fmtNum(s.shots)+" shots":""}</span>${s.open?`<span class="openjobs">${s.open} open job${s.open===1?"":"s"}</span>`:""}${procFor(m.id,false).length?`<span>${procFor(m.id,false).length} procedure${procFor(m.id,false).length===1?"":"s"}</span>`:""}</span>
     </button>`};
   const mo=rows.filter(m=>!isGen(m)),ge=rows.filter(m=>isGen(m)&&!isClient(m)),cl=rows.filter(isClient);
-  el.innerHTML=jobsHTML+(procHits.length?`<div class="group"><span class="label">Procedures · ${procHits.length}</span>${procListHTML(procHits,true)}</div>`:"")+(mo.length?`<div class="group"><span class="label">Moulds · ${mo.length}</span>${mo.map(card).join("")}</div>`:"")+
+  el.innerHTML=jobsHTML+(procHits.length?`<div class="group"><span class="label">Procedures · ${procHits.length}</span>${procListHTML(procHits,true)}</div>`:"")+(mo.length?`<div class="group cohead"><span class="label">Moulds · ${mo.length}</span></div>${coGroups(mo,card,!!q)}`:"")+
     (ge.length?`<div class="group"><span class="label">General jobs · ${ge.length}</span>${ge.map(card).join("")}</div>`:"")+
     (cl.length?`<div class="group"><span class="label">Client work · ${cl.length}</span>${cl.map(card).join("")}</div>`:"");
 }
+// Moulds grouped by company (those without one under "Unassigned"); which groups are open is kept on this device
+let coOpen=new Set();try{coOpen=new Set(JSON.parse(localStorage.getItem("ml_coopen")||"[]"))}catch(e){}
+const coKey=m=>String(m.company||"").trim().toLowerCase().replace(/\s+/g," ");
+function coGroups(list,card,searching){
+  const by=new Map();
+  for(const m of list){const k=coKey(m);if(!by.has(k))by.set(k,{k,names:{},items:[]});by.get(k).items.push(m)}
+  for(const m of moulds){const g=by.get(coKey(m)),n=String(m.company||"").trim();if(g&&n)g.names[n]=(g.names[n]||0)+1} // the usual spelling
+  const groups=[...by.values()].map(g=>({...g,name:g.k?Object.entries(g.names).sort((a,b)=>b[1]-a[1])[0][0]:"Unassigned"}))
+    .sort((a,b)=>(!a.k)-(!b.k)||a.name.localeCompare(b.name,undefined,{sensitivity:"base"}));
+  if(groups.length===1&&!groups[0].k)return `<div class="group">${list.map(card).join("")}</div>`; // nothing assigned yet: plain list
+  return `<div class="cogroups">`+groups.map(g=>{const open=searching||coOpen.has(g.k||"~"),openJobs=g.items.reduce((a,m)=>a+summary(m).open,0);
+    return `<details class="cogroup${g.k?"":" unassigned"}" data-co="${esc(g.k||"~")}"${open?" open":""}><summary><span class="coname">${esc(g.name)}</span><span class="cometa">${g.items.length} mould${g.items.length===1?"":"s"}${openJobs?` · <b>${openJobs} open</b>`:""}</span><span class="chev" aria-hidden="true">›</span></summary><div class="group">${g.items.map(m=>card(m,true)).join("")}</div></details>`}).join("")+`</div>`;
+}
+$("#mouldlist").addEventListener("toggle",e=>{const d=e.target;if(!d.matches||!d.matches("details.cogroup")||$("#search").value.trim())return;
+  if(d.open)coOpen.add(d.dataset.co);else coOpen.delete(d.dataset.co);try{localStorage.setItem("ml_coopen",JSON.stringify([...coOpen]))}catch(err){}},true);
 $("#mouldlist").addEventListener("click",e=>{
   const j=e.target.closest("[data-jobopen]");if(j){startEdit(j.dataset.jobopen);return}
   const b=e.target.closest(".mould");if(b)openMould(b.dataset.id)});
@@ -4239,7 +4266,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-56";
+const APP_VERSION="2026.10.15-57";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
