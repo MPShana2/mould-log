@@ -1989,9 +1989,10 @@ function renderOpen(){
   if(!loaded.l&&db){el.innerHTML='<div class="empty">Loading work orders…</div>';return}
   if(!n){el.innerHTML='<div class="empty"><strong>No open work orders</strong>Jobs marked Pending, In progress or On hold will show here until they\'re set to Complete.</div>';return}
   // Mould work first, general jobs (no mould on them at all) in their own list underneath
-  const hasMouldOn=l=>jobIds(l).some(id=>{const m=moulds.find(x=>x.id===id);return m?!isGen(m):!String(id).startsWith("gen_")});
-  const isCli=l=>isClient(moulds.find(x=>x.id===l.mouldId));
-  const ns=open.filter(l=>!l.mouldId),cj=open.filter(l=>l.mouldId&&isCli(l)),mj=open.filter(l=>l.mouldId&&!isCli(l)&&hasMouldOn(l)),gj=open.filter(l=>l.mouldId&&!isCli(l)&&!hasMouldOn(l));
+  // Grouped by the work order's main job only (moulds added as sub-jobs don't move it)
+  const kindOfMain=l=>{const m=moulds.find(x=>x.id===l.mouldId);if(m)return isClient(m)?"client":isGen(m)?"general":"mould";
+    const id=String(l.mouldId);return id.startsWith("cli_")?"client":id.startsWith("gen_")?"general":"mould"};
+  const ns=open.filter(l=>!l.mouldId),cj=open.filter(l=>l.mouldId&&kindOfMain(l)==="client"),mj=open.filter(l=>l.mouldId&&kindOfMain(l)==="mould"),gj=open.filter(l=>l.mouldId&&kindOfMain(l)==="general");
   const sec=(title,list)=>`<div class="opengroup"><div class="ogh">${title}<span>${list.length}</span></div>${jobTable(list)}</div>`;
   el.innerHTML=(ns.length?sec("Mould not set yet",ns):"")+(mj.length?sec("Moulds",mj):"")+(cj.length?sec("Client work",cj):"")+(gj.length?sec("General jobs",gj):"");
 }
@@ -4011,7 +4012,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-43";
+const APP_VERSION="2026.10.15-44";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
