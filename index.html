@@ -282,6 +282,7 @@ textarea.autogrow{resize:none;overflow:hidden}
 .updreopen input{width:18px;height:18px;accent-color:var(--accent)}
 .lastupd{margin-top:6px;font-size:13px;color:var(--fg);background:var(--sunk);border-left:3px solid var(--accent);border-radius:6px;padding:5px 8px}
 .lastupd b{color:var(--muted);font-weight:700;margin-right:4px}.lastupd span{color:var(--muted)}
+.wipewarn{margin:0;color:var(--warn);font-weight:600}
 .ordfield{margin-top:12px}
 .ordfield input{width:100%}
 .ordtag{display:inline-block;margin-left:8px;font-size:11.5px;font-weight:600;color:var(--muted);background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:1px 8px;vertical-align:1px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
@@ -857,6 +858,12 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <button class="btn ghost" id="acct-drive" type="button">Connect Google Drive</button>
         <button class="btn ghost" id="acct-signout" type="button">Sign out</button>
       </div>
+    </div>
+    <div class="panel stackcol">
+      <span class="label" style="margin:0">Shared or public computer?</span>
+      <p class="hint" style="margin:0;font-size:13.5px">Signs out of Mould Log, removes its Google Drive access, deletes the offline copy of your work orders and anything waiting to upload from this computer, then takes you to Google to sign out of your Google account in this browser. Your work orders stay safe online.</p>
+      <p class="small wipewarn" id="wipewarn" hidden></p>
+      <div><button class="btn ghost danger" id="acct-wipe" type="button">Sign out of this computer completely</button></div>
     </div>
   </section>
   <section id="v-backup" class="stackcol page" hidden>
@@ -2298,7 +2305,7 @@ document.addEventListener("click",e=>{
   if(autoRenewBusy||!currentUser||!driveEver()||!driveOk||!navigator.onLine)return;
   if(gToken&&gExp>Date.now()+10*60000)return;
   if(Date.now()<autoRenewAt)return;
-  if(e.target.closest&&e.target.closest("[data-dconnect],[data-dconsent],[data-gphotos],[data-rptgo],[data-woren],#signin,#acct-signout,#drive-connect"))return;
+  if(e.target.closest&&e.target.closest("[data-dconnect],[data-dconsent],[data-gphotos],[data-rptgo],[data-woren],#signin,#acct-signout,#acct-wipe,#drive-connect"))return;
   if(!(window.google&&google.accounts&&google.accounts.oauth2))return;
   autoRenewBusy=true;autoRenewAt=Date.now()+60000;
   requestToken("").then(()=>{autoRenewBusy=false})
@@ -4012,7 +4019,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-44";
+const APP_VERSION="2026.10.15-45";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -4062,7 +4069,34 @@ function renderImportHint(){
   h.hidden=!(loaded.m&&loaded.l&&!moulds.length&&!logs.length);
 }
 $("#acct-drive").onclick=()=>connectDrive();
-$("#acct-signout").onclick=async()=>{dropToken();try{localStorage.removeItem("ml_drive_ever")}catch(e){}try{if(window.google&&google.accounts&&google.accounts.oauth2&&gToken)google.accounts.oauth2.revoke(gToken,()=>{})}catch(e){}if(authApi)await authApi.signOut()};
+// Cancels this computer's Google Drive (and Google Photos) access for Mould Log
+function revokeGoogle(){const toks=[gToken,gpToken].filter(Boolean);
+  try{if(window.google&&google.accounts&&google.accounts.oauth2)toks.forEach(t=>google.accounts.oauth2.revoke(t,()=>{}))}catch(e){}
+  dropToken();gpToken=null;gpExp=0;try{localStorage.removeItem("ml_drive_ever");localStorage.removeItem("ml_gptok")}catch(e){}}
+$("#acct-signout").onclick=async()=>{await flushSave().catch(()=>{});revokeGoogle();if(authApi)await authApi.signOut()};
+// ---- Sign out of this computer completely ----
+let wipeArmed=false;
+async function wipeWarning(){const q=await qAll().catch(()=>[]),n=q.length;
+  $("#wipewarn").hidden=!n;$("#wipewarn").textContent=n?`${n} photo${n===1?" is":"s are"} still waiting to upload from this computer and will be deleted. Connect to the internet and Google Drive first if you want to keep ${n===1?"it":"them"}.`:""}
+$("#acct-wipe").onclick=async()=>{
+  const b=$("#acct-wipe");
+  if(!wipeArmed){wipeArmed=true;await wipeWarning();b.textContent="Tap again to sign out and clear this computer";b.classList.add("armed");
+    setTimeout(()=>{if(wipeArmed){wipeArmed=false;b.textContent="Sign out of this computer completely";b.classList.remove("armed")}},6000);return}
+  b.disabled=true;b.textContent="Signing out…";
+  try{await flushSave()}catch(e){}
+  revokeGoogle();
+  try{if(authApi)await authApi.signOut()}catch(e){}
+  try{if(authApi&&authApi.wipe)await authApi.wipe()}catch(e){}   // closes and deletes the offline copy of the data
+  try{if(qDbP){(await qDbP).close()}}catch(e){}
+  // every database, saved setting and cached file this site keeps in this browser
+  try{const dbs=indexedDB.databases?await indexedDB.databases():[{name:"mouldlog-uploads"},{name:"mouldlog-share"},{name:"firebaseLocalStorageDb"}];
+    await Promise.all(dbs.filter(d=>d&&d.name).map(d=>new Promise(r=>{const q=indexedDB.deleteDatabase(d.name);q.onsuccess=q.onerror=q.onblocked=()=>r()})))}catch(e){}
+  try{localStorage.clear();sessionStorage.clear()}catch(e){}
+  try{if(window.caches){for(const k of await caches.keys())await caches.delete(k)}}catch(e){}
+  try{if(navigator.serviceWorker){for(const r of await navigator.serviceWorker.getRegistrations())await r.unregister()}}catch(e){}
+  // last step: Google's own sign-out for this browser
+  location.replace("https://accounts.google.com/Logout");
+};
 $("#import-file").addEventListener("change",async e=>{
   const file=e.target.files[0];e.target.value="";if(!file||!db)return;
   try{
@@ -4173,7 +4207,8 @@ else{
   const adapter={collection:p=>wrapCol(F.collection(fs,p)),doc:p=>wrapDoc(F.doc(fs,p))};
   window.MouldApp.bindAuth({
     signInWithToken:async t=>{await A.signInWithCredential(auth,A.GoogleAuthProvider.credential(null,t))},
-    signOut:()=>A.signOut(auth)
+    signOut:()=>A.signOut(auth),
+    wipe:async()=>{try{await F.terminate(fs)}catch(e){}try{await F.clearIndexedDbPersistence(fs)}catch(e){}}
   });
   A.onAuthStateChanged(auth,u=>{if(u)window.MouldApp.start(adapter,{email:u.email,name:u.displayName});else window.MouldApp.signedOut()});
 }
