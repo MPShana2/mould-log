@@ -3085,8 +3085,9 @@ function renderFormHours(){
 document.addEventListener("click",async e=>{if(!e.target.closest("[data-hrlog]"))return;
   const wo=$("#f-wo").value.trim().toUpperCase(),v=subPage&&formSubNo[subPage]?`${wo}-${formSubNo[subPage]}`:wo;
   await flushSave();pageReturn="log";show("hours");hrReset();$("#hr-wo").value=v;hrWoHint();$("#hr-hours").focus()});
-function hrReset(){hrEditing=null;$("#hr-date").value=today();$("#hr-hours").value="";$("#hr-wo").value="";
-  let t="";try{t=localStorage.getItem("ml_hr_tech")||""}catch(e){}$("#hr-tech").value=t;
+// After adding, the name clears and the date stays on the last one used (handy for several jobs on one day)
+let hrLastDate=null;
+function hrReset(){hrEditing=null;$("#hr-date").value=hrLastDate||today();$("#hr-hours").value="";$("#hr-wo").value="";$("#hr-tech").value="";
   $("#hr-save").textContent="Add hours";$("#hr-cancel").hidden=true;$("#hr-formtitle").textContent="Log hours";hrWoHint()}
 function hrWoHint(){const v=$("#hr-wo").value.trim(),el=$("#hr-wohint");
   if(!v){el.textContent="Use a sub-job number (e.g. 2601-1) to put the hours against one mould.";el.classList.remove("bad");return}
@@ -3103,12 +3104,11 @@ $("#hrform").addEventListener("submit",async e=>{
   if(p.badSub){toast(`#${p.log.wo} has no sub-job ${p.sub}`);return}
   if(hours>24){toast("That's more than 24 hours in a day");return}
   const doc={date,tech,hours,wo:p.wo,sub:p.sub,logId:p.log?p.log.id:null,mouldId:p.mouldId,updatedAt:new Date().toISOString()};
-  try{localStorage.setItem("ml_hr_tech",tech)}catch(e){}
   try{
     if(hrEditing)await db.collection("hours").doc(hrEditing).update(doc);
     else{const id="h"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);await db.collection("hours").doc(id).set({...doc,createdAt:doc.updatedAt})}
     toast((hrEditing?"Updated ":"Logged ")+fmtH(hours)+" on #"+(p.sub?p.wo+"-"+p.sub:p.wo));
-    const keepTech=tech;hrReset();$("#hr-tech").value=keepTech;$("#hr-month").value=date.slice(0,7);renderHours();
+    hrLastDate=date;hrReset();$("#hr-month").value=date.slice(0,7);renderHours();
   }catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 // Tool or company filter: type to see matching companies, moulds and general jobs
@@ -4019,7 +4019,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-45";
+const APP_VERSION="2026.10.15-46";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
