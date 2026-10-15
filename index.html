@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Mould Log</title>
+<title>GT Hub</title>
 <meta name="description" content="Mould and toolroom maintenance work orders, synced across your devices.">
 <meta name="theme-color" content="#000000">
 <link rel="manifest" href="manifest.webmanifest?v=2">
@@ -679,7 +679,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 
 <div class="wrap">
   <header class="top">
-    <h1>Mould <span>Log</span></h1>
+    <h1>GT <span>Hub</span></h1>
     <div class="sub" id="countline" hidden>Loading…</div>
     <span class="syncnote" id="syncnote" role="status" hidden></span>
     <button type="button" class="menubtn" id="menubtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -937,7 +937,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     </div>
     <div class="panel stackcol">
       <span class="label" style="margin:0">Shared or public computer?</span>
-      <p class="hint" style="margin:0;font-size:13.5px">Signs out of Mould Log, removes its Google Drive access, deletes the offline copy of your work orders and anything waiting to upload from this computer, then takes you to Google to sign out of your Google account in this browser. Your work orders stay safe online.</p>
+      <p class="hint" style="margin:0;font-size:13.5px">Signs out of GT Hub, removes its Google Drive access, deletes the offline copy of your work orders and anything waiting to upload from this computer, then takes you to Google to sign out of your Google account in this browser. Your work orders stay safe online.</p>
       <p class="small wipewarn" id="wipewarn" hidden></p>
       <div><button class="btn ghost danger" id="acct-wipe" type="button">Sign out of this computer completely</button></div>
     </div>
@@ -1069,13 +1069,13 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 <div class="gate" id="gate">
   <div class="gate-card">
     <img class="gate-mark" src="icons/icon-192.png" alt="">
-    <h1>Mould <span>Log</span></h1>
+    <h1>GT <span>Hub</span></h1>
     <div id="gate-signin" hidden>
-      <p>Sign in with the Google account you set up for Mould Log. Your work orders sync across every device you sign in on, and photos are saved to your Drive work order folders.</p>
+      <p>Sign in with the Google account you set up for GT Hub. Your work orders sync across every device you sign in on, and photos are saved to your Drive work order folders.</p>
       <p style="margin-top:16px"><button class="btn" id="signin" type="button">Sign in with Google</button></p>
     </div>
     <div id="gate-setup" hidden>
-      <p>This copy of Mould Log hasn't been set up yet. Add your Firebase settings and Google client ID to <code>config.js</code>.</p>
+      <p>This copy of GT Hub hasn't been set up yet. Add your Firebase settings and Google client ID to <code>config.js</code>.</p>
     </div>
     <div class="gate-msg" id="gate-msg" role="status" aria-live="polite"></div>
     <p id="gate-skip" hidden style="margin-top:14px"><button class="btn ghost" type="button" id="gate-skipbtn" style="color:inherit;border-color:currentColor">Open now · update next time</button></p>
@@ -2740,13 +2740,13 @@ async function driveLoad(key,more){
 function driveBody(t){
   const num=dkey(t);
   if(!driveRoot)return `<div class="small">Set your Drive Work Orders folder on the Moulds tab to see Drive files here.</div>`;
-  if(!driveOk)return `<div class="small">Mould Log doesn't have permission to use your Google Drive on this device. Tap below, then make sure the <b>Google Drive</b> box is ticked on Google's screen.</div><button type="button" class="btn ghost" data-dconsent="1" style="margin-top:8px">Allow Google Drive access</button>`;
+  if(!driveOk)return `<div class="small">GT Hub doesn't have permission to use your Google Drive on this device. Tap below, then make sure the <b>Google Drive</b> box is ticked on Google's screen.</div><button type="button" class="btn ghost" data-dconsent="1" style="margin-top:8px">Allow Google Drive access</button>`;
   if(!hasToken())return driveEver()?`<div class="small">Google Drive reconnects by itself when you tap anything. If it doesn't, use the button.</div><button type="button" class="btn ghost" data-dconnect="1" style="margin-top:8px">Reconnect Google Drive</button>`
     :`<div class="small">Connect Google Drive to see this work order's folder.</div><button type="button" class="btn ghost" data-dconnect="1" style="margin-top:8px">Connect Google Drive</button>`;
   let st=driveState[num];
   if(!st){st=driveState[num]={stack:[],status:"loading",label:t.label,num:t.num,sub:t.sub||""};setTimeout(()=>driveLoad(num),0)}
   if(st.status==="loading")return `<div class="small">Looking in Google Drive…</div>`;
-  if(st.status==="needs_scope")return `<div class="small">Mould Log doesn't have permission to use your Google Drive on this device. Tap below, then make sure the <b>Google Drive</b> box is ticked on Google's screen.</div><button type="button" class="btn ghost" data-dconsent="1" style="margin-top:8px">Allow Google Drive access</button>`;
+  if(st.status==="needs_scope")return `<div class="small">GT Hub doesn't have permission to use your Google Drive on this device. Tap below, then make sure the <b>Google Drive</b> box is ticked on Google's screen.</div><button type="button" class="btn ghost" data-dconsent="1" style="margin-top:8px">Allow Google Drive access</button>`;
   if(st.status==="needs_token")return `<div class="small">Your Google Drive connection has timed out.</div><button type="button" class="btn ghost" data-dconnect="1" style="margin-top:8px">Reconnect Google Drive</button>`;
   if(st.status==="nofolder"&&t.sub)return `<div class="small">No “${esc(t.sub)}” folder in #${esc(t.num)} yet. It's created automatically with your first photo or file for this mould. <button type="button" class="linkish" data-dcreate="${esc(num)}" data-dlabel="${esc(t.label)}">Create it now</button> · <button type="button" class="linkish" data-dretry="${esc(num)}">Check again</button></div>`;
   if(st.status==="nofolder")return `<div class="small">No Drive folder for #${esc(num)} yet. It's created automatically with your first photo or file. <button type="button" class="linkish" data-dcreate="${esc(num)}" data-dlabel="${esc(t.label)}">Create it now</button> · <button type="button" class="linkish" data-dretry="${esc(num)}">Check again</button></div>`;
@@ -3571,11 +3571,11 @@ function buildPdf(R,photos,logo){
   // Header band
   fill(0,0,PW,84,C.band);fill(0,84,PW,3,C.amber);
   let tx=M;if(logo){img(logo,M,18,48,48);tx=M+62}
-  const org=winBytes(R.org||"Mould Log");txt(org,tx,40,"B",16,"ffffff");
+  const org=winBytes(R.org||"GT Hub");txt(org,tx,40,"B",16,"ffffff");
   txt("Mould maintenance report",tx,58,"",9.5,"f0a21c");
   const when=winBytes("Created "+R.created.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"}));
   txt(when,PW-M-pdfW(when,"",9),40,"",9,"c9c5bd");
-  const by=winBytes("Mould Log");txt(by,PW-M-pdfW(by,"",9),55,"",9,"8f8a82");
+  const by=winBytes("GT Hub");txt(by,PW-M-pdfW(by,"",9),55,"",9,"8f8a82");
   y=87+34;
   const ttl=winBytes(R.title);txt(ttl,M,y,"B",22,C.ink);
   pill(R.status,PW-M,y-14);
@@ -3654,7 +3654,7 @@ function buildPdf(R,photos,logo){
   }
   // Footer with page numbers
   pages.forEach((p,i)=>{pg=p;hline(M,PH-34,CW,C.line,.6);
-    txt(winBytes("Mould Log  ·  "+R.title),M,PH-22,"",8,C.muted);
+    txt(winBytes("GT Hub  ·  "+R.title),M,PH-22,"",8,C.muted);
     const pn=`Page ${i+1} of ${pages.length}`;txt(pn,PW-M-pdfW(pn,"",8),PH-22,"",8,C.muted)});
   // Assemble the file
   const objs=[];const add=s=>{objs.push(s);return objs.length};
@@ -3671,7 +3671,7 @@ function buildPdf(R,photos,logo){
     kids.push(add(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources ${res} /Contents ${cs} 0 R${an.length?` /Annots [${an.map(i=>i+" 0 R").join(" ")}]`:""} >>`))}
   objs[cat-1]=`<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
   objs[pagesId-1]=`<< /Type /Pages /Kids [${kids.map(k=>k+" 0 R").join(" ")}] /Count ${kids.length} >>`;
-  const info=add(`<< /Title ${pdfStr(winBytes(R.title+" - "+R.subtitle))} /Producer (Mould Log) /CreationDate (D:${R.created.toISOString().replace(/[-:T]/g,"").slice(0,14)}) >>`);
+  const info=add(`<< /Title ${pdfStr(winBytes(R.title+" - "+R.subtitle))} /Producer (GT Hub) /CreationDate (D:${R.created.toISOString().replace(/[-:T]/g,"").slice(0,14)}) >>`);
   const chunks=[];let len=0;const offs=[];
   const put=s=>{let b;if(typeof s==="string"){b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i)&255}else b=s;chunks.push(b);len+=b.length};
   put("%PDF-1.4\n%\xe2\xe3\xcf\xd3\n");
@@ -3726,8 +3726,8 @@ function buildDocx(R,photos,logo){
   const created=R.created.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
   body.push(tbl([1100,5338,3200],[`<w:tr><w:trPr><w:trHeight w:val="1150"/></w:trPr>`+
     tc(1100,P(logo?pic(logo,Math.round(.62*914400),Math.round(.62*914400)):"",{}),{shd:"1C1C1C",v:"center"})+
-    tc(5338,P(run(R.org||"Mould Log",{b:true,sz:16,color:"FFFFFF"}),{after:20})+P(run("Mould maintenance report",{sz:9.5,color:"F0A21C"})),{shd:"1C1C1C",v:"center"})+
-    tc(3200,P(run("Created "+created,{sz:9,color:"C9C5BD"}),{jc:"right",after:20})+P(run("Mould Log",{sz:9,color:"8F8A82"}),{jc:"right"}),{shd:"1C1C1C",v:"center"})+`</w:tr>`],
+    tc(5338,P(run(R.org||"GT Hub",{b:true,sz:16,color:"FFFFFF"}),{after:20})+P(run("Mould maintenance report",{sz:9.5,color:"F0A21C"})),{shd:"1C1C1C",v:"center"})+
+    tc(3200,P(run("Created "+created,{sz:9,color:"C9C5BD"}),{jc:"right",after:20})+P(run("GT Hub",{sz:9,color:"8F8A82"}),{jc:"right"}),{shd:"1C1C1C",v:"center"})+`</w:tr>`],
     {borders:`<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="single" w:sz="24" w:space="0" w:color="${amber}"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>`}));
   body.push(P(run(R.title,{b:true,sz:22,color:ink})+run("   ")+pillRun(R.status),{before:360,after:40}));
   body.push(P(run(R.subtitle,{sz:12,color:muted}),{after:240}));
@@ -3789,14 +3789,14 @@ function buildDocx(R,photos,logo){
   }
   const NS=`xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"`;
   const fld=c=>`<w:r><w:rPr><w:sz w:val="16"/><w:color w:val="${muted}"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:rPr><w:sz w:val="16"/><w:color w:val="${muted}"/></w:rPr><w:instrText xml:space="preserve"> ${c} </w:instrText></w:r><w:r><w:rPr><w:sz w:val="16"/><w:color w:val="${muted}"/></w:rPr><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:sz w:val="16"/><w:color w:val="${muted}"/></w:rPr><w:t>1</w:t></w:r><w:r><w:rPr><w:sz w:val="16"/><w:color w:val="${muted}"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>`;
-  const footer=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr ${NS}>`+P(run("Mould Log  ·  "+R.title,{sz:8,color:muted})+run("\t",{sz:8})+run("Page ",{sz:8,color:muted})+fld("PAGE")+run(" of ",{sz:8,color:muted})+fld("NUMPAGES"),{bdr:`<w:pBdr><w:top w:val="single" w:sz="4" w:space="6" w:color="DEDAD2"/></w:pBdr>`,tabs:`<w:tabs><w:tab w:val="right" w:pos="${W}"/></w:tabs>`})+`</w:ftr>`;
+  const footer=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr ${NS}>`+P(run("GT Hub  ·  "+R.title,{sz:8,color:muted})+run("\t",{sz:8})+run("Page ",{sz:8,color:muted})+fld("PAGE")+run(" of ",{sz:8,color:muted})+fld("NUMPAGES"),{bdr:`<w:pBdr><w:top w:val="single" w:sz="4" w:space="6" w:color="DEDAD2"/></w:pBdr>`,tabs:`<w:tabs><w:tab w:val="right" w:pos="${W}"/></w:tabs>`})+`</w:ftr>`;
   const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${NS}><w:body>${body.join("")}<w:sectPr><w:footerReference w:type="default" r:id="rIdFtr"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1000" w:right="1134" w:bottom="1000" w:left="1134" w:header="567" w:footer="500" w:gutter="0"/></w:sectPr></w:body></w:document>`;
   const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri" w:cs="Calibri"/><w:sz w:val="21"/><w:szCs w:val="21"/><w:lang w:val="en-AU"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="259" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style><w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="1A5FB4"/><w:u w:val="single"/></w:rPr></w:style></w:styles>`;
   const docRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rIdFtr" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>${rels.join("")}</Relationships>`;
   const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`;
   const root=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`;
   const iso=R.created.toISOString().replace(/\.\d+Z$/,"Z");
-  const core=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xe(R.title+" - "+R.subtitle)}</dc:title><dc:creator>Mould Log</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${iso}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${iso}</dcterms:modified></cp:coreProperties>`;
+  const core=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xe(R.title+" - "+R.subtitle)}</dc:title><dc:creator>GT Hub</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${iso}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${iso}</dcterms:modified></cp:coreProperties>`;
   return new Blob(zipStore([{name:"[Content_Types].xml",data:ct},{name:"_rels/.rels",data:root},{name:"word/document.xml",data:doc},{name:"word/styles.xml",data:styles},{name:"word/footer1.xml",data:footer},{name:"word/_rels/document.xml.rels",data:docRels},{name:"docProps/core.xml",data:core},...media]),{type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
 }
 
@@ -3974,7 +3974,7 @@ function workOrderMarkdown(l){
   md+=mdProcs(setProcs(l),"##");
   }
   md+=jobIds(l).length>1?`\n## Photos & files\n\nStored in this Google Drive folder, in a subfolder for each mould.\n`:`\n## Photos & files\n\nStored in this Google Drive folder.\n`;
-  return md+`\n---\n_Backed up automatically by Mould Log on ${new Date().toLocaleString()}._\n`;
+  return md+`\n---\n_Backed up automatically by GT Hub on ${new Date().toLocaleString()}._\n`;
 }
 function mdUpd(list,h){const u=updClean(list);return u.length?`\n${h} Updates\n\n`+u.map(x=>`- **${fmtDate(x.date)}** – ${x.text.replace(/\n+/g," ")}${(x.files||[]).length?` _(photos: ${x.files.join(", ")})_`:""}`).join("\n")+"\n":""}
 function mdChecklist(ckl,shots,h="###"){
@@ -4266,7 +4266,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-57";
+const APP_VERSION="2026.10.15-58";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -4293,7 +4293,7 @@ function stopData(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[];moulds=[];
 function dataError(err){
   if(err&&err.code==="permission-denied"){
     stopData();
-    showGate("signin",`${currentUser&&currentUser.email?currentUser.email:"This account"} doesn't have access to this Mould Log. Sign in with the Google account set up for it.`);
+    showGate("signin",`${currentUser&&currentUser.email?currentUser.email:"This account"} doesn't have access to this GT Hub. Sign in with the Google account set up for it.`);
     if(authApi)authApi.signOut();
   }
 }
@@ -4320,7 +4320,7 @@ function renderImportHint(){
   h.hidden=!(loaded.m&&loaded.l&&!moulds.length&&!logs.length);
 }
 $("#acct-drive").onclick=()=>connectDrive();
-// Cancels this computer's Google Drive (and Google Photos) access for Mould Log
+// Cancels this computer's Google Drive (and Google Photos) access for GT Hub
 function revokeGoogle(){const toks=[gToken,gpToken].filter(Boolean);
   try{if(window.google&&google.accounts&&google.accounts.oauth2)toks.forEach(t=>google.accounts.oauth2.revoke(t,()=>{}))}catch(e){}
   dropToken();gpToken=null;gpExp=0;try{localStorage.removeItem("ml_drive_ever");localStorage.removeItem("ml_gptok")}catch(e){}}
@@ -4376,7 +4376,7 @@ $("#import-file").addEventListener("change",async e=>{
     toast(`Importing ${nl} work orders…`);
     for(let i=0;i<writes.length;i+=25){await Promise.all(writes.slice(i,i+25).map(([c,id,d])=>db.collection(c).doc(id).set(d)))}
     toast(`Imported ${nl} work order${nl===1?"":"s"} and ${nm} new mould${nm===1?"":"s"}/job${nm===1?"":"s"}`+(skip?`. Skipped ${skip} already in the app.`:""));
-  }catch(err){toast("That file couldn't be imported: "+((err&&err.message)||"not a Mould Log export"))}
+  }catch(err){toast("That file couldn't be imported: "+((err&&err.message)||"not a GT Hub export"))}
 });
 $("#exportbtn").onclick=()=>{
   const cols=["Work order","Client order no.","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Procedures","To-do","Sub-jobs","Updates","Hot runner (Ω)"];
@@ -4430,8 +4430,8 @@ if("serviceWorker" in navigator){
   // On a slow signal you can skip it (after a few seconds); it gives up by itself after 45 seconds
   const skipUpdate=()=>{if(reloading||!updatingApp)return;updatingApp=false;$("#gate-skip").hidden=true;endHold();if(currentUser)hideGate();else showGate("loading","Starting…")};
   $("#gate-skipbtn").onclick=skipUpdate;
-  const onFound=()=>{if(!launching||updatingApp)return;updatingApp=true;showGate("loading","Updating Mould Log…");
-    setTimeout(()=>{if(updatingApp&&!reloading){$("#gate-msg").textContent="Updating Mould Log… (slow connection)";$("#gate-skip").hidden=false}},5000);
+  const onFound=()=>{if(!launching||updatingApp)return;updatingApp=true;showGate("loading","Updating GT Hub…");
+    setTimeout(()=>{if(updatingApp&&!reloading){$("#gate-msg").textContent="Updating GT Hub… (slow connection)";$("#gate-skip").hidden=false}},5000);
     setTimeout(skipUpdate,45000)};
   navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{
     if(r.installing)onFound();

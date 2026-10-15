@@ -1,7 +1,7 @@
 {
-  "name": "Mould Log",
-  "short_name": "Mould Log",
-  "description": "Mould and toolroom maintenance work orders, synced across your devices.",
+  "name": "GT Hub",
+  "short_name": "GT Hub",
+  "description": "Group Tooling's hub for mould maintenance: work orders, photos, procedures and hours, synced across your devices.",
   "id": "./",
   "start_url": "./",
   "scope": "./",

@@ -1,12 +1,12 @@
-// Mould Log service worker: lets the app open offline and install as an app.
-const VERSION="mould-log-v80";
+// GT Hub service worker: lets the app open offline and install as an app.
+const VERSION="mould-log-v81";
 const LIBS="mould-log-libs"; // Firebase and fonts: kept across app versions (their addresses change when they do)
 const SHELL=["./","index.html","config.js","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","icons/favicon.svg","icons/favicon-32.png","icons/apple-touch-icon.png"];
 // Each release changes VERSION, so the browser installs this worker afresh and it downloads the new app files here
 // (bypassing the browser's HTTP cache). Opening the app then never waits on the network.
 self.addEventListener("install",e=>{e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL.map(u=>new Request(u,{cache:"reload"})))).then(()=>self.skipWaiting()))});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION&&k!==LIBS).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
-// Photos shared to Mould Log from another app (e.g. Google Photos) arrive here; they wait in the
+// Photos shared to GT Hub from another app (e.g. Google Photos) arrive here; they wait in the
 // "mouldlog-share" store until the app shows the "pick a work order" screen
 function shareDb(){return new Promise((res,rej)=>{const r=indexedDB.open("mouldlog-share",1);r.onupgradeneeded=()=>r.result.createObjectStore("inbox",{keyPath:"id"});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 async function receiveShare(req){
