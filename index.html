@@ -469,6 +469,15 @@ details.ck>summary span:first-child{flex:1}
 .subtop{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px 0}
 .subback{border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--fg);padding:8px 0;cursor:pointer;text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:4px}
 .subtitle{margin:0;font-size:22px;font-weight:700}
+.subtitlebtn{all:unset;cursor:pointer;border-radius:6px}
+.subtitlebtn:not(:empty)::after{content:" ›";color:var(--muted);font-weight:600}
+.subtitlebtn:hover{text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:4px}
+.subtitlebtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mlabrow{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.mhlink{background:none;border:0;padding:4px 0 4px 8px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.mhlink:hover{color:var(--fg);text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
+.xchip .xname{all:unset;cursor:pointer}
+.xchip .xname:hover{text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
 .subsec{margin-top:14px;display:flex;flex-direction:column;gap:8px}.subsec[hidden]{display:none}
 .sublist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
 .subrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:12px 14px;border:0;border-top:1px solid var(--line);background:none;font:inherit;text-align:left;cursor:pointer;color:var(--fg);min-height:52px}
@@ -682,7 +691,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         </div>
       </div>
       <div class="field">
-        <label class="label" for="f-mould-q">Mould / general job</label>
+        <div class="mlabrow"><label class="label" for="f-mould-q">Mould / general job</label><button type="button" class="mhlink" id="f-mhist" hidden></button></div>
         <div class="combo">
           <input id="f-mould-q" type="text" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="f-mould-list" placeholder="Start typing a mould or job name">
           <input type="hidden" id="f-mould">
@@ -737,7 +746,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <div class="mbox" id="mbox" hidden>
         <div class="subtop">
           <button type="button" class="subback" id="subback">← Back to <span id="subback-wo">work order</span></button>
-          <h2 class="subtitle" id="b-title"></h2>
+          <h2 class="subtitle"><button type="button" class="subtitlebtn" id="b-title" title="Open its history"></button></h2>
         </div>
         <div class="mbody">
           <div class="mmeta">
@@ -1477,7 +1486,7 @@ window.addEventListener("popstate",async()=>{
   if(subPage&&!$("#v-log").hidden){closeSub(true);return}
   const v=currentView();
   if(v==="open")return;
-  if(v==="hist"){ensureGuard();show("moulds");return}
+  if(v==="hist"){if(await histBack())return;ensureGuard();show("moulds");return}
   if(PAGES.includes(v)){if(v==="share")leaveShare();const r=pageReturn;pageReturn="open";await goTab(r);return}
   if(v==="log"&&returnTab!=="open"){const r=returnTab;returnTab="open";await goTab(r);return}
   await goTab("open");
@@ -1705,6 +1714,7 @@ function renderPM(){
   const pm=moulds.find(x=>x.id===prim),bm=moulds.find(x=>x.id===boxActive);
   $("#shots-field").hidden=!!(pm&&isGen(pm));$("#b-shots-field").hidden=!!(bm&&isGen(bm));
   if(moved){growAll();renderFormDrive()}
+  const mh=$("#f-mhist");if(mh){mh.hidden=!pm;if(pm){mh.dataset.mhist=pm.id;mh.textContent=(isGen(pm)?"Job history":"Mould history")+" ›"}}
   renderFormProcs();renderWoProcs("f");renderWoProcs("b");renderHrz("f");renderHrz("b");
 }
 const curTabsNow=()=>tabIdsFor($("#f-mould").value||lastPrimary,extraIds);
@@ -1751,7 +1761,7 @@ function setExtras(ids){extraIds=(ids||[]).filter(Boolean);hideAdd();renderExtra
 function renderExtras(){
   setTimeout(renderPM,0);
   $("#f-extras").innerHTML=extraIds.map(id=>{const m=moulds.find(x=>x.id===id);const n=m?mlabel(m):"Unknown mould";
-    return `<span class="xchip">${esc(n)}<button type="button" data-xrm="${esc(id)}" aria-label="Remove ${esc(n)}">×</button></span>`}).join("");
+    return `<span class="xchip">${m?`<button type="button" class="xname" data-mhist="${esc(id)}" title="Open its history">${esc(n)}</button>`:esc(n)}<button type="button" data-xrm="${esc(id)}" aria-label="Remove ${esc(n)}">×</button></span>`}).join("");
 }
 function addExtra(id){
   if(!id||id===$("#f-mould").value||extraIds.includes(id)){hideAdd();return}
@@ -1862,7 +1872,28 @@ $("#mouldlist").addEventListener("click",e=>{
   const b=e.target.closest(".mould");if(b)openMould(b.dataset.id)});
 $("#search").addEventListener("input",renderList);
 
-function openMould(id){current=id;$("#mouldedit").hidden=true;renderHist();renderProcLists();show("hist")}
+function openMould(id){current=id;histFrom=null;$("#mouldedit").hidden=true;renderHist();renderProcLists();show("hist");setHistBack()}
+// ---- From a work order to a mould's history and back ----
+// The work order is saved first; Back on the history page reopens it (on the same sub-job).
+let histFrom=null;
+function setHistBack(){$("#backbtn").textContent=histFrom?`← Back to ${histFrom.wo?"#"+histFrom.wo:"the work order"}${histFrom.subNo?"-"+histFrom.subNo:""}`:"← Back to list"}
+async function openMouldFromWo(mid){
+  if(!moulds.some(m=>m.id===mid))return;
+  const sub=subPage,subNo=sub?formSubNo[sub]:null,rt=returnTab;
+  if(dirty||saving||!editingId){const ok=await flushSave();
+    if(!ok){const be=buildEntry();toast(be.error?"Not saved yet: "+be.error:"Not saved yet. Check your connection.");return}}
+  const id=editingId,wo=$("#f-wo").value.trim().toUpperCase();
+  if(id)endEdit();
+  openMould(mid);
+  if(id){histFrom={logId:id,sub,subNo,wo,rt};setHistBack()}
+}
+async function histBack(){
+  const h=histFrom;histFrom=null;setHistBack();
+  if(h&&logs.some(l=>l.id===h.logId)){await startEdit(h.logId,h.sub||undefined);returnTab=h.rt||"open";return true}
+  return false;
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-mhist]");if(!b||!b.closest("#logform"))return;e.preventDefault();openMouldFromWo(b.dataset.mhist)});
+$("#b-title").addEventListener("click",()=>{if(boxActive)openMouldFromWo(boxActive)});
 // ---- Edit mould / general job details ----
 $("#histhead").addEventListener("click",e=>{if(e.target.closest("#meditbtn"))openMouldEdit()});
 function openMouldEdit(){
@@ -1982,7 +2013,7 @@ $("#timeline").addEventListener("change",async e=>{
   try{await db.collection("logs").doc(s.dataset.st).update(patch);toast("Status set to "+status);scheduleBackup(s.dataset.st)}
   catch(err){toast("Couldn't update status: "+(err.message||err.code));renderHist()}
 });
-$("#backbtn").onclick=()=>show("moulds");
+$("#backbtn").onclick=async()=>{if(!(await histBack()))show("moulds")};
 $("#logthis").onclick=()=>{setMould(current);show("log")};
 
 let suggestedWO="";
@@ -4143,7 +4174,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.15-51";
+const APP_VERSION="2026.10.15-52";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
