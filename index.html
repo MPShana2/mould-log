@@ -289,10 +289,16 @@ textarea.autogrow{resize:none;overflow:hidden}
 .temptag{display:block;width:max-content;margin-top:3px;font-family:var(--font,inherit);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-ink);background:var(--accent);border-radius:999px;padding:1px 7px}
 .hint.temp{color:var(--fg);background:var(--warn-bg);border-left:3px solid var(--accent);border-radius:6px;padding:6px 8px}
 .upd{display:flex;flex-direction:column;gap:8px}
-.updlist{display:flex;flex-direction:column;border-left:3px solid var(--accent);padding-left:12px;gap:10px}
+.updlist{display:flex;flex-direction:column;border-left:3px solid var(--accent);padding-left:12px;gap:0}
+.updlist>.upditem{padding:10px 0}
+.updmerge{color:var(--muted);font-style:italic;align-self:center}
+.updlist>.upditem:first-child{padding-top:2px}
+.updlist>.upditem+.upditem{border-top:1px solid var(--line)}
 .upditem{display:flex;flex-direction:column;gap:2px}
 .updhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.upddate{font-size:12.5px;font-weight:700;color:var(--muted);font-family:var(--mono)}
+.upddate{font-size:12.5px;font-weight:700;color:var(--accent);font-family:var(--mono);letter-spacing:.02em}
+:root[data-theme="light"] .upddate{color:#b36f00}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .upddate{color:#b36f00}}
 .updacts{font-size:12px;color:var(--muted);white-space:nowrap}.updacts .linkish{font-size:12px;color:var(--muted)}
 .updtext{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px}
 .updnew{display:flex;flex-direction:column;gap:8px;border:1px dashed var(--line);border-radius:var(--r);padding:10px}
@@ -3259,7 +3265,15 @@ document.addEventListener("click",async e=>{if(!e.target.closest("[data-psvc]"))
 // A dated log per mould on the work order, newest first. Stored like the other fields: updates:[{id,date,text}]
 let fUpds=[],bUpds=[],updOpen=null; // updOpen: {p, id} while adding (id null) or editing an update
 const updList=p=>p==="f"?fUpds:bUpds;
-const updClean=list=>(list||[]).filter(u=>u&&(String(u.text||"").trim()||(u.files||[]).length)).map(u=>({id:u.id||("u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),date:u.date||today(),text:String(u.text||"").trim(),...((u.files||[]).length?{files:[...new Set(u.files)]}:{})})).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+const updClean0=list=>(list||[]).filter(u=>u&&(String(u.text||"").trim()||(u.files||[]).length)).map(u=>({id:u.id||("u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),date:u.date||today(),text:String(u.text||"").trim(),...((u.files||[]).length?{files:[...new Set(u.files)]}:{})})).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+// One update per date: a later one on the same day is added under the earlier text (a blank line between), photos combined
+const updClean=list=>{const out=[],byDate={};
+  for(const u of updClean0(list)){const m=byDate[u.date];
+    if(!m){const c={...u};byDate[u.date]=c;out.push(c);continue}
+    if(u.text)m.text=m.text?m.text+"\n\n"+u.text:u.text;
+    if((u.files||[]).length)m.files=[...new Set([...(m.files||[]),...u.files])]}
+  return out};
+const updSameDay=(L,date,exceptId)=>updClean0(L).some(u=>u.date===date&&u.id!==exceptId);
 const updNewest=list=>updClean(list).slice().reverse();
 function updWithDraft(p){
   const L=updList(p).map(u=>({...u}));if(!updOpen||updOpen.p!==p)return L;
@@ -3270,10 +3284,12 @@ function updWithDraft(p){
 }
 // The Drive folder an update's photos go in (the work order's, or the sub-job's mould folder)
 function updTarget(p){const t=formTarget();if(!t)return null;return p==="b"?(boxFor&&boxFor!==FORCE?{...t,sub:subName(boxFor)}:null):t}
+// Newest photo first: still uploading, then by when it was taken
+function photosNewest(names,items){const at=n=>{const f=items.find(x=>x.name===n);return f?fileTaken(f):"9999"};return names.slice().sort((a,b)=>at(b).localeCompare(at(a)))}
 function updThumbs(p,names,removable){
   if(!names||!names.length)return "";const t=updTarget(p),key=t&&dkey(t),st=key&&driveState[key];
   if(t&&!st&&driveRoot&&hasToken()){driveState[key]={stack:[],status:"loading",label:t.label,num:t.num,sub:t.sub||""};setTimeout(()=>driveLoad(key),0)}
-  const items=(st&&st.items)||[],q=queueCache.filter(x=>t&&x.num===t.num&&(x.sub||"")===(t.sub||""));
+  const items=(st&&st.items)||[],q=queueCache.filter(x=>t&&x.num===t.num&&(x.sub||"")===(t.sub||""));names=photosNewest(names,items);
   return `<div class="updphotos" data-k="${esc(names.join("\u0001"))}">${names.map(n=>{const f=items.find(x=>x.name===n),up=q.some(x=>x.name===n);
     const img=(f&&f.thumbnailLink?`<img src="${esc(sizedThumb(f.thumbnailLink,240))}" referrerpolicy="no-referrer" alt="" draggable="false">`:`<span class="ext">${up?"↑":/\.(mp4|mov|m4v|3gp|webm|mkv)$/i.test(n)||isVideo(f)?"VIDEO":"IMG"}</span>`)+vidBadge(f);
     return `<span class="updph"><button type="button" class="thumb" ${f?`data-updview="${esc(key)}|${esc(n)}|${esc(names.join("\u0001"))}"`:"disabled"} title="${esc(n)}${up?" (uploading)":""}">${img}</button>${removable?`<button type="button" class="updphx" data-updphx="${p}|${esc(n)}" aria-label="Remove ${esc(n)} from this update">×</button>`:""}</span>`}).join("")}</div>`;
@@ -3291,7 +3307,7 @@ function renderUpd(p){
     const ed=open.id?updList(p).find(u=>u.id===open.id):null,st=p==="f"?segVal("#f-status"):segVal("#b-status"),t=updTarget(p);
     const da=t?`data-addnum="${esc(t.num)}" data-addlabel="${esc(t.label)}" data-addsub="${esc(t.sub||"")}" data-addupd="${p}"`:"";
     comp.innerHTML=`<div class="updnew">
-      <div class="updrow"><input type="date" class="updd" value="${esc(ed?ed.date:today())}" aria-label="Date of the update">
+      <div class="updrow"><input type="date" class="updd" value="${esc(ed?ed.date:today())}" aria-label="Date of the update"><span class="updmerge small" hidden></span>
       ${!ed&&st==="Complete"?`<label class="updreopen"><input type="checkbox" class="updro"> Reopen ${p==="b"?"this sub-job":"the work order"}</label>`:""}</div>
       <textarea class="autogrow updt" rows="2" placeholder="What's been found or done? e.g. Pulled the B-side, ejector pin on cav 3 cracked, replacement ordered">${esc(ed?ed.text:"")}</textarea>
       <div class="updnewph"></div>
@@ -3300,6 +3316,7 @@ function renderUpd(p){
     const ta=comp.querySelector(".updt");setTimeout(()=>{grow(ta);ta.focus()},0);
   }
   comp.querySelector(".updnewph").innerHTML=updThumbs(p,open.files,true);
+  updMergeHint(comp,p);
 }
 function updRefreshPhotos(){if($("#v-log").hidden)return;["f","b"].forEach(p=>{const el=$(p==="f"?"#f-upd":"#b-upd");if(el&&el.querySelector(".updlistw"))renderUpd(p)})}
 // Photos picked from an update's buttons upload to the work order's folder and are linked to the update
@@ -3354,7 +3371,7 @@ function renderInboxDrive(){const el=$("#ibdrive");if(!el||$("#v-inbox").hidden)
 function ibThumbs(names,rmAttr){
   if(!names||!names.length)return "";const st=driveState[INBOX_NUM];
   if(!st&&driveRoot&&hasToken()){driveState[INBOX_NUM]={stack:[],status:"loading",label:"Unassigned",num:INBOX_NUM,sub:""};setTimeout(()=>driveLoad(INBOX_NUM),0)}
-  const items=(st&&st.items)||[],q=queueCache.filter(x=>x.num===INBOX_NUM);
+  const items=(st&&st.items)||[],q=queueCache.filter(x=>x.num===INBOX_NUM);names=photosNewest(names,items);
   return `<div class="updphotos" data-k="${esc(names.join("\u0001"))}">${names.map(n=>{const f=items.find(x=>x.name===n),up=q.some(x=>x.name===n);
     const img=(f&&f.thumbnailLink?`<img src="${esc(sizedThumb(f.thumbnailLink,240))}" referrerpolicy="no-referrer" alt="" draggable="false">`:`<span class="ext">${up?"↑":/\.(mp4|mov|m4v|3gp|webm|mkv)$/i.test(n)?"VIDEO":"IMG"}</span>`)+vidBadge(f);
     return `<span class="updph"><button type="button" class="thumb" ${f?`data-ibview="${esc(n)}|${esc(names.join("\u0001"))}"`:"disabled"} title="${esc(n)}${up?" (uploading)":""}">${img}</button>${rmAttr?`<button type="button" class="updphx" ${rmAttr}="${esc(n)}" aria-label="Remove ${esc(n)}">×</button>`:""}</span>`}).join("")}</div>`}
@@ -3444,6 +3461,7 @@ $("#alist").addEventListener("click",async e=>{const b=e.target.closest("[data-a
       await moveToJob(names,what.files||await inboxFilesByName(names),t);
     }
     if(notes.length){
+      notes.sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.createdAt||"").localeCompare(String(b.createdAt||"")));
       const add=notes.map(n=>({id:"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),date:n.date||today(),text:n.text||"",...((n.files||[]).length?{files:n.files}:{})}));
       const now=new Date().toISOString();let patch;
       if(mid===l.mouldId)patch={updates:updClean([...(l.updates||[]),...add]),updatedAt:now};
@@ -3504,6 +3522,10 @@ new MutationObserver(muts=>{if(muts.some(m=>[...m.addedNodes].some(n=>n.nodeType
 window.addEventListener("resize",clampSoon);
 document.addEventListener("click",e=>{const b=e.target.closest(".updmore");if(!b)return;e.preventDefault();const k=b.dataset.k;
   if(updPhOpen.has(k))updPhOpen.delete(k);else updPhOpen.add(k);clampUpdPhotos()});
+// "Adds to the existing entry" note when the chosen date already has an update
+function updMergeHint(comp,p){const d=comp.querySelector(".updd"),h=comp.querySelector(".updmerge");if(!d||!h)return;
+  const on=updSameDay(updList(p),d.value,updOpen&&updOpen.id);h.hidden=!on;h.textContent=on?`Adds to the ${fmtDate(d.value)} entry`:""}
+$("#logform").addEventListener("change",e=>{if(e.target.classList.contains("updd")){const c=e.target.closest(".updcomp"),p=e.target.closest("#b-upd")?"b":"f";if(c)updMergeHint(c,p)}});
 let updDelArmed=null;
 $("#logform").addEventListener("click",e=>{const t=e.target;
   const add=t.closest("[data-updadd]");if(add){updOpen={p:add.dataset.updadd,id:null,draft:"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),files:[]};renderUpd(updOpen.p);return}
@@ -3518,9 +3540,11 @@ $("#logform").addEventListener("click",e=>{const t=e.target;
   const save=t.closest("[data-updsave]");if(save){const p=save.dataset.updsave,box=save.closest(".updnew"),text=box.querySelector(".updt").value.trim(),date=box.querySelector(".updd").value||today();
     const files=(updOpen&&updOpen.files)||[];
     if(!text&&!files.length){toast("Write what happened, or add a photo");box.querySelector(".updt").focus();return}
-    const L=updList(p);
+    const L=updList(p),merging=updSameDay(L,date,updOpen&&updOpen.id);
     if(updOpen&&updOpen.id){const u=L.find(x=>x.id===updOpen.id);if(u){u.text=text;u.date=date;u.files=files}}
     else L.push({id:(updOpen&&updOpen.draft)||("u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),date,text,files});
+    {const M=updClean(L);L.length=0;L.push(...M)}
+    if(merging)toast(`Added to the ${fmtDate(date)} update`);
     const ro=box.querySelector(".updro");if(ro&&ro.checked){segSet(p==="f"?"#f-status":"#b-status","In progress");toast(p==="b"?"Update added and sub-job reopened":"Update added and work order reopened")}
     updOpen=null;renderUpd(p);markDirty(250);return}
 });
@@ -4606,7 +4630,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.16-63";
+const APP_VERSION="2026.10.16-64";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
