@@ -34,7 +34,7 @@ function reportModel(l,onlyId){
     if(rptHas(v.work))out.push({t:"field",label:"Work done",text:v.work});
     {const u=updClean(v.updates);if(u.length)out.push({t:"field",label:"Updates",text:u.map(x=>`• ${fmtDate(x.date)} – ${x.text.replace(/\n+/g," / ")}${(x.files||[]).length?` (photo${x.files.length>1?"s":""}: ${x.files.join(", ")})`:""}`).join("\n")})}
     if(rptHas(v.notes))out.push({t:"field",label:"Notes",text:v.notes});
-    const pl=cleanParts(v.partsList||partsFromText(v.parts));if(pl.length)out.push({t:"parts",label:"Parts used",items:pl});
+    const pl=cleanParts(v.partsList||partsFromText(v.parts)).map(p=>({...p,text:partLabel(p)}));if(pl.length)out.push({t:"parts",label:"Parts used",items:pl});
     setProcs(v).forEach(sn=>out.push({t:"check",label:sn.name,summary:procProgress(sn,sn.st||{}).txt,rows:procRptRows(sn),shots:v.shots}));
     return out};
   if(single){const v=pmVal(l,single),m=mOf(single);if(!(m&&isGen(m))&&rptHas(v.shots))g("Shot count",fmtNum(v.shots))}

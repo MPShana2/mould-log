@@ -602,6 +602,21 @@ details.ck>summary span:first-child{flex:1}
 .pl-row{display:flex;flex-wrap:wrap;align-items:center;gap:4px;border-bottom:1px solid var(--line);padding:2px 0}
 .pl-text,.pl-new{flex:1;min-width:120px;border:0;background:transparent;font:inherit;font-size:15px;padding:9px 6px;color:var(--fg);border-radius:6px}
 .pl-text:focus,.pl-new:focus{outline:none;background:var(--sunk)}
+.pl-row.inv .pl-text{flex:1 1 140px}
+.pl-inv{font-size:15px}
+.pl-qty{display:inline-flex;align-items:center;gap:2px;color:var(--muted);font-weight:700}
+.pl-qty input{width:58px;padding:6px 6px;text-align:center}
+.pl-stock{font-size:12px;color:var(--muted);flex-basis:100%;padding-left:26px;margin-top:-2px;order:5}
+.pl-row .pl-urlrow{order:6}
+.pl-row.inv .pl-text{min-width:0}
+.pl-sugg{display:flex;flex-direction:column;border-top:1px solid var(--line);padding:4px 0}
+.pl-sugg[hidden]{display:none}
+.pl-sugg .small{padding:2px 4px}
+.pl-sugg button{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:10px;padding:8px 6px;border-radius:6px}
+.pl-sugg button:hover,.pl-sugg button:focus-visible{background:var(--sunk)}
+.pl-sugg small{color:var(--muted)}.pl-sugg .lowtxt{color:#b36f00;font-weight:700}
+.pl-tool{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0 4px;font-size:12.5px;color:var(--muted)}
+.pl-chip{border:1px dashed var(--accent);background:none;border-radius:999px;padding:4px 10px;font:inherit;font-size:13px;color:var(--fg);cursor:pointer}
 .pl-row.linked .pl-text{color:var(--fg);font-weight:600;text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
 .pl-open{flex:none;font-size:13px;font-weight:700;color:var(--fg);background:color-mix(in srgb,var(--accent) 22%,var(--surface));border-radius:999px;padding:6px 10px;text-decoration:none;white-space:nowrap}
 .pl-open:hover{background:var(--accent)}
@@ -1447,14 +1462,18 @@ document.addEventListener("paste",e=>{
 const isUrl=t=>/^(https?:\/\/|www\.)\S+$/i.test(String(t||"").trim());
 const normUrl=u=>{u=String(u||"").trim();if(!u)return"";if(/^www\./i.test(u))u="https://"+u;return /^https?:\/\//i.test(u)?u:""};
 const partsFromText=t=>String(t||"").split(/\n/).map(x=>x.trim()).filter(Boolean).map(text=>({text,url:""}));
-const cleanParts=l=>(l||[]).map(p=>({text:String(p.text||"").trim(),url:normUrl(p.url)})).filter(p=>p.text||p.url);
-const partsText=l=>cleanParts(l).map(p=>p.text||p.url).join("\n");
-function partsMd(v){const l=cleanParts(v.partsList||partsFromText(v.parts));return l.length?l.map(p=>"- "+(p.url?`[${(p.text||p.url).replace(/[\[\]]/g,"")}](${p.url})`:p.text)).join("\n"):"_None recorded_"}
-const partsCsv=v=>cleanParts(v.partsList||partsFromText(v.parts)).map(p=>p.url?`${p.text||p.url} (${p.url})`:p.text).join(" | ");
+const cleanParts=l=>(l||[]).map(p=>{const q=p.itemId?(p.qty===""||p.qty==null?1:Math.max(0,+p.qty||0)):null;
+  return {text:String(p.text||"").trim(),url:normUrl(p.url),...(p.itemId?{itemId:p.itemId,qty:q}:{})}}).filter(p=>p.text||p.url||p.itemId);
+const partLabel=p=>(p.itemId&&p.qty!=null&&p.qty!==1?`${p.text} × ${p.qty}`:p.text);
+const partsText=l=>cleanParts(l).map(p=>partLabel(p)||p.url).join("\n");
+function partsMd(v){const l=cleanParts(v.partsList||partsFromText(v.parts));return l.length?l.map(p=>"- "+(p.url?`[${(partLabel(p)||p.url).replace(/[\[\]]/g,"")}](${p.url})`:partLabel(p))).join("\n"):"_None recorded_"}
+const partsCsv=v=>cleanParts(v.partsList||partsFromText(v.parts)).map(p=>p.url?`${partLabel(p)||p.url} (${p.url})`:partLabel(p)).join(" | ");
 const LINK_SVG='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>';
-function plRow(p){
-  return `<div class="pl-row${p.url?" linked":""}" data-url="${esc(p.url||"")}">
+function plRow(p){const it=p.itemId&&typeof inventory!=="undefined"?inventory.find(x=>x.id===p.itemId):null;
+  return `<div class="pl-row${p.url?" linked":""}${p.itemId?" inv":""}" data-url="${esc(p.url||"")}" data-item="${esc(p.itemId||"")}">
+    ${p.itemId?`<span class="pl-inv" title="From inventory" aria-hidden="true">📦</span>`:""}
     <input class="pl-text" value="${esc(p.text||"")}" placeholder="${p.url?"Part name":"Part"}" aria-label="Part">
+    ${p.itemId?`<label class="pl-qty"><span>×</span><input class="pl-q mono" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.qty??1)}" aria-label="Quantity used"></label><span class="pl-stock">${it?`${fmtQty(it.qty)} ${esc(it.unit||"pcs")} left`:"not in inventory"}</span>`:""}
     ${p.url?`<a class="pl-open" href="${esc(p.url)}" target="_blank" rel="noopener" aria-label="Open product page" title="${esc(p.url)}">Open ↗</a>`:""}
     <button type="button" class="pl-btn pl-link${p.url?" on":""}" aria-label="${p.url?"Edit link":"Add link"}" aria-expanded="false">${LINK_SVG}</button>
     <button type="button" class="pl-btn pl-del" aria-label="Remove part">×</button>
@@ -1463,9 +1482,34 @@ function plRow(p){
 }
 function plWrite(p,list){
   const el=$(`#${p}-parts`);if(!el)return;
-  el.innerHTML=(list||[]).map(plRow).join("")+`<div class="pl-add"><span class="cl-plus" aria-hidden="true">+</span><input class="pl-new" placeholder="Add a part" aria-label="Add a part"></div>`;
+  el.innerHTML=(list||[]).map(plRow).join("")+`<div class="pl-add"><span class="cl-plus" aria-hidden="true">+</span><input class="pl-new" placeholder="Add a part (type to pick from inventory)" aria-label="Add a part"></div><div class="pl-sugg" hidden></div>`+plToolChips(p,list);
 }
-function plRead(p){const el=$(`#${p}-parts`);if(!el)return[];return [...el.querySelectorAll(".pl-row")].map(r=>({text:r.querySelector(".pl-text").value,url:r.dataset.url||""}))}
+// The parts listed for this mould ("Parts in this tool"), one tap to add as used
+function plToolChips(p,list){const mid=p==="f"?$("#f-mould").value:(typeof boxFor!=="undefined"&&boxFor!==FORCE?boxFor:null),m=mid&&moulds.find(x=>x.id===mid);
+  const bom=((m&&m.bom)||[]).map(b=>({b,it:typeof inventory!=="undefined"?inventory.find(x=>x.id===b.itemId):null})).filter(x=>x.it&&!(list||[]).some(pp=>pp.itemId===x.it.id));
+  return bom.length?`<div class="pl-tool"><span>From this tool:</span>${bom.map(({b,it})=>`<button type="button" class="pl-chip" data-plbom="${esc(it.id)}|${esc(b.qty||1)}">${esc(it.name)}${it.spec?" "+esc(it.spec):""}${b.qty?` ×${fmtQty(b.qty)}`:""}</button>`).join("")}</div>`:""}
+function plStockRefresh(){document.querySelectorAll(".pl-row.inv").forEach(r=>{const it=inventory.find(x=>x.id===r.dataset.item),s=r.querySelector(".pl-stock");if(s)s.textContent=it?`${fmtQty(it.qty)} ${it.unit||"pcs"} left`:"not in inventory"})}
+// Typing a part name offers matching inventory items; picking one links it (and its stock is taken off when saved)
+function plSuggest(el,input){const box=el.querySelector(".pl-sugg");if(!box)return;const q=input.value.trim();
+  const rows=[...el.querySelectorAll(".pl-row")],row=input.closest(".pl-row");
+  if(q.length<2||(row&&row.dataset.item)||typeof inventory==="undefined"||!inventory.length){box.hidden=true;return}
+  const hits=inventory.filter(it=>invMatch(it,q)).slice(0,6);
+  if(!hits.length){box.hidden=true;return}
+  box.dataset.row=row?String(rows.indexOf(row)):"";
+  box.innerHTML=`<div class="small">From inventory</div>`+hits.map(it=>`<button type="button" data-plinv="${esc(it.id)}"><span>${esc(it.name)}${it.spec?` <span class="invs">${esc(it.spec)}</span>`:""}</span><small class="${invLow(it)?"lowtxt":""}">${fmtQty(it.qty)} ${esc(it.unit||"pcs")}</small></button>`).join("");box.hidden=false}
+document.addEventListener("input",e=>{const t=e.target;if(t.classList&&t.classList.contains("pl-text")){const el=t.closest(".pl");if(el)plSuggest(el,t)}});
+document.addEventListener("focusout",e=>{const t=e.target;if(t.classList&&t.classList.contains("pl-text")){const el=t.closest(".pl");setTimeout(()=>{if(el&&!el.contains(document.activeElement)){const b=el.querySelector(".pl-sugg");if(b)b.hidden=true}},200)}});
+document.addEventListener("mousedown",e=>{if(e.target.closest(".pl-sugg"))e.preventDefault()});
+document.addEventListener("click",e=>{
+  const s=e.target.closest("[data-plinv]");if(s){const el=s.closest(".pl"),box=s.closest(".pl-sugg"),it=inventory.find(x=>x.id===s.dataset.plinv);if(!it)return;
+    const list=plRead(el.dataset.pl),i=box.dataset.row===""?-1:+box.dataset.row,part={text:it.name+(it.spec?" "+it.spec:""),url:it.url||"",itemId:it.id,qty:1};
+    if(i>=0&&list[i])list[i]=part;else list.push(part);plWrite(el.dataset.pl,list);markDirty(250);
+    const q=el.querySelectorAll(".pl-row")[i>=0?i:list.length-1];const qi=q&&q.querySelector(".pl-q");if(qi){qi.focus();qi.select()}return}
+  const c=e.target.closest("[data-plbom]");if(c){const el=c.closest(".pl"),[id,qty]=c.dataset.plbom.split("|"),it=inventory.find(x=>x.id===id);if(!it)return;
+    const list=plRead(el.dataset.pl);list.push({text:it.name+(it.spec?" "+it.spec:""),url:it.url||"",itemId:it.id,qty:+qty||1});plWrite(el.dataset.pl,list);markDirty(250)}});
+document.addEventListener("input",e=>{if(e.target.classList&&e.target.classList.contains("pl-q"))markDirty(900)});
+function plRead(p){const el=$(`#${p}-parts`);if(!el)return[];return [...el.querySelectorAll(".pl-row")].map(r=>{const q=r.querySelector(".pl-q");
+  return {text:r.querySelector(".pl-text").value,url:r.dataset.url||"",...(r.dataset.item?{itemId:r.dataset.item,qty:q&&q.value!==""?+q.value:1}:{})}})}
 function plRerender(el,focusIdx,pos){
   const p=el.dataset.pl,list=plRead(p);plWrite(p,list);
   if(focusIdx!=null){const t=focusIdx==="new"?el.querySelector(".pl-new"):el.querySelectorAll(".pl-text")[focusIdx];if(t){t.focus();const q=pos==null?t.value.length:pos;try{t.setSelectionRange(q,q)}catch(e){}}}
@@ -2292,7 +2336,7 @@ $("#timeline").addEventListener("click",async e=>{
   else if(t.dataset.ask){confirmDel=t.dataset.ask;renderHist()}
   else if(t.dataset.cancel){confirmDel=null;renderHist()}
   else if(t.dataset.del){
-    try{await db.collection("logs").doc(t.dataset.del).delete();toast("Entry deleted. Its Drive folder was left in place.")}catch(err){toast("Couldn't delete: "+(err.message||err.code))}confirmDel=null}
+    try{const dl=logs.find(x=>x.id===t.dataset.del);await db.collection("logs").doc(t.dataset.del).delete();if(dl)invApply(invLedger[dl.id]||dl.invUsed||{},{});toast("Entry deleted. Its Drive folder was left in place.")}catch(err){toast("Couldn't delete: "+(err.message||err.code))}confirmDel=null}
 });
 $("#timeline").addEventListener("change",async e=>{
   const s=e.target.closest(".stsel");if(!s||!db)return;
@@ -2430,7 +2474,7 @@ async function startEdit(id,subId){
   const l=logs.find(x=>x.id===id);if(!l)return;
   returnTab=["all","todo"].includes(currentView())?currentView():"open";
   await flushSave();
-  editingId=id;dirty=false;origWo=l.wo||"";if(woTab!=="details")setWoTab("details");
+  editingId=id;dirty=false;origWo=l.wo||"";invLedger[id]=l.invUsed||{};if(woTab!=="details")setWoTab("details");
   resetPM();
   formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",partsList:l.partsList,procs:setProcs(l).map(x=>procSnap(x,x.st)),updates:updClean(l.updates),hrz:hrzClean(l.hrz)};
   for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",partsList:v.partsList,procs:setProcs(v).map(x=>procSnap(x,x.st)),updates:updClean(v.updates),hrz:hrzClean(v.hrz)}}
@@ -2510,6 +2554,17 @@ function markDirty(delay){
   dirty=true;setSaveState("pending","Unsaved changes…");
   clearTimeout(saveTimer);saveTimer=setTimeout(autosave,delay??900);
 }
+// Stock taken by a work order = the inventory-linked parts on it (all its moulds). Saving takes off the difference from
+// what it had already taken, so editing or removing a part puts stock back. Kept on the work order as invUsed.
+function invUsedOf(entry){const used={},add=l=>cleanParts(l).forEach(p=>{if(p.itemId)used[p.itemId]=(used[p.itemId]||0)+(+p.qty||0)});
+  add(entry.partsList);Object.values(entry.perMould||{}).forEach(v=>add(v&&v.partsList));return used}
+const invLedger={}; // the last invUsed written per work order on this device
+async function invApply(before,after){if(typeof inventory==="undefined")return;
+  const ids=new Set([...Object.keys(before||{}),...Object.keys(after||{})]);
+  for(const id of ids){const d=(+(after||{})[id]||0)-(+(before||{})[id]||0);if(!d)continue;const it=inventory.find(x=>x.id===id);if(!it)continue;
+    it.qty=Math.round(((+it.qty||0)-d)*1000)/1000;
+    try{await db.collection("inventory").doc(id).update({qty:it.qty,updatedAt:new Date().toISOString()})}catch(e){}}
+  renderInvBadge();if(!$("#v-inv").hidden)renderInv()}
 async function autosave(){
   clearTimeout(saveTimer);
   if(saving){saveAgain=true;return saving}
@@ -2521,9 +2576,11 @@ async function autosave(){
   saving=(async()=>{
     try{
       const now=new Date().toISOString();
-      if(editingId){await db.collection("logs").doc(editingId).update({...b.entry,updatedAt:now});
+      const used=invUsedOf(b.entry),prevUsed=editingId?(invLedger[editingId]||((logs.find(x=>x.id===editingId)||{}).invUsed)||{}):{};
+      b.entry.invUsed=used;
+      if(editingId){await db.collection("logs").doc(editingId).update({...b.entry,updatedAt:now});invLedger[editingId]=used;invApply(prevUsed,used);
         if(origWo&&normWo(origWo)!==normWo(b.entry.wo)){const from=origWo;origWo=b.entry.wo;await woNumberChanged(editingId,from,b.entry.wo)}}
-      else{const ref=await db.collection("logs").add({...b.entry,createdAt:now});editingId=ref.id;updateEditBar()}
+      else{const ref=await db.collection("logs").add({...b.entry,createdAt:now});editingId=ref.id;invLedger[ref.id]=used;invApply({},used);updateEditBar()}
       if(!dirty)setSaveState("saved",savedText());
       if(!woRenames[editingId])scheduleBackup(editingId);
       updateEditBar();
@@ -3488,7 +3545,9 @@ $("#invlist").addEventListener("click",e=>{
 function ivDatalists(){const u=k=>[...new Set(inventory.map(x=>x[k]).filter(Boolean))].sort();
   $("#iv-locs").innerHTML=u("location").map(x=>`<option value="${esc(x)}">`).join("");$("#iv-sups").innerHTML=u("supplier").map(x=>`<option value="${esc(x)}">`).join("")}
 function ivUsed(){const id=ivEdit&&ivEdit.id,el=$("#iv-used");if(!id){el.innerHTML="";return}
-  const ms=invUsedIn(id);el.innerHTML=ms.length?`<div class="label">Used in</div><div class="ivused">${ms.map(m=>{const b=(m.bom||[]).find(x=>x.itemId===id);return `<button type="button" class="linkish" data-ivmould="${esc(m.id)}">${esc(mlabel(m))}${b&&b.qty?` × ${fmtQty(b.qty)}`:""}${b&&b.note?` (${esc(b.note)})`:""}</button>`}).join("")}</div>`:""}
+  const wos=logs.filter(l=>(l.invUsed||{})[id]).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const woHtml=wos.length?`<div class="label">Used on work orders</div><div class="ivused">${wos.slice(0,12).map(l=>`<button type="button" class="linkish" data-ivwo="${esc(l.id)}">#${esc(l.wo)} × ${fmtQty(l.invUsed[id])}</button>`).join("")}${wos.length>12?` <span class="small">+${wos.length-12} more</span>`:""}</div>`:"";
+  const ms=invUsedIn(id);el.innerHTML=woHtml+(ms.length?`<div class="label">Used in</div><div class="ivused">${ms.map(m=>{const b=(m.bom||[]).find(x=>x.itemId===id);return `<button type="button" class="linkish" data-ivmould="${esc(m.id)}">${esc(mlabel(m))}${b&&b.qty?` × ${fmtQty(b.qty)}`:""}${b&&b.note?` (${esc(b.note)})`:""}</button>`}).join("")}</div>`:"")}
 function openInvItem(id,preset){
   const it=id?inventory.find(x=>x.id===id):null;ivEdit=it?{...it}:{cat:(preset&&preset.cat)||(invCat&&invCat!=="low"?invCat:"consumable"),name:(preset&&preset.name)||""};ivDelArmed=false;
   $("#inv-title").textContent=it?"Edit item":"New inventory item";$("#inv-sub").textContent=it&&it.updatedAt?"Last changed "+fmtDate(it.updatedAt.slice(0,10)):"";
@@ -3503,7 +3562,7 @@ function closeInvItem(saved){$("#invsheet").hidden=true;if($("#bomsheet").hidden
 $("#iv-cat").addEventListener("click",e=>{const b=e.target.closest("button");if(b)segSet("#iv-cat",b.dataset.v)});
 $("#iv-cancel").onclick=()=>closeInvItem();
 $("#invsheet").addEventListener("click",e=>{if(e.target===$("#invsheet"))closeInvItem()});
-$("#iv-used").addEventListener("click",e=>{const b=e.target.closest("[data-ivmould]");if(!b)return;closeInvItem();if(!$("#bomsheet").hidden)closeBom();openMould(b.dataset.ivmould)});
+$("#iv-used").addEventListener("click",e=>{const w=e.target.closest("[data-ivwo]");if(w){closeInvItem();startEdit(w.dataset.ivwo);return}const b=e.target.closest("[data-ivmould]");if(!b)return;closeInvItem();if(!$("#bomsheet").hidden)closeBom();openMould(b.dataset.ivmould)});
 $("#invform").addEventListener("submit",async e=>{e.preventDefault();
   const name=$("#iv-name").value.trim();if(!name){$("#iv-name").focus();return}
   const num=v=>v===""?null:Math.max(0,+v);
@@ -4470,7 +4529,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.16-73";
+const APP_VERSION="2026.10.16-74";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -4507,7 +4566,7 @@ function startData(){
   unsubs.push(db.collection("logs").onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint()},e=>dataError(e)));
   unsubs.push(db.collection("procedures").onSnapshot(s=>{procedures=s.docs.map(d=>({id:d.id,...d.data()}));renderProcLists();renderProc();renderList();ensureServiceProc()},e=>dataError(e)));
   unsubs.push(db.collection("hours").onSnapshot(s=>{hoursList=s.docs.map(d=>({id:d.id,...d.data()}));renderHours();renderFormHours()},e=>dataError(e)));
-  unsubs.push(db.collection("inventory").onSnapshot(s=>{inventory=s.docs.map(d=>({id:d.id,...d.data()}));loaded.inv=true;renderInv();renderInvBadge();if(!$("#v-hist").hidden)renderHistParts();if(!$("#invsheet").hidden&&ivEdit)ivUsed()},e=>dataError(e)));
+  unsubs.push(db.collection("inventory").onSnapshot(s=>{inventory=s.docs.map(d=>({id:d.id,...d.data()}));loaded.inv=true;renderInv();plStockRefresh();renderInvBadge();if(!$("#v-hist").hidden)renderHistParts();if(!$("#invsheet").hidden&&ivEdit)ivUsed()},e=>dataError(e)));
   unsubs.push(db.collection("inbox").onSnapshot(s=>{inbox=s.docs.map(d=>({id:d.id,...d.data()}));renderInbox()},e=>dataError(e)));
   unsubs.push(db.collection("todolists").onSnapshot(s=>{todoLists=s.docs.map(d=>({id:d.id,...d.data()}));renderTodo()},e=>dataError(e)));
   unsubs.push(db.doc("settings/drive").onSnapshot(s=>{
