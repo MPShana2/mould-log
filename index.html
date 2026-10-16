@@ -308,7 +308,7 @@ textarea.autogrow{resize:none;overflow:hidden}
 .updrow .updd{width:auto;max-width:180px}
 .updreopen{display:flex;gap:6px;align-items:center;font-size:14px;cursor:pointer}
 .updreopen input{width:18px;height:18px;accent-color:var(--accent)}
-.lastupd{margin-top:6px;font-size:13px;color:var(--fg);background:var(--sunk);border-left:3px solid var(--accent);border-radius:6px;padding:5px 8px}
+.lastupd{margin:8px 0 4px;font-size:13px;color:var(--fg);background:var(--sunk);border-left:3px solid var(--accent);border-radius:6px;padding:5px 8px}
 .lastupd b{color:var(--muted);font-weight:700;margin-right:4px}.lastupd span{color:var(--muted)}
 .wipewarn{margin:0;color:var(--warn);font-weight:600}
 .hrz{margin-top:8px}
@@ -2202,7 +2202,7 @@ function renderHist(){
   $("#timeline").innerHTML=ml.length?ml.map(l=>{const sm=subMeta(l,m.id);return `<div class="entry e-${stClass(sm.status).slice(3)}">
      <div class="ehead">
        <div class="row"><div class="type">${l.wo?`<span class="wotag">${esc(subLabel(l,m.id))}</span>`:""}${esc(sm.type||l.type)}${l.orderNo?`<span class="ordtag">Order ${esc(l.orderNo)}</span>`:""}</div>${statusSel(l,m.id)}</div>
-       <div class="when">Started ${fmtDate(sm.date)}${sm.dateCompleted?" · Completed "+fmtDate(sm.dateCompleted):""}${pmVal(l,m.id).shots?" · "+fmtNum(pmVal(l,m.id).shots)+" shots":""}</div>${alsoOn(l)}${lastUpd(l)}
+       <div class="when">Started ${fmtDate(sm.date)}${sm.dateCompleted?" · Completed "+fmtDate(sm.dateCompleted):""}${pmVal(l,m.id).shots?" · "+fmtNum(pmVal(l,m.id).shots)+" shots":""}</div>${alsoOn(l)}
      </div>
      <div class="etabs" role="group" aria-label="Work order sections">
        <button type="button" data-etab="${esc(l.id)}" data-t="details" aria-pressed="${entryTab[l.id]!=="att"}">Details</button>
@@ -2211,6 +2211,7 @@ function renderHist(){
      <div class="epanel">${entryTab[l.id]==="att"?attPanel(l,m.id):`
      ${(sm.description||l.description)?`<p class="edesc">${esc(sm.description||l.description)}</p>`:`<p class="edesc none">No description</p>`}
      ${(l.todos||[]).length?`<div class="small">To-do: ${l.todos.filter(i=>i.done).length} of ${l.todos.length} ticked</div>`:""}`}</div>
+     ${lastUpd(l)}
      <div class="small">${confirmDel===l.id?`<button class="linkish" data-del="${esc(l.id)}" style="color:var(--bad)">Confirm delete</button> · <button class="linkish" data-cancel="1">Keep</button>`:`<button class="linkish" data-edit="${esc(l.id)}"${subMeta(l,m.id).no?` data-editsub="${esc(m.id)}"`:""} style="color:var(--steel)">Edit</button> · <button class="linkish" data-ask="${esc(l.id)}">Delete</button>`}${woNum(l.wo)?` · ${backupNote(l.id)}`:""}${l.updatedAt?` · <span>edited ${fmtDate(l.updatedAt.slice(0,10))}</span>`:""}</div>
    </div>`}).join(""):'<div class="empty"><strong>No history yet</strong>Log the first job on this mould and it will appear here, newest first.</div>';
 }
@@ -4812,7 +4813,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.16-68";
+const APP_VERSION="2026.10.16-69";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){

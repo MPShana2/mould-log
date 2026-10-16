@@ -1,5 +1,5 @@
 // GT Hub service worker: lets the app open offline and install as an app.
-const VERSION="mould-log-v91";
+const VERSION="mould-log-v92";
 const LIBS="mould-log-libs"; // Firebase and fonts: kept across app versions (their addresses change when they do)
 const SHELL=["./","index.html","config.js","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","icons/favicon.svg","icons/favicon-32.png","icons/apple-touch-icon.png"];
 // Each release changes VERSION, so the browser installs this worker afresh and it downloads the new app files here
