@@ -1131,6 +1131,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <form class="panel" id="mouldedit" hidden autocomplete="off">
       <h2 style="font-size:17px">Edit details</h2>
       <div class="field"><label class="label" for="e-name">Name</label><input id="e-name" required></div>
+      <div class="field"><label class="label" for="e-alias">Other names (for searching)</label><input id="e-alias" placeholder="e.g. 30mm panel, ADM panel"><div class="hint">Separate with commas. Only used to find it in searches; it's still shown by its name everywhere.</div></div>
       <div class="field"><span class="label">Category</span>
         <div class="seg" id="e-kind" role="group" aria-label="Category"><button type="button" data-v="mould" aria-pressed="true">Mould</button><button type="button" data-v="generic" aria-pressed="false">General job</button><button type="button" data-v="client" aria-pressed="false">Client work</button></div>
         <div class="hint" id="e-kindhint" hidden></div></div>
@@ -1727,7 +1728,7 @@ function renderShareList(){
   const q=$("#sharesearch").value.trim(),qn=normWo(q),dates=shareFiles.map(x=>x.date).filter(Boolean);
   const hits=d=>{if(!d.start)return 0;const a=addDays(d.start,-1),b=addDays(d.end||today(),1);return dates.filter(x=>x>=a&&x<=b).length};
   const span=l=>({start:l.date,end:l.dateCompleted});
-  const match=l=>!q||(qn&&woKeys(l).some(k=>k.includes(qn)))||searchScore([jobTool(l),l.orderNo,l.description,l.notes,l.type].join(" "),q)>0;
+  const match=l=>!q||(qn&&woKeys(l).some(k=>k.includes(qn)))||searchScore([jobTool(l),jobAlias(l),l.orderNo,l.description,l.notes,l.type].join(" "),q)>0;
   const list=logs.filter(l=>l.wo&&match(l));
   const scored=list.map(l=>({l,s:Math.max(hits(span(l)),...subJobs(l).map(x=>hits({start:x.date,end:x.dateCompleted})))}));
   const sug=dates.length?scored.filter(x=>x.s>0).sort((a,b)=>b.s-a.s||woSortNum(b.l)-woSortNum(a.l)).map(x=>x.l):[];
@@ -1847,6 +1848,9 @@ function editDist(a,b,max){ // optimal string alignment distance (swapped letter
 const searchWords=t=>String(t||"").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 const typoAllowance=w=>/\d/.test(w)||w.length<=3?0:w.length<=5?1:2;
 // 2 = every word found as typed, 1 = found allowing for typos, 0 = no match
+// A mould's other names (searching only), and the same for every mould on a work order
+const mAlias=m=>m&&(m.aliases||[]).length?" "+m.aliases.join(" "):"";
+const jobAlias=l=>jobIds(l).map(id=>mAlias(moulds.find(x=>x.id===id))).join("");
 function searchScore(text,query){
   const qw=searchWords(query);if(!qw.length)return 2;
   const t=String(text||"").toLowerCase();
@@ -1989,7 +1993,7 @@ function renderCombo(){
   const inp=cIn(),list=cList(),extra=comboMode==="extra";
   const q=inp.value.trim(),ql=q.toLowerCase();
   const skip=extra?new Set([$("#f-mould").value,...extraIds]):new Set();
-  const rank=m=>{const sc=searchScore([mlabel(m),m.part,m.area].join(" "),ql);return !sc?-1:sc*2+(mlabel(m).toLowerCase().startsWith(ql)?1:0)};
+  const rank=m=>{const sc=searchScore([mlabel(m),m.part,m.area,mAlias(m)].join(" "),ql);return !sc?-1:sc*2+(mlabel(m).toLowerCase().startsWith(ql)?1:0)};
   const hits=moulds.filter(m=>!skip.has(m.id)&&(!ql||rank(m)>=0))
     .sort((a,b)=>ql?rank(b)-rank(a):0).slice(0,8);
   const exact=moulds.some(m=>mlabel(m).toLowerCase()===ql);
@@ -2055,13 +2059,13 @@ function renderList(){
   const jobHits=q&&qn?logs.filter(l=>woKeys(l).some(k=>k.includes(qn))||(l.orderNo&&norm(l.orderNo).includes(norm(q))))
     .sort((a,b)=>String(a.wo).localeCompare(String(b.wo),undefined,{numeric:true})):[];
   const jobMoulds=new Set(jobHits.flatMap(jobIds));
-  const mScore=m=>jobMoulds.has(m.id)?3:searchScore([m.name,m.number,m.part,m.material,m.area,m.company,m.contact,m.phone,m.email].join(" "),q);
+  const mScore=m=>jobMoulds.has(m.id)?3:searchScore([m.name,m.number,m.part,m.material,m.area,m.company,m.contact,m.phone,m.email,mAlias(m)].join(" "),q);
   const rows=q?moulds.filter(m=>mScore(m)>0).sort((a,b)=>mScore(b)-mScore(a)):moulds;
   const el=$("#mouldlist");
   if($("#v-moulds").hidden&&el.childElementCount&&loaded.m)return; // hidden: drawn when it's shown
   if(!loaded.m){el.innerHTML='<div class="empty">Loading…</div>';return}
   if(!moulds.length){el.innerHTML='<div class="empty"><strong>Nothing registered yet</strong>Open “Add a mould” or “Add a general job” above. Each one keeps its own maintenance history.</div>';return}
-  const procHits=q?procedures.filter(p=>searchScore([p.name,...procMouldNames(p)].join(" "),q)>0):[];
+  const procHits=q?procedures.filter(p=>searchScore([p.name,...procMouldNames(p),...(p.mouldIds||[]).map(id=>mAlias(moulds.find(x=>x.id===id)))].join(" "),q)>0):[];
   if(!rows.length&&!jobHits.length&&!procHits.length){el.innerHTML='<div class="empty">Nothing matches “'+esc(q)+'”.</div>';return}
   const jobsHTML=jobHits.length?`<div class="group"><span class="label">Work orders · ${jobHits.length}</span><div class="wotable">`+
     jobHits.slice(0,30).map(l=>{const st=l.status||"Complete";
@@ -2128,7 +2132,7 @@ $("#b-title").addEventListener("click",()=>{if(boxActive)openMouldFromWo(boxActi
 $("#histhead").addEventListener("click",e=>{if(e.target.closest("#meditbtn"))openMouldEdit()});
 function openMouldEdit(){
   const m=moulds.find(x=>x.id===current);if(!m)return;const gen=isGen(m);
-  $("#e-name").value=mlabel(m);$("#e-part").value=m.part||"";$("#e-cav").value=m.cavities||"";$("#e-mat").value=m.material||"";$("#e-comp").value=m.company||"";$("#complist").innerHTML=companies().map(c=>`<option value="${esc(c)}">`).join("");$("#e-area").value=m.area||"";
+  $("#e-name").value=mlabel(m);$("#e-alias").value=(m.aliases||[]).join(", ");$("#e-part").value=m.part||"";$("#e-cav").value=m.cavities||"";$("#e-mat").value=m.material||"";$("#e-comp").value=m.company||"";$("#complist").innerHTML=companies().map(c=>`<option value="${esc(c)}">`).join("");$("#e-area").value=m.area||"";
   segSet("#e-kind",kindOf(m));editKindFields();
   $("#e-ccomp").value=m.company||"";$("#e-ccontact").value=m.contact||"";$("#e-cphone").value=m.phone||"";$("#e-cemail").value=m.email||"";$("#e-caddr").value=m.address||"";setTimeout(growAll,0);
   resetMouldDel();
@@ -2180,6 +2184,7 @@ $("#mouldedit").addEventListener("submit",async e=>{
   const k=segVal("#e-kind")||kindOf(m),was=kindOf(m);
   const patch=k==="client"?{name,company:$("#e-ccomp").value.trim(),contact:$("#e-ccontact").value.trim(),phone:$("#e-cphone").value.trim(),email:$("#e-cemail").value.trim(),address:$("#e-caddr").value.trim()}:k==="generic"?{name,area:$("#e-area").value.trim()}:{name,part:$("#e-part").value.trim(),cavities:$("#e-cav").value.trim(),material:$("#e-mat").value.trim(),company:$("#e-comp").value.trim()};
   patch.kind=k==="mould"?"":k;
+  patch.aliases=[...new Set($("#e-alias").value.split(/[,;\n]/).map(x=>x.trim()).filter(Boolean))].slice(0,20);
   try{await db.collection("moulds").doc(m.id).update({...patch,updatedAt:new Date().toISOString()});
     // a main job turning into a mould becomes a sub-job on work orders with other moulds: give it the next number
     if(was!=="mould"&&k==="mould"){for(const l of kindAffected(m.id)){if(l.subs&&l.subs[m.id]&&l.subs[m.id].no)continue;
@@ -2311,7 +2316,7 @@ function renderAllJobs(){
   const woOrder=(a,b)=>woSortNum(b)-woSortNum(a)||String(b.wo||"").localeCompare(String(a.wo||""),undefined,{numeric:true});
   let nExact=list.length;
   if(q){
-    const sc=new Map(list.map(l=>[l,(qn&&woKeys(l).some(k=>k.includes(qn)))?2:searchScore([jobTool(l),l.orderNo,l.description,l.faults,l.work,l.notes,l.type].join(" "),q)]));
+    const sc=new Map(list.map(l=>[l,(qn&&woKeys(l).some(k=>k.includes(qn)))?2:searchScore([jobTool(l),jobAlias(l),l.orderNo,l.description,l.faults,l.work,l.notes,l.type].join(" "),q)]));
     const exact=list.filter(l=>sc.get(l)===2).sort(woOrder),close=list.filter(l=>sc.get(l)===1).sort(woOrder);
     list=exact.concat(close);nExact=exact.length;
   }else list.sort(woOrder);
@@ -3173,7 +3178,7 @@ $("#pe-chips").addEventListener("click",e=>{const b=e.target.closest("[data-perm
 // Mould picker: type to see matching moulds and general jobs
 let peItems=[],peIdx=-1;
 function peRender(){const inp=$("#pe-mq"),list=$("#pe-mlist"),q=inp.value.trim().toLowerCase();
-  const rank=m=>{const sc=searchScore([mlabel(m),m.part,m.area,m.company].join(" "),q);return !sc?-1:sc*2+(mlabel(m).toLowerCase().startsWith(q)?1:0)};
+  const rank=m=>{const sc=searchScore([mlabel(m),m.part,m.area,m.company,mAlias(m)].join(" "),q);return !sc?-1:sc*2+(mlabel(m).toLowerCase().startsWith(q)?1:0)};
   peItems=moulds.filter(m=>!procMoulds.includes(m.id)&&(!q||rank(m)>=0)).sort((a,b)=>q?rank(b)-rank(a):0).slice(0,q?10:40);
   if(peIdx>=peItems.length)peIdx=-1;
   list.innerHTML=peItems.length?peItems.map((m,i)=>`<div class="opt" role="option" id="peo-${i}" data-i="${i}" aria-selected="${i===peIdx}"><span class="on">${esc(mlabel(m))}${(m.part||m.area)?` <span class="os">· ${esc(m.part||m.area)}</span>`:""}</span><span class="ok">${kindShort(m)}</span></div>`).join(""):`<div class="opt muted">No matching mould or job.</div>`;
@@ -3473,7 +3478,7 @@ function diariumSections(e){const parts=htmlToText(e.html),secs=[];let cur={titl
 const normTok=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim().split(" ").filter(Boolean);
 // How well a Diarium tag/heading matches a mould: share of its words found in the mould's name/number/part (numbers exact)
 function mouldMatch(label){const want=normTok(label);if(!want.length)return null;let best=null;
-  for(const m of moulds){const have=new Set(normTok([mlabel(m),m.name,m.number,m.part].join(" ")));const joined=[...have].join("");
+  for(const m of moulds){const have=new Set(normTok([mlabel(m),m.name,m.number,m.part,mAlias(m)].join(" ")));const joined=[...have].join("");
     let hit=0;for(const w of want){if(have.has(w)||(!/^\d+$/.test(w)&&w.length>3&&[...have].some(h=>h.length>3&&(h.startsWith(w)||w.startsWith(h))))||(/\d/.test(w)&&joined.includes(w)))hit++}
     const sc=hit/want.length;if(sc>=0.6&&(!best||sc>best.sc))best={m,sc}}
   return best&&best.m}
@@ -3594,7 +3599,7 @@ function openAssign(what){
 function closeAssign(){$("#asheet").hidden=true;ibAssign=null;document.documentElement.classList.remove("lbopen")}
 function renderAssignList(){
   const q=$("#a-q").value.trim(),qn=normWo(q);
-  const match=l=>!q||(qn&&woKeys(l).some(k=>k.includes(qn)))||searchScore([jobTool(l),l.orderNo,l.description,l.type].join(" "),q)>0;
+  const match=l=>!q||(qn&&woKeys(l).some(k=>k.includes(qn)))||searchScore([jobTool(l),jobAlias(l),l.orderNo,l.description,l.type].join(" "),q)>0;
   const isOpen=l=>l.status&&(l.status!=="Complete"||anySubOpen(l));
   const list=logs.filter(l=>l.wo&&match(l)),open=list.filter(isOpen).sort((a,b)=>woSortNum(b)-woSortNum(a)),rest=q?list.filter(l=>!isOpen(l)).sort((a,b)=>woSortNum(b)-woSortNum(a)):[]; // finished jobs only when searched for
   const row=l=>{const subs=subJobs(l),mainOk=!tabIdsFor(l.mouldId,l.extraMouldIds).includes(l.mouldId),st=l.status||"Complete";
@@ -3879,7 +3884,7 @@ function hrFRender(){
   const items=[];
   if(!q)items.push({v:"all",t:"All work",k:""});
   companies().forEach(c=>{const r=q?rank(c,""):0;if(r>=0)items.push({v:"c:"+c,t:c,k:"Company",r:r+.5})});
-  moulds.forEach(m=>{const r=q?rank(mlabel(m),[m.part,m.area,m.company].join(" ")):0;if(r>=0)items.push({v:"m:"+m.id,t:mlabel(m),sub:m.company||m.part||m.area||"",k:kindShort(m),r})});
+  moulds.forEach(m=>{const r=q?rank(mlabel(m),[m.part,m.area,m.company,mAlias(m)].join(" ")):0;if(r>=0)items.push({v:"m:"+m.id,t:mlabel(m),sub:m.company||m.part||m.area||"",k:kindShort(m),r})});
   if(q)items.sort((a,b)=>(b.r||0)-(a.r||0));
   hrFItems=items.slice(0,q?10:40);if(hrFIdx>=hrFItems.length)hrFIdx=-1;
   list.innerHTML=hrFItems.length?hrFItems.map((it,i)=>`<div class="opt" role="option" id="hrf-${i}" data-i="${i}" aria-selected="${i===hrFIdx}"><span class="on">${esc(it.t)}${it.sub?` <span class="os">· ${esc(it.sub)}</span>`:""}</span><span class="ok">${esc(it.k)}</span></div>`).join(""):`<div class="opt muted">No company, mould or job matches “${esc(inp.value.trim())}”.</div>`;
@@ -4813,7 +4818,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.16-69";
+const APP_VERSION="2026.10.16-70";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
