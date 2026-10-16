@@ -4818,7 +4818,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.16-70";
+const APP_VERSION="2026.10.16-71";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -4926,6 +4926,8 @@ $("#import-file").addEventListener("change",async e=>{
     }
     for(const [id,doc] of Object.entries(cols.procedures||{})){if(!procedures.some(x=>x.id===id))writes.push(["procedures",id,{...doc,mouldIds:(doc.mouldIds||[]).map(x=>idMap[x]||x)}])}
     for(const [id,doc] of Object.entries(cols.hours||{})){if(!hoursList.some(h=>h.id===id))writes.push(["hours",id,doc])}
+    for(const [id,doc] of Object.entries(cols.todolists||{})){if(!todoLists.some(x=>x.id===id))writes.push(["todolists",id,doc])}
+    for(const [id,doc] of Object.entries(cols.inbox||{})){if(!inbox.some(x=>x.id===id))writes.push(["inbox",id,doc])}
     for(const [id,doc] of Object.entries(cols.settings||{})){if(!(id==="drive"&&driveRoot))writes.push(["settings",id,doc])}
     toast(`Importing ${nl} work orders…`);
     for(let i=0;i<writes.length;i+=25){await Promise.all(writes.slice(i,i+25).map(([c,id,d])=>db.collection(c).doc(id).set(d)))}
@@ -4944,6 +4946,7 @@ $("#backupbtn").onclick=()=>{
   logs.forEach(({id,...d})=>out.collections.logs[id]=d);
   out.collections.hours={};hoursList.forEach(({id,...d})=>out.collections.hours[id]=d);
   out.collections.inbox={};inbox.forEach(({id,...d})=>out.collections.inbox[id]=d);
+  out.collections.todolists={};todoLists.forEach(({id,...d})=>out.collections.todolists[id]=d);
   out.collections.procedures={};procedures.forEach(({id,...d})=>out.collections.procedures[id]=d);
   if(driveRoot)out.collections.settings.drive={rootId:driveRoot.id,rootName:driveRoot.name};
   saveFile("mould-log-backup-"+today()+".json",new Blob([JSON.stringify(out,null,1)],{type:"application/json"}));
