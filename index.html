@@ -189,6 +189,11 @@ nav.tabs button[aria-current="true"]{color:var(--bar-fg);border-top-color:var(--
 @keyframes woslideL{from{opacity:.4;transform:translateX(28px)}to{opacity:1;transform:none}}
 @keyframes woslideR{from{opacity:.4;transform:translateX(-28px)}to{opacity:1;transform:none}}
 .updphotos{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.updphotos.clamp{max-height:64px;overflow:hidden}
+.updmore{display:inline-flex;align-items:center;gap:4px;margin-top:6px;background:none;border:0;padding:4px 0;font:inherit;font-size:13px;font-weight:600;color:var(--steel);cursor:pointer}
+.updmore:hover{text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
+.updmore .chev{display:inline-block;transition:transform .15s}
+.updmore[aria-expanded="true"] .chev{transform:rotate(180deg)}
 .updph{position:relative;width:64px;height:64px}
 .updph .thumb{width:64px;height:64px}
 .updph .thumb:disabled{cursor:default;opacity:.7}
@@ -3269,7 +3274,7 @@ function updThumbs(p,names,removable){
   if(!names||!names.length)return "";const t=updTarget(p),key=t&&dkey(t),st=key&&driveState[key];
   if(t&&!st&&driveRoot&&hasToken()){driveState[key]={stack:[],status:"loading",label:t.label,num:t.num,sub:t.sub||""};setTimeout(()=>driveLoad(key),0)}
   const items=(st&&st.items)||[],q=queueCache.filter(x=>t&&x.num===t.num&&(x.sub||"")===(t.sub||""));
-  return `<div class="updphotos">${names.map(n=>{const f=items.find(x=>x.name===n),up=q.some(x=>x.name===n);
+  return `<div class="updphotos" data-k="${esc(names.join("\u0001"))}">${names.map(n=>{const f=items.find(x=>x.name===n),up=q.some(x=>x.name===n);
     const img=(f&&f.thumbnailLink?`<img src="${esc(sizedThumb(f.thumbnailLink,240))}" referrerpolicy="no-referrer" alt="" draggable="false">`:`<span class="ext">${up?"↑":/\.(mp4|mov|m4v|3gp|webm|mkv)$/i.test(n)||isVideo(f)?"VIDEO":"IMG"}</span>`)+vidBadge(f);
     return `<span class="updph"><button type="button" class="thumb" ${f?`data-updview="${esc(key)}|${esc(n)}|${esc(names.join("\u0001"))}"`:"disabled"} title="${esc(n)}${up?" (uploading)":""}">${img}</button>${removable?`<button type="button" class="updphx" data-updphx="${p}|${esc(n)}" aria-label="Remove ${esc(n)} from this update">×</button>`:""}</span>`}).join("")}</div>`;
 }
@@ -3350,7 +3355,7 @@ function ibThumbs(names,rmAttr){
   if(!names||!names.length)return "";const st=driveState[INBOX_NUM];
   if(!st&&driveRoot&&hasToken()){driveState[INBOX_NUM]={stack:[],status:"loading",label:"Unassigned",num:INBOX_NUM,sub:""};setTimeout(()=>driveLoad(INBOX_NUM),0)}
   const items=(st&&st.items)||[],q=queueCache.filter(x=>x.num===INBOX_NUM);
-  return `<div class="updphotos">${names.map(n=>{const f=items.find(x=>x.name===n),up=q.some(x=>x.name===n);
+  return `<div class="updphotos" data-k="${esc(names.join("\u0001"))}">${names.map(n=>{const f=items.find(x=>x.name===n),up=q.some(x=>x.name===n);
     const img=(f&&f.thumbnailLink?`<img src="${esc(sizedThumb(f.thumbnailLink,240))}" referrerpolicy="no-referrer" alt="" draggable="false">`:`<span class="ext">${up?"↑":/\.(mp4|mov|m4v|3gp|webm|mkv)$/i.test(n)?"VIDEO":"IMG"}</span>`)+vidBadge(f);
     return `<span class="updph"><button type="button" class="thumb" ${f?`data-ibview="${esc(n)}|${esc(names.join("\u0001"))}"`:"disabled"} title="${esc(n)}${up?" (uploading)":""}">${img}</button>${rmAttr?`<button type="button" class="updphx" ${rmAttr}="${esc(n)}" aria-label="Remove ${esc(n)}">×</button>`:""}</span>`}).join("")}</div>`}
 document.addEventListener("click",e=>{const v=e.target.closest("[data-ibview]");if(!v)return;const[n,all]=v.dataset.ibview.split("|"),st=driveState[INBOX_NUM];if(!st||!st.items)return;
@@ -3477,6 +3482,28 @@ $("#updfab").addEventListener("click",()=>{
 $("#updfabmenu").addEventListener("click",e=>{const b=e.target.closest("[data-fabsub]");if(!b)return;$("#updfabmenu").hidden=true;openSub(b.dataset.fabsub);setTimeout(()=>updStart("b"),60)});
 document.addEventListener("click",e=>{if(!e.target.closest("#updfab,#updfabmenu"))$("#updfabmenu").hidden=true});
 document.addEventListener("focusin",()=>setTimeout(updFabShow,0));document.addEventListener("focusout",()=>setTimeout(updFabShow,120));
+// Photos on an update show one row; a "+N more" button opens the rest (and closes them again)
+const updPhOpen=new Set();
+function clampUpdPhotos(){
+  document.querySelectorAll(".updphotos").forEach(el=>{
+    if(!el.offsetParent)return; // not on screen: measured when it is
+    const k=el.dataset.k||"",open=updPhOpen.has(k);
+    el.classList.remove("clamp");
+    const tiles=[...el.children].filter(x=>x.classList.contains("updph"));
+    const top=tiles.length?tiles[0].offsetTop:0,hidden=tiles.filter(x=>x.offsetTop>top+4).length;
+    let btn=el.nextElementSibling;if(!(btn&&btn.classList.contains("updmore")))btn=null;
+    if(!hidden){if(btn)btn.remove();return}
+    if(!open)el.classList.add("clamp");
+    const html=`${open?"Show fewer":`+${hidden} more photo${hidden===1?"":"s"}`} <span class="chev" aria-hidden="true">▾</span>`;
+    if(!btn){btn=document.createElement("button");btn.type="button";btn.className="updmore";el.after(btn)}
+    btn.dataset.k=k;btn.setAttribute("aria-expanded",String(open));if(btn.innerHTML!==html)btn.innerHTML=html;
+  })}
+let clampRaf=0;const clampSoon=()=>{cancelAnimationFrame(clampRaf);clampRaf=requestAnimationFrame(clampUpdPhotos)};
+new MutationObserver(muts=>{if(muts.some(m=>[...m.addedNodes].some(n=>n.nodeType===1&&!n.classList.contains("updmore")&&(n.matches(".updphotos")||n.querySelector&&n.querySelector(".updphotos")))||m.type==="attributes"))clampSoon()})
+  .observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["hidden"]});
+window.addEventListener("resize",clampSoon);
+document.addEventListener("click",e=>{const b=e.target.closest(".updmore");if(!b)return;e.preventDefault();const k=b.dataset.k;
+  if(updPhOpen.has(k))updPhOpen.delete(k);else updPhOpen.add(k);clampUpdPhotos()});
 let updDelArmed=null;
 $("#logform").addEventListener("click",e=>{const t=e.target;
   const add=t.closest("[data-updadd]");if(add){updOpen={p:add.dataset.updadd,id:null,draft:"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),files:[]};renderUpd(updOpen.p);return}
@@ -4579,7 +4606,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.16-62";
+const APP_VERSION="2026.10.16-63";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
