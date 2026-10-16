@@ -1062,8 +1062,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <div class="panel stackcol">
       <div class="field">
         <label class="label" for="diarium-file">Import from Diarium</label>
-        <input id="diarium-file" type="file" accept=".json,application/json">
-        <div class="hint">Export your entries from Diarium as <b>JSON</b> and pick the file here. Each entry (or each heading inside an entry) goes into <b>Unassigned updates</b> with its Diarium date, with a suggested work order where the app can tell. Nothing is assigned or created until you say so, and importing the same file twice won't double up.</div>
+        <input id="diarium-file" type="file" accept=".html,.htm,.json,text/html,application/json">
+        <div class="hint">Export your entries from Diarium as <b>HTML</b> (brings the photos too) or JSON (text only) and pick the file here. Photos upload to the <b>_Unassigned</b> Drive folder and move with each update when you assign it. Big exports are best done a month or so at a time. Each entry (or each heading inside an entry) goes into <b>Unassigned updates</b> with its Diarium date, with a suggested work order where the app can tell. Nothing is assigned or created until you say so, and importing the same file twice won't double up.</div>
         <div class="small" id="diarium-res" hidden></div>
       </div>
     </div>
@@ -3466,30 +3466,63 @@ function diariumSuggest(title,text,tags,date){
 function suggestLabel(sg){if(!sg)return "";if(sg.logId){const l=logs.find(x=>x.id===sg.logId);if(!l)return "";const m=sg.sub&&moulds.find(x=>x.id===sg.sub);
     return `#${sg.sub?subLabel(l,sg.sub):l.wo} · ${m?mlabel(m):jobTool(l)}`}
   const m=moulds.find(x=>x.id===sg.mouldId);return m?`${mlabel(m)} (no work order on that date)`:""}
+const MONTHS={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
+function parseLooseDate(txt){const t=String(txt||"").toLowerCase();let m=t.match(/(\d{4})-(\d{2})-(\d{2})/);if(m)return m[0];
+  let d,mo,y;m=t.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3,9})\.?,?\s+(\d{4})/);if(m){d=+m[1];mo=MONTHS[m[2].slice(0,4)]||MONTHS[m[2].slice(0,3)];y=+m[3]}
+  else{m=t.match(/([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/);if(m){mo=MONTHS[m[1].slice(0,4)]||MONTHS[m[1].slice(0,3)];d=+m[2];y=+m[3]}}
+  if(!(y&&mo&&d)){m=t.match(/(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})/);if(m){d=+m[1];mo=+m[2];y=+m[3]}}
+  return y&&mo&&d?`${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`:""}
+// Diarium HTML export: <div class="entry"> with .date, .heading .title, .tags, .content and .photos <img src="data:…" alt="file name">
+function parseDiariumHtml(html){const doc=new DOMParser().parseFromString(html,"text/html");
+  return [...doc.querySelectorAll(".entry")].map(en=>{
+    const tagEls=[...en.querySelectorAll(".tags .tag")];let tags=tagEls.map(x=>x.textContent.replace(/^[●\s]+/,"").trim()).filter(Boolean);
+    if(!tags.length){const tt=(en.querySelector(".tags")||{}).textContent||"";const i=tt.indexOf(":");if(i>=0)tags=tt.slice(i+1).split(",").map(x=>x.trim()).filter(Boolean)}
+    const photos=[...en.querySelectorAll(".photos img, .content img")].map(im=>({src:im.getAttribute("src")||"",name:(im.getAttribute("alt")||"").trim()})).filter(x=>/^data:/.test(x.src));
+    let date=parseLooseDate((en.querySelector(".date")||{}).textContent);
+    if(!date){const f=photos.map(x=>x.name.match(/(20\d{2})(\d{2})(\d{2})/)).find(Boolean);if(f)date=`${f[1]}-${f[2]}-${f[3]}`}
+    return {date,heading:((en.querySelector(".heading .title")||en.querySelector(".heading")||{}).textContent||"").trim(),html:(en.querySelector(".content")||{}).innerHTML||"",tags,photos}})}
+function dataUrlFile(src,name,i){const m=src.match(/^data:([^;,]+)?(;base64)?,(.*)$/s);if(!m)return null;
+  const type=(m[1]||"application/octet-stream").replace("image/jpg","image/jpeg");const bin=m[2]?atob(m[3]):decodeURIComponent(m[3]);
+  const u=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);
+  const ext=(type.split("/")[1]||"bin").replace("jpeg","jpg");return new File([u],name&&/\.[a-z0-9]{2,5}$/i.test(name)?name:`diarium_${Date.now().toString(36)}_${i}.${ext}`,{type})}
 $("#diarium-file").addEventListener("change",async e=>{
   const file=e.target.files[0];e.target.value="";if(!file||!db)return;const res=$("#diarium-res");res.hidden=false;res.textContent="Reading…";
   try{
-    const data=JSON.parse(await file.text());const list=Array.isArray(data)?data:(data.entries||data.items||[]);
-    if(!list.length||!list.some(x=>x&&("html" in x||"text" in x||"heading" in x)))throw {message:"That doesn't look like a Diarium JSON export"};
+    const raw=await file.text(),isHtml=/^\s*(\ufeff)?\s*</.test(raw);
+    let list;
+    if(isHtml){list=parseDiariumHtml(raw);if(!list.length)throw {message:"That doesn't look like a Diarium HTML export"}}
+    else{const data=JSON.parse(raw);list=Array.isArray(data)?data:(data.entries||data.items||[]);
+      if(!list.length||!list.some(x=>x&&("html" in x||"text" in x||"heading" in x)))throw {message:"That doesn't look like a Diarium JSON export"}}
+    const nPh=list.reduce((a,x)=>a+((x.photos||[]).length),0);
+    if(nPh&&!driveRoot)throw {message:"Set your Drive Work Orders folder first (menu › Settings), so the photos have somewhere to go"};
+    let photosQueued=0;const seen={};
     let have=new Set();try{const sd=await db.doc("settings/imports").get();if(sd&&sd.exists)have=new Set((sd.data()||{}).diarium||[])}catch(err){}
     inbox.forEach(n=>{if(n.src)have.add(n.src)});
     let added=0,skipped=0,withImg=0,suggested=0,empty=0;const newIds=[];const now=new Date().toISOString();
     for(const e2 of list){
       const date=String(e2.date||"").slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){empty++;continue}
       const secs=diariumSections({heading:e2.heading,html:e2.html!=null?e2.html:("<p>"+esc(e2.text||"").replace(/\n/g,"</p><p>")+"</p>")});
+      const ek=date+"|"+String(e2.heading||"").slice(0,40);seen[ek]=(seen[ek]||0)+1;
+      let entryPhotos=(e2.photos||[]);
       for(let i=0;i<secs.length;i++){const sc=secs[i];
-        const src="d:"+String(e2.date)+"|"+i+"|"+(sc.title||"").slice(0,40);
-        if(have.has(src)){skipped++;continue}
-        if(!sc.text&&!sc.imgs.length){empty++;continue}
-        if(sc.imgs.length)withImg++;
+        const src="d:"+ek+"|"+seen[ek]+"|"+i+"|"+(sc.title||"").slice(0,40);
+        if(have.has(src)||inbox.some(n=>n.source==="Diarium"&&n.date===date&&(n.title||"")===(sc.title||"")&&(n.text||"")===sc.text&&(!entryPhotos.length||(n.files||[]).length))){skipped++;entryPhotos=[];continue}
+        // the entry's photos go with its first section (Diarium keeps them per entry, not per heading)
+        let files=[];
+        if(entryPhotos.length){const fl=entryPhotos.map((x,k)=>dataUrlFile(x.src,x.name,k)).filter(Boolean);entryPhotos=[];
+          res.textContent=`Importing… ${added} updates · getting ${fl.length} photos ready`;
+          files=(await enqueue(fl,INBOX_T,false))||[];photosQueued+=files.length}
+        if(!sc.text&&!files.length){empty++;continue}
+        if(sc.imgs.length&&!isHtml)withImg++;
         const sg=diariumSuggest(sc.title,sc.text,e2.tags,date);if(sg&&sg.logId)suggested++;
-        const id=ibId();const doc={date,text:sc.text,title:sc.title||"",tags:(e2.tags||[]).slice(0,10),src,source:"Diarium",...(sg?{suggest:sg}:{}),createdAt:now,updatedAt:now};
+        const id=ibId();const doc={date,text:sc.text,title:sc.title||"",tags:(e2.tags||[]).slice(0,10),src,source:"Diarium",...(files.length?{files}:{}),...(sg?{suggest:sg}:{}),createdAt:now,updatedAt:now};
         await db.collection("inbox").doc(id).set(doc);have.add(src);newIds.push(src);added++;
         res.textContent=`Importing… ${added}`;
       }}
     try{await db.doc("settings/imports").set({diarium:[...have].slice(-5000)})}catch(err){}
     res.innerHTML=`<b>${added}</b> update${added===1?"":"s"} added to Unassigned updates${suggested?` · ${suggested} with a suggested work order`:""}${skipped?` · ${skipped} already imported`:""}${empty?` · ${empty} empty skipped`:""}.`+
-      (withImg?` ${withImg} had pictures, which Diarium's JSON export doesn't include; add those photos from Unassigned photos.`:"")+
+      (photosQueued?` ${photosQueued} photo${photosQueued===1?"":"s"} uploading to the _Unassigned Drive folder.`:"")+
+      (withImg?` ${withImg} had pictures, which Diarium's JSON export doesn't include: export as HTML to bring them across.`:"")+
       (added?` <button type="button" class="linkish" data-gotoinbox="1">Open Unassigned updates</button>`:"");
   }catch(err){res.textContent="Couldn't import: "+((err&&err.message)||"unreadable file")}
 });
@@ -4749,7 +4782,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.16-66";
+const APP_VERSION="2026.10.16-67";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
