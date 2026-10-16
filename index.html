@@ -70,6 +70,8 @@ header.top{align-items:center}
 #sharelist{display:flex;flex-direction:column;gap:8px}
 #sharelist .ogh{margin-top:8px}
 .sharegroup{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.sharerow.picked{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.sharerow:disabled{opacity:.45}
 .sharerow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;padding:12px 14px;border:0;border-left:4px solid var(--accent);background:none;font:inherit;color:var(--fg);text-align:left;cursor:pointer;min-height:52px}
 .sharerow:hover{background:var(--sunk)}
 .sharerow .wo{font-family:var(--mono);font-weight:600}
@@ -1709,10 +1711,16 @@ $("#sharelist").addEventListener("click",async e=>{
   const l=logs.find(x=>x.id===b.dataset.shareto);if(!l)return;const sub=b.dataset.sharesub||"";
   const num=woNum(l.wo);if(!num){toast("That work order has no number");return}
   const files=shareFiles.map(x=>x.file);shareFiles=[];
-  await enqueue(files,{num,label:jobTool(l),sub:sub?subName(sub):""},false);
-  await shareClear();shareUrls.forEach(u=>URL.revokeObjectURL(u));shareUrls=[];
+  // Show the choice straight away, open the work order on its Photos tab, then get the photos ready in the background
+  b.classList.add("picked");b.querySelector(".stpill").textContent="Opening…";
+  document.querySelectorAll("#sharelist .sharerow").forEach(r=>{if(r!==b)r.disabled=true});
   toast(`Adding ${files.length} ${files.length===1?"photo":"photos"} to #${sub?subLabel(l,sub):num}`);
-  pageReturn="open";startEdit(l.id,sub||undefined);
+  await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0))); // let the highlight paint first
+  const t={num,label:jobTool(l),sub:sub?subName(sub):""};
+  prepNote(t,files.length,0);
+  pageReturn="open";await startEdit(l.id,sub||undefined);
+  setTimeout(()=>{if(editingId===l.id)setWoTab("photos")},sub?60:0);
+  enqueue(files,t,false).finally(()=>{shareClear();shareUrls.forEach(u=>URL.revokeObjectURL(u));shareUrls=[]});
 });
 // Leaving the screen without picking a work order discards the shared photos (share them again to retry)
 function leaveShare(){if(shareFiles.length){shareFiles=[];shareClear();toast("Shared photos not added")}}
@@ -2723,7 +2731,10 @@ document.addEventListener("drop",e=>{const z=e.target.closest&&e.target.closest(
 // ---- Upload queue (kept on this device until the file reaches Drive) ----
 let memQ=[], queueCache=[], qRunning=false;
 // The upload bar: which file is going up now, and how many from this batch are done (per folder)
-let qNow=null;const qDone={};const qKey=it=>it.num+"|"+(it.sub||"");const qErrOpen=new Set();
+let qNow=null;const qDone={};
+// Photos being made ready (shrunk) before they join the upload list: {key:{n,done}}
+const qPrep={};
+function prepNote(t,n,done){const k=t.num+"|"+(t.sub||"");if(n===null){delete qPrep[k]}else qPrep[k]={n,done};renderAttViews()}const qKey=it=>it.num+"|"+(it.sub||"");const qErrOpen=new Set();
 document.addEventListener("toggle",e=>{const d=e.target;if(d.classList&&d.classList.contains("qerrs")){if(d.open)qErrOpen.add(d.dataset.k);else qErrOpen.delete(d.dataset.k)}},true);
 let qDbP=null;
 function qOpen(){
@@ -2764,16 +2775,19 @@ async function enqueue(files,t,fromCamera){
   const key=dkey(t),st=driveState[key],norm=n=>String(n||"").trim().toLowerCase();
   const taken=new Set(queueCache.filter(q=>q.num===t.num&&(q.sub||"")===(t.sub||"")).map(q=>norm(q.name)));
   if(st&&st.status==="ready"&&st.stack&&st.stack.length===1)(st.items||[]).forEach(x=>taken.add(norm(x.name)));
-  const dupes=[],accepted=[];
+  const dupes=[],accepted=[];let nDone=0;prepNote(t,files.length,0);
   try{
     for(const f of files){
+      prepNote(t,files.length,nDone++);
       if(f.size>200*1024*1024){toast(`${f.name} is over 200 MB`);continue}
       const p=await prepFile(f,fromCamera,t.num);
       if(taken.has(norm(p.name))){dupes.push(p.name);accepted.push(p.name);continue}
       taken.add(norm(p.name));accepted.push(p.name);
       await qPut({id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),num:t.num,label:t.label,sub:t.sub||"",name:p.name,type:p.type,blob:p.blob,size:p.blob.size,addedAt:new Date().toISOString(),err:""});
+      // start uploading the first ones while the rest are being prepared
+      if(files.length>1){await refreshQueue();processQueue()}
     }
-  }finally{uploading--}
+  }finally{uploading--;prepNote(t,null)}
   if(dupes.length)toast(dupes.length===1?`${dupes[0]} is already in this folder, so it was skipped`:`Skipped ${dupes.length} files already in this folder: ${dupes.slice(0,3).join(", ")}${dupes.length>3?"…":""}`);
   if(dupes.length===files.length)return accepted;
   await refreshQueue();
@@ -2804,11 +2818,12 @@ async function processQueue(){
         it.err=(err&&err.message)||"Upload failed";it.retry=false;await qPut(it);
       }
       // one message when the batch for that folder is finished, not one per file
-      {const k=qKey(it);if(!(await qAll()).some(x=>qKey(x)===k&&!x.err)){const n=qDone[k]||0;delete qDone[k];
+      {const k=qKey(it);if(!qPrep[k]&&!(await qAll()).some(x=>qKey(x)===k&&!x.err)){const n=qDone[k]||0;delete qDone[k];
         if(n)toast(n>1?`Uploaded ${n} files to ${destName(it)}`:`Uploaded ${it.ok?it.name:"1 file"} to ${destName(it)}`)}}
       await refreshQueue();
     }
-  }finally{qRunning=false;qNow=null;await refreshQueue()}
+  }finally{qRunning=false;qNow=null;await refreshQueue();
+    if(driveRoot&&hasToken()&&navigator.onLine&&queueCache.some(x=>!x.err))setTimeout(processQueue,0)}
 }
 window.addEventListener("online",()=>{renderAll();processQueue();processBackups()});
 window.addEventListener("offline",()=>renderAll());
@@ -2900,9 +2915,10 @@ function drivePanelFor(t){
   const pend=queueCache.filter(q=>q.num===t.num&&(q.sub||"")===(t.sub||""));
   const waitWhy=!navigator.onLine?"Waiting for internet":!hasToken()?"Waiting for Google Drive connection":"Uploading…";
   const go=pend.filter(q=>!q.err),bad=pend.filter(q=>q.err),key=t.num+"|"+(t.sub||"");
-  const done=(qDone[key]||0)+(go.length?bad.length:0),total=done+go.length,cur=go.find(q=>q.id===qNow)||go[0];
+  const pr=qPrep[key],rem=pr?Math.max(0,pr.n-pr.done):0; // photos still being made ready
+  const done=(qDone[key]||0)+(go.length||rem?bad.length:0),total=done+go.length+rem,cur=go.find(q=>q.id===qNow)||go[0];
   const upping=!!cur&&cur.id===qNow;
-  const bar=go.length?`<div class="qbar" role="status"><span class="ico${upping?" spin":""}" aria-hidden="true">↑</span><span class="dn"><span class="qn">${esc(cur.name)}</span><span class="dm">${upping?(total>1?`Uploading ${done+1} of ${total}`:"Uploading…"):(waitWhy==="Uploading…"?(total>1?`${go.length} waiting to upload`:"Waiting to upload"):waitWhy+(go.length>1?` · ${go.length} files`:""))}</span></span>${total>1?`<span class="qc">${done}/${total}</span>`:""}<span class="qprog" aria-hidden="true"><i style="width:${total?Math.round(100*done/total):0}%"></i></span></div>`:"";
+  const bar=go.length||rem?`<div class="qbar" role="status"><span class="ico${upping||!cur?" spin":""}" aria-hidden="true">↑</span><span class="dn"><span class="qn">${cur?esc(cur.name):`Getting ${total===1?"the photo":"photos"} ready…`}</span><span class="dm">${upping?(total>1?`Uploading ${done+1} of ${total}`:"Uploading…"):!cur?(total>1?`${done} of ${total} uploaded`:"Just a moment"):(waitWhy==="Uploading…"?(rem?"Getting the rest ready…":total>1?`${go.length} waiting to upload`:"Waiting to upload"):waitWhy+(go.length>1?` · ${go.length} files`:""))}</span></span>${total>1?`<span class="qc">${done}/${total}</span>`:""}<span class="qprog" aria-hidden="true"><i style="width:${total?Math.round(100*done/total):0}%"></i></span></div>`:"";
   const errs=bad.length?`<details class="qerrs" data-k="${esc(key)}"${qErrOpen.has(key)?" open":""}><summary><span class="ico">!</span><span>${bad.length===1?esc(bad[0].name)+" couldn't upload":bad.length+" files couldn't upload"}</span><span class="qerrbtns"><button type="button" class="linkish" data-qretryall="${esc(key)}">Retry</button> · <button type="button" class="linkish" data-qdelall="${esc(key)}">Remove</button></span></summary>${bad.map(q=>`<div class="qerrrow"><span class="dn">${esc(q.name)}<span class="dm">${esc(q.err)}</span></span><span><button type="button" class="linkish" data-qretry="${esc(q.id)}">Retry</button> · <button type="button" class="linkish" data-qdel="${esc(q.id)}">Remove</button></span></div>`).join("")}</details>`:"";
   const pendHTML=bar+errs;
   return `<div class="drive-drop">`+btns+pendHTML+`<div class="drive">${driveBody(t)}</div></div>`;
@@ -4630,7 +4646,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.16-64";
+const APP_VERSION="2026.10.16-65";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
