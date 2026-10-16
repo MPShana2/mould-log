@@ -520,6 +520,11 @@ details.ck>summary span:first-child{flex:1}
 .ibpick{padding-top:2px}.ibpick input{width:20px;height:20px;accent-color:var(--accent)}
 .ibmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .ibmain .updtext{white-space:pre-wrap;overflow-wrap:anywhere}
+.ibtitle{font-weight:700}
+.ibsrc{font:600 11px/1 var(--font,inherit);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 6px;margin-left:6px;vertical-align:1px;letter-spacing:0}
+.ibsug{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:6px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--accent) 14%,transparent);font-size:14px}
+.ibsug .btn{padding:6px 12px;min-height:0;font-size:14px}
+.ibtools .btn[hidden]{display:none}
 .ibacts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:13px}
 .ibacts .btn{padding:6px 12px;min-height:0;font-size:14px}
 .qsheet{position:fixed;inset:0;z-index:26;background:rgba(8,12,16,.55);display:flex;justify-content:center;align-items:flex-start;padding:calc(env(safe-area-inset-top,0px) + 12px) 12px 12px}
@@ -1052,6 +1057,14 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <input id="import-file" type="file" accept=".json,application/json">
         <div class="hint" id="import-hint" hidden>Your log is empty. Import the export file from the previous version to bring your work orders across.</div>
         <div class="hint">Work order numbers already in the app are skipped, so importing never overwrites anything.</div>
+      </div>
+    </div>
+    <div class="panel stackcol">
+      <div class="field">
+        <label class="label" for="diarium-file">Import from Diarium</label>
+        <input id="diarium-file" type="file" accept=".json,application/json">
+        <div class="hint">Export your entries from Diarium as <b>JSON</b> and pick the file here. Each entry (or each heading inside an entry) goes into <b>Unassigned updates</b> with its Diarium date, with a suggested work order where the app can tell. Nothing is assigned or created until you say so, and importing the same file twice won't double up.</div>
+        <div class="small" id="diarium-res" hidden></div>
       </div>
     </div>
   </section>
@@ -3350,12 +3363,16 @@ function renderInbox(){
   const el=$("#iblist");if(!el||$("#v-inbox").hidden)return;
   if(el.contains(document.activeElement)&&document.activeElement.matches("textarea,input[type=date]"))return; // don't redraw under your fingers
   const list=ibSorted();
+  const nsug=inbox.filter(n=>n.suggest&&n.suggest.logId).length;
+  {let bb=$("#ibsugall");if(!bb){bb=document.createElement("button");bb.type="button";bb.id="ibsugall";bb.className="btn ghost";bb.dataset.ibsugall="1";$("#ibnew").before(bb)}
+   bb.hidden=nsug<2;bb.textContent=`Assign ${nsug} suggested`}
   const sel=$("#ibsel");sel.hidden=!ibSel.size;
   if(ibSel.size)sel.innerHTML=`<span><b>${ibSel.size}</b> selected</span><button type="button" class="btn" data-ibassignsel="1">Assign ${ibSel.size} to…</button><button type="button" class="btn ghost${ibDelArmed==="sel"?" danger":""}" data-ibdelsel="1">${ibDelArmed==="sel"?"Tap again to delete":"Delete"}</button><button type="button" class="linkish" data-ibclear="1">Clear</button>`;
   el.innerHTML=list.length?list.map(n=>ibEdit===n.id?`<div class="ibcard editing" data-ib="${esc(n.id)}"><input type="date" class="ibd" value="${esc(n.date||today())}" aria-label="Date"><textarea class="autogrow ibt" rows="3">${esc(n.text||"")}</textarea><div class="attbtns" style="margin:0"><button type="button" class="btn" data-ibsave="${esc(n.id)}">Save</button><button type="button" class="btn ghost" data-ibcancel="1">Cancel</button></div></div>`
     :`<div class="ibcard${ibSel.has(n.id)?" picked":""}" data-ib="${esc(n.id)}"><label class="ibpick"><input type="checkbox" data-ibpick="${esc(n.id)}"${ibSel.has(n.id)?" checked":""} aria-label="Select"></label>
-      <div class="ibmain"><div class="upddate">${esc(fmtDate(n.date))}</div>${n.text?`<div class="updtext">${esc(n.text)}</div>`:""}${ibThumbs(n.files)}
-      <div class="ibacts"><button type="button" class="btn" data-ibassign="${esc(n.id)}">Assign to…</button><button type="button" class="linkish" data-ibedit="${esc(n.id)}">Edit</button> · <button type="button" class="linkish" data-ibdel="${esc(n.id)}"${ibDelArmed===n.id?' style="color:var(--bad)"':""}>${ibDelArmed===n.id?"Tap again to delete":"Delete"}</button></div></div></div>`).join("")
+      <div class="ibmain"><div class="upddate">${esc(fmtDate(n.date))}${n.source?` <span class="ibsrc">${esc(n.source)}</span>`:""}</div>${n.title?`<div class="ibtitle">${esc(n.title)}</div>`:""}${n.text?`<div class="updtext">${esc(n.text)}</div>`:""}${ibThumbs(n.files)}
+      ${n.suggest&&n.suggest.logId&&suggestLabel(n.suggest)?`<div class="ibsug"><span>Suggested: <b>${esc(suggestLabel(n.suggest))}</b></span><button type="button" class="btn" data-ibsug="${esc(n.id)}">Assign here</button></div>`:n.suggest&&suggestLabel(n.suggest)?`<div class="ibsug"><span>Mould: ${esc(suggestLabel(n.suggest))}</span></div>`:""}
+      <div class="ibacts"><button type="button" class="btn${n.suggest&&n.suggest.logId?" ghost":""}" data-ibassign="${esc(n.id)}">${n.suggest&&n.suggest.logId?"Other…":"Assign to…"}</button><button type="button" class="linkish" data-ibedit="${esc(n.id)}">Edit</button> · <button type="button" class="linkish" data-ibdel="${esc(n.id)}"${ibDelArmed===n.id?' style="color:var(--bad)"':""}>${ibDelArmed===n.id?"Tap again to delete":"Delete"}</button></div></div></div>`).join("")
     :`<div class="empty"><strong>Nothing to sort</strong>Tap <b>+ Update</b> on the Open jobs page to jot something down quickly, then assign it here later.</div>`;
   el.querySelectorAll("textarea.autogrow").forEach(t=>{grow(t);t.addEventListener("input",()=>grow(t))});
   if(ibEdit){const t=el.querySelector(".ibt");if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
@@ -3380,6 +3397,11 @@ $("#v-inbox").addEventListener("click",async e=>{const t=e.target;
     for(const id of ids){try{await db.collection("inbox").doc(id).delete()}catch(err){}}toast(`Deleted ${ids.length} update${ids.length===1?"":"s"}`);return}
   if(t.closest("[data-ibclear]")){ibSel.clear();ibDelArmed=null;renderInbox();return}
   const as=t.closest("[data-ibassign]");if(as){openAssign([as.dataset.ibassign]);return}
+  const sg=t.closest("[data-ibsug]");if(sg){const n=inbox.find(x=>x.id===sg.dataset.ibsug);if(n&&n.suggest&&n.suggest.logId){sg.disabled=true;ibAssign={notes:[n.id]};await assignTo(n.suggest.logId,n.suggest.sub||"")}return}
+  if(t.closest("[data-ibsugall]")){const ns=inbox.filter(n=>n.suggest&&n.suggest.logId&&logs.some(l=>l.id===n.suggest.logId));
+    const groups={};ns.forEach(n=>{const k=n.suggest.logId+"|"+(n.suggest.sub||"");(groups[k]=groups[k]||[]).push(n.id)});
+    for(const [k,ids] of Object.entries(groups)){const[lid,sub]=k.split("|");ibAssign={notes:ids};await assignTo(lid,sub)}
+    toast(`Assigned ${ns.length} update${ns.length===1?"":"s"} to their suggested work orders`);return}
   if(t.closest("[data-ibassignsel]")){openAssign([...ibSel]);return}
 });
 function renderInboxDrive(){const el=$("#ibdrive");if(!el||$("#v-inbox").hidden)return;el.innerHTML=drivePanelFor(INBOX_T)}
@@ -3393,6 +3415,85 @@ function ibThumbs(names,rmAttr){
     return `<span class="updph"><button type="button" class="thumb" ${f?`data-ibview="${esc(n)}|${esc(names.join("\u0001"))}"`:"disabled"} title="${esc(n)}${up?" (uploading)":""}">${img}</button>${rmAttr?`<button type="button" class="updphx" ${rmAttr}="${esc(n)}" aria-label="Remove ${esc(n)}">×</button>`:""}</span>`}).join("")}</div>`}
 document.addEventListener("click",e=>{const v=e.target.closest("[data-ibview]");if(!v)return;const[n,all]=v.dataset.ibview.split("|"),st=driveState[INBOX_NUM];if(!st||!st.items)return;
   const list=all.split("\u0001").map(x=>st.items.find(f=>f.name===x)).filter(Boolean);lbNum=INBOX_NUM;openViewer(list,Math.max(0,list.findIndex(f=>f.name===n)))});
+// ---- Import from Diarium (JSON export: [{date, heading, html, tags}]) ----
+// Entries become unassigned updates; a work order is suggested from a work order number in the text, or from the
+// tags/heading matching one of your moulds (never creates moulds) and a work order for it running on that date.
+function htmlToText(html){const d=document.createElement("div");d.innerHTML=String(html||"").replace(/<br\s*\/?>/gi,"\n");
+  const out=[];const walk=el=>{for(const n of el.childNodes){
+    if(n.nodeType===3){const t=n.textContent;if(t.trim())out.push({t,inline:true});continue}
+    if(n.nodeType!==1)continue;const tg=n.tagName;
+    if(tg==="IMG"){out.push({img:n.getAttribute("src")||""});continue}
+    if(/^H[1-6]$/.test(tg)){out.push({h:n.textContent.trim()});continue}
+    if(tg==="LI"){out.push({t:"• "+n.textContent.trim()});continue}
+    if(tg==="P"||tg==="DIV"){const only=n.children.length===1&&/^(B|STRONG)$/.test(n.children[0].tagName)&&n.textContent.trim()===n.children[0].textContent.trim();
+      if(only&&n.textContent.trim().length<80){out.push({h:n.textContent.trim()});continue}
+      if(n.querySelector("img,ul,ol,h1,h2,h3,h4,p")){walk(n);continue}
+      out.push({t:n.textContent});continue}
+    walk(n)}};
+  walk(d);return out}
+// An entry split at its headings (several work orders in one entry); text between headings stays with them
+function diariumSections(e){const parts=htmlToText(e.html),secs=[];let cur={title:e.heading||"",lines:[],imgs:[]};
+  for(const x of parts){
+    if(x.h){if(cur.lines.some(l=>l.trim())||cur.imgs.length)secs.push(cur);cur={title:x.h,lines:[],imgs:[]};continue}
+    if(x.img){cur.imgs.push(x.img);continue}
+    cur.lines.push(x.t.replace(/\u00a0/g," ").replace(/[ \t]+$/g,""))}
+  if(cur.lines.some(l=>l.trim())||cur.imgs.length||!secs.length)secs.push(cur);
+  return secs.map(sc=>({title:sc.title,text:sc.lines.join("\n").replace(/\n{3,}/g,"\n\n").trim(),imgs:sc.imgs}))}
+const normTok=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim().split(" ").filter(Boolean);
+// How well a Diarium tag/heading matches a mould: share of its words found in the mould's name/number/part (numbers exact)
+function mouldMatch(label){const want=normTok(label);if(!want.length)return null;let best=null;
+  for(const m of moulds){const have=new Set(normTok([mlabel(m),m.name,m.number,m.part].join(" ")));const joined=[...have].join("");
+    let hit=0;for(const w of want){if(have.has(w)||(!/^\d+$/.test(w)&&w.length>3&&[...have].some(h=>h.length>3&&(h.startsWith(w)||w.startsWith(h))))||(/\d/.test(w)&&joined.includes(w)))hit++}
+    const sc=hit/want.length;if(sc>=0.6&&(!best||sc>best.sc))best={m,sc}}
+  return best&&best.m}
+function diariumSuggest(title,text,tags,date){
+  // 1) a work order number mentioned (2601, 2601-2, WO 2601, #T3)
+  const hay=[title,...(tags||[]),text].join(" ");
+  for(const mt of hay.matchAll(/(?:^|[^0-9A-Za-z])#?(?:WO\s*)?(T?\d{3,6})(?:-(\d{1,2}))?(?![0-9])/gi)){
+    const l=logs.find(x=>normWo(x.wo)===normWo(mt[1]));if(!l)continue;
+    let sub="";if(mt[2]){const sj=subJobs(l).find(x=>String(x.no)===mt[2]);if(sj)sub=sj.id}
+    return {logId:l.id,sub,why:"number"}}
+  // 2) the mould, then its work order running on that day (or the nearest one)
+  let m=null;for(const t of [...(tags||[]),title]){m=mouldMatch(t);if(m)break}
+  if(!m)return null;
+  const cand=logs.filter(l=>jobIds(l).includes(m.id)&&l.date);if(!cand.length)return {mouldId:m.id,why:"mould"};
+  const d=String(date||"");
+  const running=cand.filter(l=>l.date<=d&&(!l.dateCompleted||l.dateCompleted>=d)).sort((a,b)=>b.date.localeCompare(a.date));
+  const dist=l=>Math.abs((new Date(l.date)-new Date(d))/864e5);
+  const l=running[0]||cand.slice().sort((a,b)=>dist(a)-dist(b))[0];if(!running[0]&&dist(l)>45)return {mouldId:m.id,why:"mould"};
+  const sub=tabIdsFor(l.mouldId,l.extraMouldIds).includes(m.id)?m.id:"";
+  return {logId:l.id,sub,why:running[0]?"mould":"near"}}
+function suggestLabel(sg){if(!sg)return "";if(sg.logId){const l=logs.find(x=>x.id===sg.logId);if(!l)return "";const m=sg.sub&&moulds.find(x=>x.id===sg.sub);
+    return `#${sg.sub?subLabel(l,sg.sub):l.wo} · ${m?mlabel(m):jobTool(l)}`}
+  const m=moulds.find(x=>x.id===sg.mouldId);return m?`${mlabel(m)} (no work order on that date)`:""}
+$("#diarium-file").addEventListener("change",async e=>{
+  const file=e.target.files[0];e.target.value="";if(!file||!db)return;const res=$("#diarium-res");res.hidden=false;res.textContent="Reading…";
+  try{
+    const data=JSON.parse(await file.text());const list=Array.isArray(data)?data:(data.entries||data.items||[]);
+    if(!list.length||!list.some(x=>x&&("html" in x||"text" in x||"heading" in x)))throw {message:"That doesn't look like a Diarium JSON export"};
+    let have=new Set();try{const sd=await db.doc("settings/imports").get();if(sd&&sd.exists)have=new Set((sd.data()||{}).diarium||[])}catch(err){}
+    inbox.forEach(n=>{if(n.src)have.add(n.src)});
+    let added=0,skipped=0,withImg=0,suggested=0,empty=0;const newIds=[];const now=new Date().toISOString();
+    for(const e2 of list){
+      const date=String(e2.date||"").slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){empty++;continue}
+      const secs=diariumSections({heading:e2.heading,html:e2.html!=null?e2.html:("<p>"+esc(e2.text||"").replace(/\n/g,"</p><p>")+"</p>")});
+      for(let i=0;i<secs.length;i++){const sc=secs[i];
+        const src="d:"+String(e2.date)+"|"+i+"|"+(sc.title||"").slice(0,40);
+        if(have.has(src)){skipped++;continue}
+        if(!sc.text&&!sc.imgs.length){empty++;continue}
+        if(sc.imgs.length)withImg++;
+        const sg=diariumSuggest(sc.title,sc.text,e2.tags,date);if(sg&&sg.logId)suggested++;
+        const id=ibId();const doc={date,text:sc.text,title:sc.title||"",tags:(e2.tags||[]).slice(0,10),src,source:"Diarium",...(sg?{suggest:sg}:{}),createdAt:now,updatedAt:now};
+        await db.collection("inbox").doc(id).set(doc);have.add(src);newIds.push(src);added++;
+        res.textContent=`Importing… ${added}`;
+      }}
+    try{await db.doc("settings/imports").set({diarium:[...have].slice(-5000)})}catch(err){}
+    res.innerHTML=`<b>${added}</b> update${added===1?"":"s"} added to Unassigned updates${suggested?` · ${suggested} with a suggested work order`:""}${skipped?` · ${skipped} already imported`:""}${empty?` · ${empty} empty skipped`:""}.`+
+      (withImg?` ${withImg} had pictures, which Diarium's JSON export doesn't include; add those photos from Unassigned photos.`:"")+
+      (added?` <button type="button" class="linkish" data-gotoinbox="1">Open Unassigned updates</button>`:"");
+  }catch(err){res.textContent="Couldn't import: "+((err&&err.message)||"unreadable file")}
+});
+document.addEventListener("click",e=>{if(e.target.closest("[data-gotoinbox]")){pageReturn="open";goTab("inbox")}});
 // Quick update sheet
 let qDraftKey="ml_qdraft",qFiles=[];
 function qThumbs(){$("#q-photos").innerHTML=ibThumbs(qFiles,"data-qrm")}
@@ -3463,8 +3564,10 @@ async function inboxFilesByName(names){
     if(!f&&!queueCache.some(x=>x.num===INBOX_NUM&&x.name===n)){const fo=await findWoFolder(INBOX_NUM);if(fo){const r=await dList(`'${dq(fo.id)}' in parents and trashed=false and name='${dq(n)}'`);f=(r.files||[])[0]}}
     if(f)out.push(f)}
   return out}
-$("#alist").addEventListener("click",async e=>{const b=e.target.closest("[data-ato]");if(!b||!ibAssign)return;
-  const l=logs.find(x=>x.id===b.dataset.ato);if(!l)return;const mid=b.dataset.asub||l.mouldId;const what=ibAssign;closeAssign();
+$("#alist").addEventListener("click",e=>{const b=e.target.closest("[data-ato]");if(!b||!ibAssign)return;assignTo(b.dataset.ato,b.dataset.asub||"")});
+async function assignTo(logId,asub){
+  const l=logs.find(x=>x.id===logId);if(!l||!ibAssign)return;const mid=asub||l.mouldId;const what=ibAssign;closeAssign();
+  const b={dataset:{asub}};
   const num=woNum(l.wo),t={num,label:jobTool(l),sub:tabIdsFor(l.mouldId,l.extraMouldIds).includes(mid)?subName(mid):""};
   const label=b.dataset.asub?subLabel(l,b.dataset.asub):l.wo;
   const notes=(what.notes||[]).map(id=>inbox.find(x=>x.id===id)).filter(Boolean);
@@ -3489,7 +3592,7 @@ $("#alist").addEventListener("click",async e=>{const b=e.target.closest("[data-a
     }else{selEnd();toast(`${names.length===1?"Moved to":"Moved "+names.length+" files to"} #${label}`)}
     renderInbox();renderAttViews();
   }catch(err){toast("Couldn't assign: "+((err&&err.message)||err.code||"unknown error"));delete driveState[INBOX_NUM];renderAttViews()}
-});
+}
 document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(!$("#asheet").hidden)closeAssign();else if(!$("#qsheet").hidden)$("#q-cancel").click()});
 
 // ---- The floating "+ Update" button: start an update from anywhere on the work order, one-handed ----
@@ -4646,7 +4749,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.16-65";
+const APP_VERSION="2026.10.16-66";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -4733,6 +4836,7 @@ $("#import-file").addEventListener("change",async e=>{
   const file=e.target.files[0];e.target.value="";if(!file||!db)return;
   try{
     const data=JSON.parse(await file.text());
+    if(Array.isArray(data)&&data.some(x=>x&&("heading" in x||"html" in x))){toast("That's a Diarium export: use Import from Diarium below");return}
     const cols=(data&&data.collections)||{};
     // Never overwrite what's already in the app: skip work order numbers that exist,
     // and reuse an existing mould/job with the same name instead of making a duplicate.
