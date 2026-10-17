@@ -104,7 +104,7 @@ async function rptJpeg(blob,max,q,bg){
 }
 let rptLogoCache=null;
 async function rptLogo(){if(rptLogoCache)return rptLogoCache;try{const r=await fetch("icons/icon-192.png");rptLogoCache=await rptJpeg(await r.blob(),192,.92,"#1c1c1c")}catch(e){rptLogoCache=null}return rptLogoCache}
-const RPT_ST={"Complete":["23804f","e1f2e8"],"In progress":["1d5fa8","e3ecf8"],"On hold":["b4530a","fbe9da"],"Pending":["5f5a52","eeebe5"]};
+const RPT_ST={"Complete":["23804f","e1f2e8"],"Cancelled":["7a3e8c","f1e6f4"],"In progress":["1d5fa8","e3ecf8"],"On hold":["b4530a","fbe9da"],"Pending":["5f5a52","eeebe5"]};
 // Text lines of a field: bullets ("•", "-", "*") and numbered points keep a hanging indent
 function rptLines(text){return String(text??"").replace(/\r/g,"").replace(/\s+$/,"").split("\n").map(s=>{
   const m=s.match(/^(\s*)(?:([•●◦▪\-*])|(\d+[.)]))\s+(.*)$/);
