@@ -2,7 +2,8 @@
 // ---- Import from Diarium (JSON export: [{date, heading, html, tags}]) ----
 // Entries become unassigned updates; a work order is suggested from a work order number in the text, or from the
 // tags/heading matching one of your moulds (never creates moulds) and a work order for it running on that date.
-function htmlToText(html){const d=document.createElement("div");d.innerHTML=String(html||"").replace(/<br\s*\/?>/gi,"\n");
+// parsed in an inert document, so nothing in an imported file (scripts, image handlers) can run
+function htmlToText(html){const d=new DOMParser().parseFromString("<div>"+String(html||"").replace(/<br\s*\/?>/gi,"\n")+"</div>","text/html").body.firstChild||document.createElement("div");
   const out=[];const walk=el=>{for(const n of el.childNodes){
     if(n.nodeType===3){const t=n.textContent;if(t.trim())out.push({t,inline:true});continue}
     if(n.nodeType!==1)continue;const tg=n.tagName;
