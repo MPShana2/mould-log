@@ -894,6 +894,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <textarea id="f-notes" class="autogrow" placeholder="Extra detail, findings or measurements"></textarea>
       </div>
       </div>
+      <div class="field" id="wonotes-field" hidden><label class="label" for="f-wonotes">Notes</label><textarea id="f-wonotes" class="autogrow" rows="2" placeholder="Notes for the whole work order (each sub-job has its own too)"></textarea></div>
+      
       </div>
       <div class="fcol fcol-side">
       <div class="pmside" id="pmside">
@@ -2039,7 +2041,7 @@ function renderPM(){
   if(subPage&&!tabs.includes(subPage))closeSub();
   if(boxActive){const bm0=moulds.find(x=>x.id===boxActive);$("#b-subno").textContent=`${wo||"#"}-${formSubNo[boxActive]}`;$("#b-title").textContent=bm0?mlabel(bm0):"Unknown";$("#subback-wo").textContent=wo||"work order"}
   $("#mbox").hidden=!subPage;$("#logform").classList.remove("hasbox");
-  $("#pmmain").classList.toggle("off",!mainShows);$("#logform").classList.toggle("multi",!mainShows);
+  $("#pmmain").classList.toggle("off",!mainShows);$("#wonotes-field").hidden=mainShows&&!$("#f-wonotes").value.trim();$("#logform").classList.toggle("multi",!mainShows);
   const pm=moulds.find(x=>x.id===prim),bm=moulds.find(x=>x.id===boxActive);
   $("#shots-field").hidden=!!(pm&&isGen(pm));$("#b-shots-field").hidden=!!(bm&&isGen(bm));
   if(moved){growAll();renderFormDrive()}
@@ -2433,7 +2435,7 @@ function renderAllJobs(){
   const woOrder=(a,b)=>woSortNum(b)-woSortNum(a)||String(b.wo||"").localeCompare(String(a.wo||""),undefined,{numeric:true});
   let nExact=list.length;
   if(q){
-    const sc=new Map(list.map(l=>[l,(qn&&woKeys(l).some(k=>k.includes(qn)))?2:searchScore([jobTool(l),jobAlias(l),l.orderNo,l.description,l.faults,l.work,l.notes,l.type].join(" "),q)]));
+    const sc=new Map(list.map(l=>[l,(qn&&woKeys(l).some(k=>k.includes(qn)))?2:searchScore([jobTool(l),jobAlias(l),l.orderNo,l.description,l.faults,l.work,l.notes,l.woNotes,l.type].join(" "),q)]));
     const exact=list.filter(l=>sc.get(l)===2).sort(woOrder),close=list.filter(l=>sc.get(l)===1).sort(woOrder);
     list=exact.concat(close);nExact=exact.length;
   }else list.sort(woOrder);
@@ -2468,7 +2470,7 @@ mountFormTodos();
 function clearForm(){
   resetPM();setMould("");setExtras([]);
   formTodos=[];mountFormTodos();
-  $("#f-shots").value="";$("#f-work").value="";$("#f-notes").value="";$("#f-desc").value="";plWrite("f",[]);$("#f-done").value="";
+  $("#f-shots").value="";$("#f-work").value="";$("#f-notes").value="";$("#f-wonotes").value="";$("#f-desc").value="";plWrite("f",[]);$("#f-done").value="";
   setExtras([]);
   $("#f-type").selectedIndex=0;$("#f-faults").value="";segReset("#f-status");$("#f-date").value=today();
   fProcs=[];bProcs=[];wpPicker=null;renderWoProcs("f");renderWoProcs("b");fUpds=[];bUpds=[];updOpen=null;renderUpd("f");renderUpd("b");fHrz=null;bHrz=null;renderHrz("f",true);renderHrz("b",true);
@@ -2489,7 +2491,7 @@ async function startEdit(id,subId){
   for(const [x,sm] of Object.entries(l.subs||{})){if(!sm||!formPM[x])continue;if(sm.no)formSubNo[x]=sm.no;Object.assign(formPM[x],{status:sm.status,date:sm.date,done:sm.dateCompleted||"",type:sm.type||"",desc:sm.description||""})}
   $("#f-wo").value=l.wo||"";$("#f-order").value=l.orderNo||"";setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);
   formTodos=(l.todos||[]).map(i=>({...i}));mountFormTodos();$("#f-date").value=l.date||today();
-  $("#f-shots").value=l.shots??"";plWrite("f",l.partsList||partsFromText(l.parts));$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-desc").value=l.description||"";
+  $("#f-shots").value=l.shots??"";plWrite("f",l.partsList||partsFromText(l.parts));$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-desc").value=l.description||"";$("#f-wonotes").value=l.woNotes||"";
   $("#f-type").value=JOBTYPES.includes(l.type)?l.type:JOBTYPES[0];
   $("#f-work").value=l.work==="Other (see notes)"?"":(l.work||"");$("#f-notes").value=l.notes||"";
   segSet("#f-status",l.status||"Complete");
@@ -2555,7 +2557,7 @@ function buildEntry(){
   const main=pmClean(mouldId), extras=extraIds.filter(x=>x!==mouldId);
   const perMould={};for(const x of extras)perMould[x]=pmClean(x);
   const subs={};for(const x of tabIdsFor(mouldId,extras)){const v=formPM[x]||{};subs[x]={no:formSubNo[x]||null,status:v.status||segVal("#f-status"),date:v.date??$("#f-date").value,dateCompleted:v.done||"",type:v.type||$("#f-type").value,description:String(v.desc||"").trim()}}
-  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,procs:main.procs,updates:main.updates,hrz:main.hrz,todos:cleanItems(formTodos),subs,orderNo:$("#f-order").value.trim()}};
+  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,procs:main.procs,updates:main.updates,hrz:main.hrz,todos:cleanItems(formTodos),subs,orderNo:$("#f-order").value.trim(),woNotes:$("#f-wonotes").value.trim()}};
 }
 function markDirty(delay){
   if(!db)return;
@@ -4205,6 +4207,7 @@ function workOrderMarkdown(l){
   ];
   let md=`# Work order #${woNum(l.wo)} – ${name}\n\n| Field | Value |\n|---|---|\n`+rows.map(([k,v])=>`| ${k} | ${mdEsc(v)||"–"} |`).join("\n")+"\n";
   md+=`\n## Description\n\n${mdBlock(l.description)}\n`;
+  if(l.woNotes)md+=`\n## Work order notes\n\n${mdBlock(l.woNotes)}\n`;
   if((l.todos||[]).length)md+=`\n## To-do\n\n`+l.todos.map(i=>`- [${i.done?"x":" "}] ${String(i.text||"").replace(/\n/g," ")}`).join("\n")+"\n";
   if(jobIds(l).length>1){
     const names=jobNames(l);
@@ -4537,7 +4540,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-76";
+const APP_VERSION="2026.10.18-77";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -4658,7 +4661,7 @@ $("#import-file").addEventListener("change",async e=>{
 $("#exportbtn").onclick=()=>{
   const cols=["Work order","Client order no.","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Procedures","To-do","Sub-jobs","Updates","Hot runner (Ω)"];
   const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.orderNo||"",l.status||"",l.date,l.dateCompleted,jobTool(l),kindTitle(m),isClient(m)?[m.company,m.contact,m.phone].filter(Boolean).join(" · "):(m.part||m.area),l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,partsCsv(l),setProcs(l).map(sn=>sn.name+": "+procProgress(sn,sn.st||{}).txt).join("; ")];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),j("notes"),ids.map((id,i)=>{const v=partsCsv(pmVal(l,id));return v?n[i]+": "+v:""}).filter(Boolean).join(" | "),ids.map((id,i)=>{const c=setProcs(pmVal(l,id));return c.length?n[i]+": "+c.map(sn=>sn.name+" "+procProgress(sn,sn.st||{}).txt).join(", "):""}).filter(Boolean).join(" | ")]})(),(l.todos||[]).map(i=>(i.done?"[x] ":"[ ] ")+i.text).join(" | "),jobIds(l).map((id,i)=>{const sm=subMeta(l,id);return sm.no?`${subLabel(l,id)} ${jobNames(l)[i]}: ${sm.status}`:""}).filter(Boolean).join(" | "),jobIds(l).flatMap((id,i)=>updClean(pmVal(l,id).updates).map(u=>(jobIds(l).length>1?jobNames(l)[i]+" ":"")+u.date+": "+u.text.replace(/\n+/g," "))).join(" | "),jobIds(l).map((id,i)=>{const x=hrzCsv(pmVal(l,id).hrz);return x?(jobIds(l).length>1?jobNames(l)[i]+": ":"")+x:""}).filter(Boolean).join(" | ")].map(q).join(",")}));
+  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.orderNo||"",l.status||"",l.date,l.dateCompleted,jobTool(l),kindTitle(m),isClient(m)?[m.company,m.contact,m.phone].filter(Boolean).join(" · "):(m.part||m.area),l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,partsCsv(l),setProcs(l).map(sn=>sn.name+": "+procProgress(sn,sn.st||{}).txt).join("; ")];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),[l.woNotes?"Work order: "+l.woNotes:"",j("notes")].filter(Boolean).join(" | "),ids.map((id,i)=>{const v=partsCsv(pmVal(l,id));return v?n[i]+": "+v:""}).filter(Boolean).join(" | "),ids.map((id,i)=>{const c=setProcs(pmVal(l,id));return c.length?n[i]+": "+c.map(sn=>sn.name+" "+procProgress(sn,sn.st||{}).txt).join(", "):""}).filter(Boolean).join(" | ")]})(),(l.todos||[]).map(i=>(i.done?"[x] ":"[ ] ")+i.text).join(" | "),jobIds(l).map((id,i)=>{const sm=subMeta(l,id);return sm.no?`${subLabel(l,id)} ${jobNames(l)[i]}: ${sm.status}`:""}).filter(Boolean).join(" | "),jobIds(l).flatMap((id,i)=>updClean(pmVal(l,id).updates).map(u=>(jobIds(l).length>1?jobNames(l)[i]+" ":"")+u.date+": "+u.text.replace(/\n+/g," "))).join(" | "),jobIds(l).map((id,i)=>{const x=hrzCsv(pmVal(l,id).hrz);return x?(jobIds(l).length>1?jobNames(l)[i]+": ":"")+x:""}).filter(Boolean).join(" | ")].map(q).join(",")}));
   saveFile("mould-maintenance-"+today()+".csv",new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
 };
 function buildBackup(){
