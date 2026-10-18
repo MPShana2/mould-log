@@ -471,6 +471,8 @@ button.calc:not(.has):hover{background:var(--sunk)}
 .hrwor{all:unset;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 12px;border-top:1px solid var(--line);cursor:pointer}
 .hrwor:first-child{border-top:0}.hrwor:hover{background:var(--sunk)}
 .hrwot-t{display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}.hrwot-t small{color:var(--muted);font-size:12.5px}
+.hrdesc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line}
+@media (min-width:1000px){.hrdesc{display:block;-webkit-line-clamp:unset}}
 .hrwot-t small.hrwot-tech{color:var(--ink);margin-top:2px}.hrwot-tech b{font-family:var(--mono,ui-monospace,monospace);font-weight:600}
 .hrwot-r{display:flex;flex-direction:column;align-items:flex-end;gap:4px}.hrwot-r .stpill{font-size:11px;padding:2px 8px}
 .hrwoh{font-weight:700;min-width:52px;text-align:right}
@@ -792,9 +794,21 @@ details summary{cursor:pointer;font-weight:600;color:var(--steel)}
   .updfab{bottom:28px;right:28px}.updfabmenu{bottom:92px;right:28px}
   body{font-size:15px}
   .wrap{max-width:none;margin:0 0 0 220px;padding:0 32px 48px}
-  .wrap>section{max-width:1320px}
-  .wrap>#v-open,.wrap>#v-all,.wrap>#v-cal{max-width:none}
-  .wrap>#v-calday{max-width:1000px}
+  /* every page uses the full width of the screen */
+  .wrap>section{max-width:none}
+  .wrap>#v-cal,.wrap>#v-calday{max-width:none;margin-inline:0}
+  /* settings-style pages: panels side by side instead of stretched across */
+  #v-settings,#v-account,#v-backup{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));align-items:start}
+  #v-settings>.pagehead,#v-account>.pagehead,#v-backup>.pagehead{grid-column:1/-1}
+  /* Work hours: log form on the left, the month on the right */
+  #v-hours{display:grid;grid-template-columns:minmax(340px,420px) minmax(0,1fr);align-items:start}
+  #v-hours>.pagehead{grid-column:1/-1}
+  #v-hours>#hrform{position:sticky;top:calc(env(safe-area-inset-top,0px) + 96px)}
+  #v-hours .grid2{grid-template-columns:1fr 1fr}
+  /* Calendar day: wider rows, bigger photo, full text */
+  .cdimg{width:150px;height:112px}
+  .cdbody{-webkit-line-clamp:unset;display:block}
+  .cdtool{font-size:17px}
   /* Calendar: wider, cells a little shorter than square, with the day's jobs written in */
   #v-cal{max-width:none}
   .calgrid{gap:6px}
@@ -4444,7 +4458,7 @@ function renderHours(){
   $("#hr-totals").innerHTML=`<div><span>${esc(monthName)}</span><b>${fmtH(sum(inMonth))}</b></div><div><span>Running total</span><b>${fmtH(running)}</b><small>All hours up to the end of ${esc(monthName)}</small></div>`;
   const byTech={};inMonth.forEach(h=>byTech[h.tech]=(byTech[h.tech]||0)+(Number(h.hours)||0));
   const bw=hrByWo(inMonth);
-  $("#hr-bywo").innerHTML=bw.length?`<div class="label" style="margin:0 0 6px">By work order · ${esc(monthName)}</div><div class="hrwot">${bw.map(r=>`<button type="button" class="hrwor"${r.l?` data-hrwo="${esc(r.l.id)}"${r.mid?` data-hrsub="${esc(r.mid)}"`:""}`:""}><span class="hrwot-t"><span><b class="mono">#${esc(r.wo)}</b> ${esc(r.tool)}</span>${r.desc?`<small>${esc(r.desc.length>90?r.desc.slice(0,90)+"…":r.desc)}</small>`:""}${r.start?`<small>${esc(fmtDate(r.start))} – ${r.end==="present"?"present":r.end?esc(fmtDate(r.end)):"?"}</small>`:""}<small class="hrwot-tech">${r.byTech.map(([t,v])=>`${esc(t)} <b>${fmtH(v)}</b>`).join(" · ")}</small></span><span class="hrwot-r"><span class="mono hrwoh">${fmtH(r.hours)}</span>${r.status?`<span class="stpill ${stClass(r.status)}">${esc(r.status)}</span>`:""}</span></button>`).join("")}<div class="hrwor tot"><span>Total</span><span class="hrwot-r"><span class="mono hrwoh">${fmtH(sum(inMonth))}</span></span></div></div>`:"";
+  $("#hr-bywo").innerHTML=bw.length?`<div class="label" style="margin:0 0 6px">By work order · ${esc(monthName)}</div><div class="hrwot">${bw.map(r=>`<button type="button" class="hrwor"${r.l?` data-hrwo="${esc(r.l.id)}"${r.mid?` data-hrsub="${esc(r.mid)}"`:""}`:""}><span class="hrwot-t"><span><b class="mono">#${esc(r.wo)}</b> ${esc(r.tool)}</span>${r.desc?`<small class="hrdesc">${esc(r.desc)}</small>`:""}${r.start?`<small>${esc(fmtDate(r.start))} – ${r.end==="present"?"present":r.end?esc(fmtDate(r.end)):"?"}</small>`:""}<small class="hrwot-tech">${r.byTech.map(([t,v])=>`${esc(t)} <b>${fmtH(v)}</b>`).join(" · ")}</small></span><span class="hrwot-r"><span class="mono hrwoh">${fmtH(r.hours)}</span>${r.status?`<span class="stpill ${stClass(r.status)}">${esc(r.status)}</span>`:""}</span></button>`).join("")}<div class="hrwor tot"><span>Total</span><span class="hrwot-r"><span class="mono hrwoh">${fmtH(sum(inMonth))}</span></span></div></div>`:"";
   $("#hr-bytech").innerHTML=Object.keys(byTech).length>1?Object.entries(byTech).sort((a,b)=>b[1]-a[1]).map(([t,v])=>`<span>${esc(t)} <b>${fmtH(v)}</b></span>`).join(""):"";
   $("#hr-list").innerHTML=inMonth.length?inMonth.map(h=>`<div class="hrrow${hrEditing===h.id?" editing":""}">
       <button type="button" class="hrmain" data-hredit="${esc(h.id)}" aria-label="Edit this entry">
@@ -4931,7 +4945,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-89";
+const APP_VERSION="2026.10.18-90";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
