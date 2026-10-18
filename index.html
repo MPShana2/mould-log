@@ -140,11 +140,11 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .facts span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:8;background:var(--bar);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px)}
 nav.tabs button{position:relative;flex:1;max-width:150px;font:inherit;font-weight:600;font-size:11.5px;letter-spacing:.01em;background:none;border:0;color:var(--bar-muted);padding:9px 2px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;white-space:nowrap;-webkit-tap-highlight-color:transparent}
-nav.tabs .ti{position:relative;display:block;width:24px;height:24px;transition:transform .2s ease}
+nav.tabs .ti{position:relative;display:block;width:24px;height:24px}
 nav.tabs .ti svg{display:block;width:24px;height:24px}
 nav.tabs button[aria-current="true"]{color:var(--bar-fg)}
 nav.tabs button[aria-current="true"] .ti{color:var(--accent)}
-nav.tabs button:active .ti{transform:scale(.9)}
+nav.tabs .ti svg{transition:transform .2s ease}nav.tabs button:active .ti svg{transform:scale(.9)}
 nav.tabs .tabcount{position:absolute;top:-5px;left:15px;margin:0;min-width:18px;padding:1px 5px;font-size:10.5px;line-height:15px;text-align:center;border:2px solid var(--bar)}
 .moredot{position:absolute;top:0;right:-2px;width:9px;height:9px;border-radius:50%;background:var(--accent);border:2px solid var(--bar)}
 .moredot[hidden]{display:none}
@@ -5028,7 +5028,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-96";
+const APP_VERSION="2026.10.18-97";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
