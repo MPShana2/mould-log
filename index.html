@@ -1142,7 +1142,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     </div>
     <div class="panel stackcol">
       <span class="label" style="margin:0">Photos offline</span>
-      <label class="rptchk" style="margin:0"><input type="checkbox" id="off-on"><span>Keep open jobs' photos on this phone<small>Small copies of the photos in each open work order's Drive folder are saved while you're on Wi-Fi, so they still show with no signal. Photos you open anywhere in the app are kept too.</small></span></label>
+      <label class="rptchk" style="margin:0"><input type="checkbox" id="off-on"><span>Keep open jobs' photos on this phone<small>Copies of the photos in each open work order's Drive folder are saved while you're on Wi-Fi: thumbnails, plus a screen-sized copy for the photo viewer (not the full original). They still show with no signal. Photos you open anywhere in the app are kept too.</small></span></label>
       <div class="hint" style="margin:0" id="off-stat">Checking…</div>
       <div class="attbtns" style="margin:0"><button class="btn ghost" type="button" id="off-now">Save open jobs' photos now</button><button class="btn ghost" type="button" id="off-clear">Clear saved photos</button></div>
     </div>
@@ -2150,7 +2150,7 @@ async function offPrefetch(force){
       if(!st||st.cached||st.status!=="ready"){if(!st)st=dsEnsure(key,t,()=>{});if(!st)continue;if(st.status!=="loading"||!st.items)await driveLoad(key)}
       st=driveState[key];if(!st||st.status!=="ready")continue;
       const fs=(st.items||[]).filter(f=>isMediaF(f)&&f.thumbnailLink);tot+=fs.length;
-      for(const f of fs){if(done>=800||!offNetOk(force))break;try{await fetch(thumbUrl(f,240))}catch(e){}done++;
+      for(const f of fs){if(done>=800||!offNetOk(force))break;try{await fetch(thumbUrl(f,240));if(String(f.mimeType).startsWith("image/"))await fetch(thumbUrl(f,1600))}catch(e){}done++;
         if(force&&!$("#v-settings").hidden&&done%10===0)$("#off-stat").textContent=`Saving… ${done} of ${tot}+ photos`}}
   }finally{offRunning=false;if(!$("#v-settings").hidden)offStat()}}
 function offStat(){const el=$("#off-stat");$("#off-on").checked=offOn();
@@ -2158,7 +2158,7 @@ function offStat(){const el=$("#off-stat");$("#off-on").checked=offOn();
   navigator.serviceWorker.controller.postMessage({type:"thumbs-count"})}
 navigator.serviceWorker&&navigator.serviceWorker.addEventListener("message",async e=>{const d=e.data||{};if(d.type!=="thumbs-count")return;
   let mb="";try{const est=await navigator.storage.estimate();if(est&&est.usage)mb=` · the app is using ${(est.usage/1048576).toFixed(est.usage>1e8?0:1)} MB on this phone`}catch(err){}
-  const el=$("#off-stat");if(el)el.textContent=(offRunning?"Saving now… ":"")+`${d.n} photo${d.n===1?"":"s"} saved for offline${mb}.`});
+  const el=$("#off-stat");if(el)el.textContent=(offRunning?"Saving now… ":"")+`${d.n} photo${d.n===1?"":"s"} saved for offline${d.m?` (${d.m} full-screen)`:""}${mb}.`});
 $("#off-on").addEventListener("change",e=>{try{localStorage.setItem(OFF_KEY,e.target.checked?"1":"0")}catch(err){}
   if(e.target.checked){try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(err){}offPrefetch(true)}});
 $("#off-now").onclick=()=>{if(!navigator.onLine){toast("You're offline");return}if(!hasToken()){toast("Connect Google Drive first");return}
@@ -3361,8 +3361,10 @@ function dsEnsure(key,t,load){let st=driveState[key];if(st)return st;const go=lo
   return null}
 // Thumbnails go through the service worker (gtthumb/<file id>), which keeps a small copy of each one
 const swOn=()=>!!(navigator.serviceWorker&&navigator.serviceWorker.controller);
+// Two sizes are kept: small (400px) for thumbnails, and screen-sized (1600px) for the photo viewer.
+// Zooming in on a photo still loads the original from Drive.
 function thumbUrl(f,size){if(!f||!f.thumbnailLink)return"";if(!swOn()||!f.id)return sizedThumb(f.thumbnailLink,size);
-  const small=size<=480;return `gtthumb/${encodeURIComponent(f.id)}?${small?"":"big=1&"}u=${encodeURIComponent(sizedThumb(f.thumbnailLink,small?400:size))}`}
+  const small=size<=480;return `gtthumb/${encodeURIComponent(f.id)}?${small?"":"t=m&"}u=${encodeURIComponent(sizedThumb(f.thumbnailLink,small?400:1600))}`}
 function driveBody(t){
   const num=dkey(t);
   if(!driveRoot)return `<div class="small">Set your Drive Work Orders folder on the Moulds tab to see Drive files here.</div>`;
@@ -5026,7 +5028,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-95";
+const APP_VERSION="2026.10.18-96";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
