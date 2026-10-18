@@ -4443,8 +4443,7 @@ function calMonthHtml(y,m,todayS){
     if(!es.length){cells+=`<button type="button" class="${cls.join(" ")}" data-cald="${ds}" aria-label="${lbl}"><span class="caln">${d}</span></button>`;continue}
     cls.push("has");const ph=es.some(e=>e.files.length),img=calImg[ds];if(img)cls.push("ph");
     cells+=`<button type="button" class="${cls.join(" ")}" data-cald="${ds}"${ph?" data-calph":""} aria-label="${lbl}: ${es.length} update${es.length===1?"":"s"}">${img?`<img class="calimg" src="${esc(img)}" referrerpolicy="no-referrer" alt="" draggable="false">`:""}<span class="caln">${d}</span>${es.length>1?`<b class="calcount">${es.length}</b>`:""}<span class="caljobs" aria-hidden="true">${es.slice(0,es.length>3?2:3).map(e=>`<span>${e.wo?`#${esc(e.wo)} `:""}${esc(e.tool)}</span>`).join("")}${es.length>3?`<small>+${es.length-2} more</small>`:""}</span></button>`}
-  const tot=Object.keys(calIdx).filter(k=>k.startsWith(mk)).reduce((t,k)=>t+calIdx[k].length,0);
-  return `<section class="calmonth" data-calm="${mk}"><h3>${esc(first.toLocaleDateString(undefined,{month:"long",year:"numeric"}))}${tot?`<small>${tot} update${tot===1?"":"s"}</small>`:""}</h3><div class="calgrid">${cells}</div></section>`}
+  return `<section class="calmonth" data-calm="${mk}"><h3>${esc(first.toLocaleDateString(undefined,{month:"long",year:"numeric"}))}</h3><div class="calgrid">${cells}</div></section>`}
 // Months from calStart to this month (or the last dated update if later). It opens on the last 6 months;
 // scrolling up to the top loads 6 more at a time, as far back as you like, so only what you've looked at is built.
 const CAL_STEP=6;var calStart=null;let calTopIO=null;
@@ -5028,7 +5027,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-97";
+const APP_VERSION="2026.10.18-98";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
