@@ -774,6 +774,19 @@ details.ck>summary span:first-child{flex:1}
 .cl-plus{width:26px;text-align:center;color:var(--muted);font-size:20px;line-height:37px;flex:none}
 .cl-donetoggle{border:0;border-top:1px solid var(--line);background:none;font:inherit;font-size:13px;font-weight:600;color:var(--muted);padding:10px 2px 6px;margin-top:6px;text-align:left;cursor:pointer}
 .cl-form{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 8px}
+/* drag to reorder */
+.cl,.tdgrid{position:relative}
+.grip{flex:none;display:flex;align-items:center;justify-content:center;width:20px;height:37px;margin-right:-2px;padding:0;border:0;background:none;color:var(--muted);cursor:grab;touch-action:none;border-radius:6px;opacity:.55;-webkit-tap-highlight-color:transparent}
+.grip:hover,.grip:focus-visible{opacity:1;background:var(--sunk)}
+.tdtop .grip{height:36px;margin-left:-6px}
+.cl-add,.cl-donelist .cl-row{padding-left:24px}
+@media (hover:hover) and (pointer:fine){.cl-row .grip{opacity:0}.cl-row:hover .grip,.cl-row .grip:focus-visible{opacity:.7}.cl-row .grip:hover{opacity:1}}
+.lifted{background:var(--surface);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.22),0 2px 6px rgba(0,0,0,.12);pointer-events:none;cursor:grabbing}
+.lifted.cl-row>.grip,.lifted .tdtop>.grip{opacity:1}
+.lifted.dropping{box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.sortph{border-radius:8px;background:var(--sunk)}
+.sortph.tdph{border-radius:12px;background:transparent;border:2px dashed var(--line)}
+body.sorting,body.sorting *{cursor:grabbing!important;user-select:none;-webkit-user-select:none}
 .tdgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;align-items:start}
 .tdcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px 8px;min-width:0}
 .tdtop{display:flex;align-items:center;gap:8px;margin-bottom:2px}
@@ -1787,10 +1800,11 @@ document.addEventListener("paste",e=>{
 const clInst={};
 const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const cleanItems=items=>(items||[]).filter(i=>String(i.text||"").trim()||i.done).map(i=>({id:i.id||newId(),text:String(i.text||"").replace(/\s+$/,""),done:!!i.done}));
-function clRow(i){return `<div class="cl-row${i.done?" done":""}" data-id="${esc(i.id)}"><input type="checkbox" class="cl-cb"${i.done?" checked":""} aria-label="Done"><textarea class="cl-text" rows="1" aria-label="List item">${esc(i.text)}</textarea><button type="button" class="cl-del" aria-label="Delete item">×</button></div>`}
+function clRow(i){return `<div class="cl-row${i.done?" done":""}" data-id="${esc(i.id)}">${i.done?"":gripBtn("cl","Drag to reorder this item")}<input type="checkbox" class="cl-cb"${i.done?" checked":""} aria-label="Done"><textarea class="cl-text" rows="1" aria-label="List item">${esc(i.text)}</textarea><button type="button" class="cl-del" aria-label="Delete item">×</button></div>`}
 function clRender(key,focus){
   const inst=clInst[key];if(!inst)return;
   const el=document.querySelector(`.cl[data-cl="${CSS.escape(key)}"]`);if(!el)return;
+  if(sortDrag&&sortDrag.box===el){inst.redraw=true;return} // not while an item is being dragged; redrawn on drop
   const open=inst.items.filter(i=>!i.done),done=inst.items.filter(i=>i.done);
   el.innerHTML=open.map(clRow).join("")+
     `<div class="cl-add"><span class="cl-plus" aria-hidden="true">+</span><textarea class="cl-new" rows="1" placeholder="List item" aria-label="Add list item"></textarea></div>`+
@@ -1874,6 +1888,87 @@ document.addEventListener("paste",e=>{
   clChanged(inst);clRender(c.key,{id:(made[made.length-1]||cur).id});
 });
 
+// ---- Drag to reorder, like Keep: hold the grip and drag; everything else slides out of the way ----
+// Used for items in a tick list (data-grip="cl") and for your own lists on the Dashboard (data-grip="td")
+let sortDrag=null;
+const GRIP=`<svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true"><g fill="currentColor"><circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/><circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="2" cy="14" r="1.5"/><circle cx="8" cy="14" r="1.5"/></g></svg>`;
+const gripBtn=(kind,label)=>`<button type="button" class="grip noswipe" data-grip="${kind}" aria-label="${label}" title="Drag to reorder (or use the arrow keys)">${GRIP}</button>`;
+const sortSel=kind=>kind==="td"?".tdcard":".cl-row";
+function sortParts(g){const kind=g.dataset.grip,item=g.closest(sortSel(kind));return item&&item.parentElement?{kind,item,box:item.parentElement}:null}
+const sortSibs=(box,kind)=>[...box.children].filter(c=>c.matches(sortSel(kind)));
+// where an element sits in the layout, ignoring any slide animation it's part-way through
+function sortLayout(box,c){const b=box.getBoundingClientRect();return {l:b.left+c.offsetLeft,t:b.top+c.offsetTop,w:c.offsetWidth,h:c.offsetHeight}}
+// move the gap, then slide everything that shifted from where it was to where it now is
+function sortMove(s,fn){const els=[...s.box.children].filter(c=>c!==s.item&&c!==s.ph);
+  const a=els.map(c=>c.getBoundingClientRect());fn();
+  els.forEach(c=>{c.style.transition="none";c.style.transform=""});
+  const b=els.map(c=>c.getBoundingClientRect());
+  els.forEach((c,i)=>{const dx=a[i].left-b[i].left,dy=a[i].top-b[i].top;if(Math.abs(dx)>.5||Math.abs(dy)>.5)c.style.transform=`translate(${dx}px,${dy}px)`});
+  void s.box.offsetWidth;
+  els.forEach(c=>{if(c.style.transform){c.style.transition="transform .2s cubic-bezier(.2,.8,.2,1)";c.style.transform=""}})}
+function sortHit(s){const sibs=sortSibs(s.box,s.kind).filter(c=>c!==s.item);if(!sibs.length)return;
+  if(s.kind==="cl"){ // a list: the gap goes after every item whose middle the dragged item has passed
+    const cy=s.r.top+(s.y-s.y0)+s.r.height/2;let i=0;
+    for(const c of sibs){const L=sortLayout(s.box,c);if(L.t+L.h/2<cy)i++}
+    const cur=[...s.box.children].filter(c=>c===s.ph||sibs.includes(c)).indexOf(s.ph);if(cur===i)return;
+    sortMove(s,()=>{if(i>=sibs.length)sibs[sibs.length-1].after(s.ph);else sibs[i].before(s.ph)});return}
+  // cards in a grid: swap with the card under the finger once past its middle (so tall cards don't flip back and forth)
+  const P=sortLayout(s.box,s.ph);
+  for(const c of sibs){const L=sortLayout(s.box,c);if(s.x<L.l||s.x>L.l+L.w||s.y<L.t||s.y>L.t+L.h)continue;
+    const fwd=!!(s.ph.compareDocumentPosition(c)&Node.DOCUMENT_POSITION_FOLLOWING),row=Math.abs(L.t-P.t)<4;
+    const past=row?(fwd?s.x>L.l+L.w/2:s.x<L.l+L.w/2):(fwd?s.y>L.t+L.h/2:s.y<L.t+L.h/2);
+    if(past)sortMove(s,()=>{if(fwd)c.after(s.ph);else c.before(s.ph)});return}}
+function sortTick(){const s=sortDrag;if(!s||s.ending)return;
+  // held near the top or bottom of the screen: scroll the page
+  const top=80,bot=innerHeight-110;let v=0;
+  if(s.y<top)v=-Math.min(16,(top-s.y)/4+2);else if(s.y>bot)v=Math.min(16,(s.y-bot)/4+2);
+  if(v)window.scrollBy(0,v);
+  s.item.style.transform=`translate(${s.kind==="td"?s.x-s.x0:0}px,${s.y-s.y0}px)`;
+  sortHit(s);s.raf=requestAnimationFrame(sortTick)}
+document.addEventListener("pointerdown",e=>{
+  const g=e.target.closest&&e.target.closest(".grip");if(!g||sortDrag||(e.pointerType==="mouse"&&e.button!==0))return;
+  const p=sortParts(g);if(!p)return;e.preventDefault();
+  const {kind,item,box}=p,r=item.getBoundingClientRect();
+  sortDrag={kind,item,box,r,x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY,id:e.pointerId,start:sortSibs(box,kind).map(c=>c.dataset.id)};
+  const ae=document.activeElement;if(ae&&ae!==document.body&&ae.blur)ae.blur();
+  const ph=document.createElement("div");ph.className="sortph"+(kind==="td"?" tdph":"");ph.style.height=r.height+"px";item.before(ph);sortDrag.ph=ph;
+  Object.assign(item.style,{position:"fixed",left:r.left+"px",top:r.top+"px",width:r.width+"px",height:r.height+"px",margin:"0",transition:"none",zIndex:"70"});
+  item.classList.add("lifted");document.body.classList.add("sorting");
+  try{g.setPointerCapture(e.pointerId)}catch(err){}
+  try{navigator.vibrate&&navigator.vibrate(8)}catch(err){}
+  sortDrag.raf=requestAnimationFrame(sortTick)});
+window.addEventListener("pointermove",e=>{const s=sortDrag;if(!s||e.pointerId!==s.id)return;s.x=e.clientX;s.y=e.clientY;e.preventDefault()},{passive:false});
+function sortEnd(e){const s=sortDrag;if(!s||s.ending||(e&&e.pointerId!==s.id))return;s.ending=true;cancelAnimationFrame(s.raf);
+  const L=s.ph.getBoundingClientRect(),still=reduceMotion();
+  s.item.style.transition=still?"none":"transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s";
+  s.item.style.transform=`translate(${L.left-s.r.left}px,${L.top-s.r.top}px)`;s.item.classList.add("dropping");
+  setTimeout(()=>{s.item.style.cssText="";s.item.classList.remove("lifted","dropping");s.ph.replaceWith(s.item);
+    document.body.classList.remove("sorting");sortDrag=null;
+    const ids=sortSibs(s.box,s.kind).map(c=>c.dataset.id),moved=ids.join("|")!==s.start.join("|");
+    if(s.kind==="cl")clSorted(s.box,ids,moved);else tdSorted(ids,moved)},still?0:190)}
+window.addEventListener("pointerup",sortEnd);window.addEventListener("pointercancel",sortEnd);
+function clSorted(box,ids,moved){const key=box.dataset.cl,inst=clInst[key];if(!inst)return;
+  if(moved){const open=ids.map(id=>inst.items.find(i=>i.id===id)).filter(Boolean);
+    inst.items=open.concat(inst.items.filter(i=>!open.includes(i)));clChanged(inst)}
+  if(moved||inst.redraw){inst.redraw=false;clRender(key)}
+  if(todoStale)renderTodo()}
+// your own lists keep the order you drag them into (stored as "order" on each list)
+async function tdSorted(ids,moved){
+  if(!moved||!db){if(todoStale)renderTodo();return}
+  const b=db.batch();let n=0;
+  ids.forEach((id,i)=>{const L=todoLists.find(x=>x.id===id);if(L&&L.order!==i){L.order=i;b.update(db.collection("todolists").doc(id),{order:i});n++}});
+  renderTodo(true);
+  if(n)try{await b.commit()}catch(err){toast("Couldn't save the order: "+(err.message||err.code))}}
+// keyboard: focus a grip and use the arrow keys
+document.addEventListener("keydown",e=>{const g=e.target.closest&&e.target.closest(".grip");if(!g||sortDrag)return;
+  const dir={ArrowUp:-1,ArrowLeft:-1,ArrowDown:1,ArrowRight:1}[e.key];if(!dir)return;const p=sortParts(g);if(!p)return;e.preventDefault();
+  const sibs=sortSibs(p.box,p.kind),j=sibs.indexOf(p.item)+dir;if(j<0||j>=sibs.length)return;
+  if(dir<0)sibs[j].before(p.item);else sibs[j].after(p.item);
+  const id=p.item.dataset.id,ids=sortSibs(p.box,p.kind).map(c=>c.dataset.id);
+  if(p.kind==="cl")clSorted(p.box,ids,true);else tdSorted(ids,true);
+  const sel=p.kind==="cl"?`.cl[data-cl="${CSS.escape(p.box.dataset.cl)}"] .cl-row[data-id="${CSS.escape(id)}"] .grip`:`.tdcard[data-id="${CSS.escape(id)}"] .grip`;
+  const n=document.querySelector(sel);if(n)n.focus()});
+
 // ---- To-do tab: your own lists plus every work order's to-do list ----
 let todoLists=[], todoStale=false, todoFocusTitle=null;
 const tdTimers={};
@@ -1893,10 +1988,13 @@ function renderTodo(force){
   const v=$("#v-todo");if($("#v-open").hidden&&!force)return;
   // don't redraw under someone's fingers; catch up when they leave the field
   if(!force&&v.contains(document.activeElement)&&document.activeElement.matches("textarea,input")){todoStale=true;return}
+  if(sortDrag){todoStale=true;return} // something is being dragged; catch up on drop
   todoStale=false;
   if(!db){$("#todolists").innerHTML='<div class="empty small">Sign in to use to-do lists.</div>';return}
-  const lists=todoLists.slice().sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
-  $("#todolists").innerHTML=lists.length?lists.map(L=>`<div class="tdcard"><div class="tdtop"><input class="tdtitle" data-title="${esc(L.id)}" value="${esc(L.title||"")}" placeholder="Title" aria-label="List title"><button type="button" class="tdmenu" data-dellist="${esc(L.id)}">Delete</button></div><div class="cl" data-cl="list:${esc(L.id)}"></div></div>`).join("")
+  // the order you dragged them into; lists not placed yet (older ones) go first, newest first
+  const hasO=L=>typeof L.order==="number";
+  const lists=todoLists.slice().sort((a,b)=>hasO(a)&&hasO(b)?a.order-b.order:hasO(a)!==hasO(b)?(hasO(a)?1:-1):String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+  $("#todolists").innerHTML=lists.length?lists.map(L=>`<div class="tdcard" data-id="${esc(L.id)}"><div class="tdtop">${lists.length>1?gripBtn("td","Drag to move this list"):""}<input class="tdtitle" data-title="${esc(L.id)}" value="${esc(L.title||"")}" placeholder="Title" aria-label="List title"><button type="button" class="tdmenu" data-dellist="${esc(L.id)}">Delete</button></div><div class="cl" data-cl="list:${esc(L.id)}"></div></div>`).join("")
     :`<div class="empty small">No lists yet. Tap “+ New list” to start one.</div>`;
   lists.forEach(L=>clMount("list:"+L.id,L.items||[],items=>tdSaveLater("list:"+L.id,()=>db.collection("todolists").doc(L.id).update({items:cleanItems(items),updatedAt:new Date().toISOString()}))));
   const wos=logs.filter(l=>(l.todos||[]).length).sort((a,b)=>woSortNum(b)-woSortNum(a)||String(b.wo||"").localeCompare(String(a.wo||""),undefined,{numeric:true}));
@@ -1934,6 +2032,8 @@ $("#v-todo").addEventListener("click",async e=>{
 $("#newlist").onclick=async()=>{
   if(!db){toast("Sign in first");return}
   const id=newId(),now=new Date().toISOString(),doc={title:"",items:[],createdAt:now,updatedAt:now};
+  // once lists have been arranged, a new one goes at the front
+  const os=todoLists.map(L=>L.order).filter(o=>typeof o==="number");if(os.length)doc.order=Math.min(...os)-1;
   todoLists=todoLists.concat({id,...doc});todoFocusTitle=id;renderTodo(true);
   try{await db.collection("todolists").doc(id).set(doc)}catch(err){toast("Couldn't create the list: "+(err.message||err.code))}
 };
@@ -5181,7 +5281,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.19-106";
+const APP_VERSION="2026.10.19-107";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
