@@ -157,13 +157,13 @@ function buildPdf(R,photos,logo){
   fill(0,0,PW,84,C.band);fill(0,84,PW,3,C.amber);
   let tx=M;if(logo){img(logo,M,18,48,48);tx=M+62}
   const org=winBytes(R.org||"GT Hub");txt(org,tx,40,"B",16,"ffffff");
-  txt("Mould maintenance report",tx,58,"",9.5,"f0a21c");
+  txt(winBytes(R.kind||"Mould maintenance report"),tx,58,"",9.5,"f0a21c");
   const when=winBytes("Created "+R.created.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"}));
   txt(when,PW-M-pdfW(when,"",9),40,"",9,"c9c5bd");
   const by=winBytes("GT Hub");txt(by,PW-M-pdfW(by,"",9),55,"",9,"8f8a82");
   y=87+34;
   const ttl=winBytes(R.title);txt(ttl,M,y,"B",22,C.ink);
-  pill(R.status,PW-M,y-14);
+  if(R.status)pill(R.status,PW-M,y-14);
   y+=8;
   for(const ln of pdfWrap(winBytes(R.subtitle),"",12,CW)){y+=16;txt(ln,M,y,"",12,C.muted)}
   y+=16;
@@ -197,9 +197,17 @@ function buildPdf(R,photos,logo){
       const hl=pdfWrap(head,"B",12,CW-30-pw)[0];txt(hl,M+12,y+18,"B",12,C.ink);if(b.status)pill(b.status,PW-M-8,y+6);
       if(b.meta)txt(winBytes(b.meta),M+12,y+32,"",8.8,C.muted);y+=h+2;continue}
     if(b.t==="field"){if(b.label)label(b.label);else y+=2;para(b.text);y+=4;continue}
-    if(b.t==="table"){label(b.label);const rh=17,c0=58,cw=(CW-c0)/(b.cols.length-1),cx=i=>M+(i?c0+(i-1)*cw:0);
-      need(rh*2+4);y+=4;fill(M,y,CW,rh,C.soft);b.cols.forEach((c,i)=>txt(winBytes(c),cx(i)+8,y+12,"B",8.6,C.muted));y+=rh;
-      b.rows.forEach((r,ri)=>{need(rh);if((b.flagged||[]).includes(ri)){fill(M,y,CW,rh,"fbe9da");fill(M,y,3,rh,C.amber)}else if(ri%2)fill(M,y,CW,rh,"faf9f6");r.forEach((v,i)=>{const ol=/^ol$/i.test(v);txt(winBytes(v),cx(i)+8,y+12,i===0||ol?"B":"",9.6,ol?"b3261e":C.ink)});y+=rh});
+    if(b.t==="table"){if(b.label)label(b.label);const rh=17,c0=58;
+      // column widths: given as fractions of the page width, or a narrow first column and the rest shared
+      const ws=b.widths?b.widths.map(f=>f*CW):b.cols.map((_,i)=>i?(CW-c0)/(b.cols.length-1):c0),xs=ws.map((_,i)=>M+ws.slice(0,i).reduce((a,c)=>a+c,0));
+      const fit=(v,w,f)=>{let t=winBytes(String(v??""));if(pdfW(t,f,9.6)<=w-14)return t;while(t.length>1&&pdfW(t+"...",f,9.6)>w-14)t=t.slice(0,-1);return t+"..."};
+      const right=b.right||[],fs=9.6;
+      const head=()=>{fill(M,y,CW,rh,C.soft);b.cols.forEach((c,i)=>{const t=winBytes(c);txt(t,right.includes(i)?xs[i]+ws[i]-8-pdfW(t,"B",8.6):xs[i]+8,y+12,"B",8.6,C.muted)});y+=rh};
+      need(rh*2+4);y+=4;head();
+      b.rows.forEach((r,ri)=>{if(need(rh))head();const tot=b.total&&ri===b.rows.length-1;
+        if(tot){fill(M,y,CW,rh,"f3ede1");hline(M,y,CW,C.ink,.8)}else if((b.flagged||[]).includes(ri)){fill(M,y,CW,rh,"fbe9da");fill(M,y,3,rh,C.amber)}else if(ri%2)fill(M,y,CW,rh,"faf9f6");
+        r.forEach((v,i)=>{const ol=/^ol$/i.test(v),f=tot||(i===0&&!b.widths)||ol||(b.bold||[]).includes(i)?"B":"",t=fit(v,ws[i],f);
+          txt(t,right.includes(i)?xs[i]+ws[i]-8-pdfW(t,f,fs):xs[i]+8,y+12,f,fs,ol?"b3261e":C.ink)});y+=rh});
       hline(M,y,CW,C.line,.6);y+=6;continue}
     if(b.t==="note"){need(LH+6);y+=LH+4;txt(winBytes(b.text),M,y,"I",FS,C.muted);continue}
     if(b.t==="parts"){label(b.label);
