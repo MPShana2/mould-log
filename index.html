@@ -716,6 +716,7 @@ details.ck>summary span:first-child{flex:1}
 .mhlink{background:none;border:0;padding:4px 0 4px 8px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
 .mhlink:hover{color:var(--fg);text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
 .xchip .xname{all:unset;cursor:pointer}
+.joinbox{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:6px}.joinbox .xchips:empty{display:none}.joinbox .combo{align-self:stretch}
 .xchip .xname:hover{text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
 .subsec{margin-top:14px;display:flex;flex-direction:column;gap:8px}.subsec[hidden]{display:none}
 .sublist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
@@ -1070,6 +1071,14 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <div class="subtop">
           <button type="button" class="subback" id="subback">← Back to <span id="subback-wo">work order</span></button>
           <h2 class="subtitle"><button type="button" class="subtitlebtn" id="b-title" title="Open its history"></button></h2>
+          <div class="joinbox">
+            <div class="xchips" id="b-joined"></div>
+            <div class="combo" id="b-join-wrap" hidden>
+              <input id="b-join-q" type="text" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="b-join-list" aria-label="Add a mould to this sub-job" placeholder="Type a mould name">
+              <div class="combo-list" id="b-join-list" role="listbox" hidden></div>
+            </div>
+            <button type="button" class="addmould" id="b-joinbtn">+ Add a mould to this sub-job</button>
+          </div>
         </div>
         <div class="mbody">
           <div class="mmeta">
@@ -2289,7 +2298,7 @@ const typoAllowance=w=>/\d/.test(w)||w.length<=3?0:w.length<=5?1:2;
 // 2 = every word found as typed, 1 = found allowing for typos, 0 = no match
 // A mould's other names (searching only), and the same for every mould on a work order
 const mAlias=m=>m&&(m.aliases||[]).length?" "+m.aliases.join(" "):"";
-const jobAlias=l=>jobIds(l).map(id=>mAlias(moulds.find(x=>x.id===id))).join("");
+const jobAlias=l=>allIds(l).map(id=>mAlias(moulds.find(x=>x.id===id))).join("")+joinedAll(l).map(id=>" "+mName(id)).join("");
 function searchScore(text,query){
   const qw=searchWords(query);if(!qw.length)return 2;
   const t=String(text||"").toLowerCase();
@@ -2302,25 +2311,33 @@ function searchScore(text,query){
 // ---- Mould / job search box (type to find, or create new) ----
 const mq=()=>$("#f-mould-q"), mlist=()=>$("#f-mould-list");
 let comboItems=[], comboIdx=-1, comboMode="main", extraIds=[];
-const cIn=()=>comboMode==="extra"?$("#f-add-q"):mq(), cList=()=>comboMode==="extra"?$("#f-add-list"):mlist();
+const cIn=()=>comboMode==="extra"?$("#f-add-q"):comboMode==="join"?$("#b-join-q"):mq(), cList=()=>comboMode==="extra"?$("#f-add-list"):comboMode==="join"?$("#b-join-list"):mlist();
 // Every mould/job on a work order: the main one first, then any extras
 const jobIds=l=>[l.mouldId,...(l.extraMouldIds||[])].filter(Boolean);
-const hasMould=(l,id)=>jobIds(l).includes(id);
-function jobNames(l){return jobIds(l).map((id,i)=>{const m=moulds.find(x=>x.id===id);return m?mlabel(m):((i===0?(l.mouldName||l.mouldNumber):(l.extraMouldNames||[])[i-1])||"Unknown mould")})}
+// Moulds can also join a sub-job: they share its status, dates, updates and photos (l.joined = {sub-job mould: [moulds]})
+const joinedOf=(l,id)=>((l&&l.joined)||{})[id]||[];
+const joinedAll=l=>Object.values((l&&l.joined)||{}).flat();
+const leadOf=(l,id)=>{for(const [k,v] of Object.entries((l&&l.joined)||{}))if((v||[]).includes(id))return k;return id};
+const allIds=l=>[...new Set([...jobIds(l),...joinedAll(l)])];
+const hasMould=(l,id)=>allIds(l).includes(id);
+const mName=id=>{const m=moulds.find(x=>x.id===id);return m?mlabel(m):"Unknown mould"};
+// a sub-job's name with the moulds that joined it: "Bucket lid + Lid insert"
+function jobNames(l){return jobIds(l).map((id,i)=>{const m=moulds.find(x=>x.id===id);const base=m?mlabel(m):((i===0?(l.mouldName||l.mouldNumber):(l.extraMouldNames||[])[i-1])||"Unknown mould");
+  const mem=joinedOf(l,id);return mem.length?[base,...mem.map(mName)].join(" + "):base})}
 function jobTool(l){const n=jobNames(l);return n.length?n.join(", "):(l.mouldName||l.mouldNumber||(l.mouldId?"Unknown mould":"Mould not set"))}
 // Per-mould values on a work order: the main mould's are stored at the top level, extra moulds' in perMould
-function pmVal(l,id){if(!id||id===l.mouldId)return {shots:l.shots,faults:l.faults,work:l.work,notes:l.notes,parts:l.parts,partsList:l.partsList,checklist:l.checklist,procs:l.procs,updates:l.updates,hrz:l.hrz};return (l.perMould&&l.perMould[id])||{}}
+function pmVal(l,id){id=id&&leadOf(l,id);if(!id||id===l.mouldId)return {shots:l.shots,faults:l.faults,work:l.work,notes:l.notes,parts:l.parts,partsList:l.partsList,checklist:l.checklist,procs:l.procs,updates:l.updates,hrz:l.hrz};return (l.perMould&&l.perMould[id])||{}}
 function subName(id){const m=moulds.find(x=>x.id===id);return String(m?mlabel(m):"Mould").replace(/[\\/|]/g,"-").trim().slice(0,100)||"Mould"}
 // Which moulds get a tab: every mould when the main one is a mould; only the added ones when the main one is a general job
 function tabIdsFor(prim,extras){const all=[...new Set([prim,...(extras||[])].filter(Boolean))];if(all.length<2)return [];const pm=moulds.find(x=>x.id===prim);return pm&&isGen(pm)?all.filter(x=>x!==prim):all}
 // A tabbed mould is a sub-job (e.g. 2601-2) with its own status and dates, kept in l.subs[mouldId]; anything else uses the work order's
-function subMeta(l,id){
+function subMeta(l,id){id=leadOf(l,id);
   const tabs=tabIdsFor(l.mouldId,l.extraMouldIds),s=(l.subs&&l.subs[id])||{};
   if(tabs.includes(id))return {status:s.status||l.status||"Complete",date:s.date||l.date||"",dateCompleted:s.dateCompleted||"",no:s.no||(!l.subs?tabs.indexOf(id)+1:null),type:s.type||l.type||"",description:s.description||""};
   return {status:l.status||"Complete",date:l.date||"",dateCompleted:l.dateCompleted||"",no:null,type:l.type||"",description:""};
 }
 // The sub-jobs of a work order, in number order
-function subJobs(l){return tabIdsFor(l.mouldId,l.extraMouldIds).map(id=>{const m=moulds.find(x=>x.id===id),i=jobIds(l).indexOf(id);return {id,name:m?mlabel(m):(jobNames(l)[i]||"Unknown mould"),...subMeta(l,id)}}).filter(x=>x.no).sort((a,b)=>a.no-b.no)}
+function subJobs(l){return tabIdsFor(l.mouldId,l.extraMouldIds).map(id=>{const i=jobIds(l).indexOf(id);return {id,name:jobNames(l)[i]||mName(id),...subMeta(l,id)}}).filter(x=>x.no).sort((a,b)=>a.no-b.no)}
 const anySubOpen=l=>subJobs(l).some(x=>!isDone(x.status));
 const subLabel=(l,id)=>{const n=subMeta(l,id).no;return n?`${l.wo||""}-${n}`:(l.wo||"")};
 // Work order numbers to match in searches, sub-job numbers included
@@ -2330,6 +2347,7 @@ const woKeys=l=>[normWo(l.wo),...Object.values(l.subs||{}).filter(x=>x&&x.no).ma
 let subPage=null; // the sub-job shown as its own page, if any
 let formPM={}, mainFor=null, boxFor=null, boxActive=null, lastPrimary="";
 let formSubNo={}; // mould id -> sub-job number on this work order
+let formJoined={}; // sub-job mould id -> moulds that joined it
 function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,partsList:plRead(p),procs:wpList(p).map(x=>procSnap(x,x.st)),updates:updClean(updWithDraft(p)),hrz:hrzClean(hrzList(p))};
   if(p==="b"){v.status=segVal("#b-status");v.date=$("#b-date").value;v.done=$("#b-done").value;v.type=$("#b-type").value;v.desc=$("#b-desc").value}
   return v}
@@ -2357,10 +2375,10 @@ function renderPM(){
   const wo=$("#f-wo").value.trim().toUpperCase();
   // the work order lists its sub-jobs; each opens as its own page
   $("#subsec").hidden=!tabs.length;
-  $("#sublist").innerHTML=tabs.map(id=>{const m=moulds.find(x=>x.id===id),st=(formPM[id]||{}).status||segVal("#f-status")||"Pending";
-    return `<button type="button" class="subrow" data-subopen="${esc(id)}" aria-label="Open sub-job ${esc(wo)}-${formSubNo[id]}"><span class="no">${esc(wo||"#")}-${formSubNo[id]}</span><span class="nm">${esc(m?mlabel(m):"Unknown")}</span><span class="stpill ${stClass(st)}">${esc(st)}</span><span class="chev" aria-hidden="true">›</span></button>`}).join("");
+  $("#sublist").innerHTML=tabs.map(id=>{const st=(formPM[id]||{}).status||segVal("#f-status")||"Pending";
+    return `<button type="button" class="subrow" data-subopen="${esc(id)}" aria-label="Open sub-job ${esc(wo)}-${formSubNo[id]}"><span class="no">${esc(wo||"#")}-${formSubNo[id]}</span><span class="nm">${esc([mName(id),...(formJoined[id]||[]).map(mName)].join(" + "))}</span><span class="stpill ${stClass(st)}">${esc(st)}</span><span class="chev" aria-hidden="true">›</span></button>`}).join("");
   if(subPage&&!tabs.includes(subPage))closeSub();
-  if(boxActive){const bm0=moulds.find(x=>x.id===boxActive);$("#b-subno").textContent=`${wo||"#"}-${formSubNo[boxActive]}`;$("#b-title").textContent=bm0?mlabel(bm0):"Unknown";$("#subback-wo").textContent=wo||"work order"}
+  if(boxActive){const bm0=moulds.find(x=>x.id===boxActive);$("#b-subno").textContent=`${wo||"#"}-${formSubNo[boxActive]}`;$("#b-title").textContent=bm0?mlabel(bm0):"Unknown";$("#subback-wo").textContent=wo||"work order";renderJoined()}
   $("#mbox").hidden=!subPage;$("#logform").classList.remove("hasbox");
   $("#pmmain").classList.toggle("off",!mainShows);$("#wonotes-field").hidden=mainShows&&!$("#f-wonotes").value.trim();$("#logform").classList.toggle("multi",!mainShows);
   const pm=moulds.find(x=>x.id===prim),bm=moulds.find(x=>x.id===boxActive);
@@ -2373,6 +2391,7 @@ function renderPM(){
 const curTabsNow=()=>tabIdsFor($("#f-mould").value||lastPrimary,extraIds);
 // ---- Sub-job page: opens from the work order, back returns to it ----
 function openSub(id){
+  for(const [k,v] of Object.entries(formJoined))if((v||[]).includes(id))id=k; // a mould that joined a sub-job opens that sub-job
   if(!curTabsNow().includes(id))return;
   boxActive=id;subPage=id;renderPM();
   $("#logform").classList.add("subpage");updateEditBar();renderFormDrive();
@@ -2402,7 +2421,7 @@ function applyPrimary(id){
   }
   if(id)lastPrimary=id;
 }
-function resetPM(){if(subPage){subPage=null;$("#logform").classList.remove("subpage")}formPM={};formSubNo={};mainFor=null;boxFor=null;boxActive=null;lastPrimary="";extraIds=[];$("#f-mould").value=""}
+function resetPM(){if(subPage){subPage=null;$("#logform").classList.remove("subpage")}formPM={};formJoined={};formSubNo={};mainFor=null;boxFor=null;boxActive=null;lastPrimary="";extraIds=[];$("#f-mould").value=""}
 function setMould(id,label){
   applyPrimary(id);
   $("#f-mould").value=id||"";
@@ -2417,21 +2436,21 @@ function renderExtras(){
     return `<span class="xchip">${m?`<button type="button" class="xname" data-mhist="${esc(id)}" title="Open its history">${esc(n)}</button>`:esc(n)}<button type="button" data-xrm="${esc(id)}" aria-label="Remove ${esc(n)}">×</button></span>`}).join("");
 }
 function addExtra(id){
-  if(!id||id===$("#f-mould").value||extraIds.includes(id)){hideAdd();return}
+  if(!id||id===$("#f-mould").value||extraIds.includes(id)||Object.values(formJoined).flat().includes(id)){hideAdd();return}
   stashPM();if(!formPM[id])formPM[id]={};
   extraIds.push(id);hideAdd();renderExtras();renderPM();renderFormDrive();markDirty(250);
 }
 function hideAdd(){$("#f-add-q").value="";$("#f-add-list").hidden=true;$("#f-add-wrap").hidden=true;$("#f-addbtn").hidden=false}
 $("#f-addbtn").onclick=()=>{$("#f-addbtn").hidden=true;$("#f-add-wrap").hidden=false;$("#f-add-q").focus()};
 $("#f-extras").addEventListener("click",e=>{const b=e.target.closest("[data-xrm]");if(!b)return;
-  const id=b.dataset.xrm;stashPM();extraIds=extraIds.filter(x=>x!==id);delete formPM[id];
+  const id=b.dataset.xrm;stashPM();extraIds=extraIds.filter(x=>x!==id);delete formPM[id];if((formJoined[id]||[]).length)toast(`${mName(id)} removed, with ${formJoined[id].map(mName).join(", ")}`);delete formJoined[id];
   if(boxFor===id)boxFor=null;
   renderExtras();renderPM();renderFormDrive();markDirty(250)});
-function closeCombo(){for(const [i,l] of [[mq(),mlist()],[$("#f-add-q"),$("#f-add-list")]]){l.hidden=true;i.setAttribute("aria-expanded","false")}comboIdx=-1}
+function closeCombo(){for(const [i,l] of [[mq(),mlist()],[$("#f-add-q"),$("#f-add-list")],[$("#b-join-q"),$("#b-join-list")]]){l.hidden=true;i.setAttribute("aria-expanded","false")}comboIdx=-1}
 function renderCombo(){
-  const inp=cIn(),list=cList(),extra=comboMode==="extra";
+  const inp=cIn(),list=cList(),extra=comboMode==="extra"||comboMode==="join";
   const q=inp.value.trim(),ql=q.toLowerCase();
-  const skip=extra?new Set([$("#f-mould").value,...extraIds]):new Set();
+  const skip=extra?new Set([$("#f-mould").value,...extraIds,...Object.values(formJoined).flat()]):new Set();
   const rank=m=>{const sc=searchScore([mlabel(m),m.part,m.area,mAlias(m)].join(" "),ql);return !sc?-1:sc*2+(mlabel(m).toLowerCase().startsWith(ql)?1:0)};
   const hits=moulds.filter(m=>!skip.has(m.id)&&(!ql||rank(m)>=0))
     .sort((a,b)=>ql?rank(b)-rank(a):0).slice(0,8);
@@ -2449,8 +2468,8 @@ function renderCombo(){
   if(comboIdx>=0)inp.setAttribute("aria-activedescendant",pre+comboIdx);else inp.removeAttribute("aria-activedescendant");
 }
 async function chooseCombo(i){
-  const it=comboItems[i];if(!it)return;const extra=comboMode==="extra";
-  const pick=(id,name)=>{if(extra)addExtra(id);else{setMould(id,name);markDirty(250);renderFormDriveSoon()}};
+  const it=comboItems[i];if(!it)return;const extra=comboMode==="extra",join=comboMode==="join";
+  const pick=(id,name)=>{if(join)addJoined(id);else if(extra)addExtra(id);else{setMould(id,name);markDirty(250);renderFormDriveSoon()}};
   if(it.type==="pick"){pick(it.id);return}
   if(!db){toast("Saving isn't available in this view");return}
   const name=it.name, gen=it.kind==="generic", cli=it.kind==="client";
@@ -2470,17 +2489,30 @@ function wireCombo(inp,list,mode){
   inp.addEventListener("blur",()=>setTimeout(()=>{if(document.activeElement===inp)return;
     list.hidden=true;inp.setAttribute("aria-expanded","false");
     if(mode==="main"){const m=moulds.find(x=>x.id===$("#f-mould").value);if(m)inp.value=mlabel(m)} // tidy back to the chosen name
-    else if(!inp.value.trim())hideAdd();},150));
+    else if(!inp.value.trim()){if(mode==="join")hideJoin();else hideAdd()}},150));
   inp.addEventListener("keydown",e=>{comboMode=mode;
     if(e.key==="ArrowDown"){e.preventDefault();if(list.hidden)renderCombo();comboIdx=Math.min(comboIdx+1,comboItems.length-1);renderCombo()}
     else if(e.key==="ArrowUp"){e.preventDefault();comboIdx=Math.max(comboIdx-1,0);renderCombo()}
     else if(e.key==="Enter"&&!list.hidden&&comboItems.length){e.preventDefault();chooseCombo(comboIdx>=0?comboIdx:0)}
-    else if(e.key==="Escape"){closeCombo();if(mode==="extra")hideAdd()}
+    else if(e.key==="Escape"){closeCombo();if(mode==="extra")hideAdd();if(mode==="join")hideJoin()}
   });
   list.addEventListener("mousedown",e=>e.preventDefault());
   list.addEventListener("click",e=>{const o=e.target.closest("[data-i]");if(o){comboMode=mode;chooseCombo(+o.dataset.i)}});
 }
-wireCombo(mq(),mlist(),"main");wireCombo($("#f-add-q"),$("#f-add-list"),"extra");
+wireCombo(mq(),mlist(),"main");wireCombo($("#f-add-q"),$("#f-add-list"),"extra");wireCombo($("#b-join-q"),$("#b-join-list"),"join");
+// ---- Moulds joining a sub-job (no sub-jobs within sub-jobs: they share the sub-job's number and fields) ----
+function joinedFor(prim,extras){const tabs=tabIdsFor(prim,extras),taken=new Set([prim,...extras]),out={};
+  for(const [k,v] of Object.entries(formJoined)){if(!tabs.includes(k))continue;const ids=[...new Set((v||[]).filter(x=>x&&!taken.has(x)))];ids.forEach(x=>taken.add(x));if(ids.length)out[k]=ids}
+  return out}
+function renderJoined(){const id=boxActive,el=$("#b-joined");if(!el)return;const ids=(id&&formJoined[id])||[];
+  el.innerHTML=ids.map(x=>{const m=moulds.find(y=>y.id===x),n=mName(x);return `<span class="xchip">${m?`<button type="button" class="xname" data-mhist="${esc(x)}" title="Open its history">${esc(n)}</button>`:esc(n)}<button type="button" data-jrm="${esc(x)}" aria-label="Take ${esc(n)} off this sub-job">×</button></span>`}).join("")}
+function addJoined(id){const lead=boxActive;if(!lead||!id){hideJoin();return}
+  if(id===$("#f-mould").value||extraIds.includes(id)||Object.values(formJoined).flat().includes(id)){toast(mName(id)+" is already on this work order");hideJoin();return}
+  formJoined[lead]=[...(formJoined[lead]||[]),id];hideJoin();renderJoined();renderPM();markDirty(250);toast(`${mName(id)} added to ${$("#b-subno").textContent}`)}
+function hideJoin(){$("#b-join-q").value="";$("#b-join-list").hidden=true;$("#b-join-wrap").hidden=true;$("#b-joinbtn").hidden=false}
+$("#b-joinbtn").onclick=()=>{$("#b-joinbtn").hidden=true;$("#b-join-wrap").hidden=false;$("#b-join-q").focus()};
+$("#b-joined").addEventListener("click",e=>{const b=e.target.closest("[data-jrm]");if(!b||!boxActive)return;
+  formJoined[boxActive]=(formJoined[boxActive]||[]).filter(x=>x!==b.dataset.jrm);if(!formJoined[boxActive].length)delete formJoined[boxActive];renderJoined();renderPM();markDirty(250)});
 
 function renderSelect(){
   const id=$("#f-mould").value, m=moulds.find(x=>x.id===id);
@@ -2644,7 +2676,7 @@ function renderHist(){
    <div><span>Latest shots</span><b>${fmtNum(s.shots)}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>${(m.dateStamps||[]).length?`<div class="wide"><span>Date stamps</span><b class="dsfacts">${m.dateStamps.map(dsChip).join("")}</b></div>`:""}`}</div>`;
   const ml=logs.filter(l=>hasMould(l,m.id));
   const lastUpd=l=>{const u=updClean(pmVal(l,m.id).updates);if(!u.length)return "";const x=u[u.length-1];return `<div class="lastupd"><b>Update ${esc(fmtDate(x.date))}</b> ${esc(x.text.length>110?x.text.slice(0,110)+"…":x.text)}${u.length>1?` <span>(${u.length} updates)</span>`:""}</div>`};
-  const alsoOn=l=>{const o=jobIds(l).map((id,i)=>[id,jobNames(l)[i]]).filter(([id])=>id!==m.id).map(x=>x[1]);return o.length?`<div class="alsoon">Also on: ${esc(o.join(", "))}</div>`:""};
+  const alsoOn=l=>{const o=jobIds(l).map((id,i)=>[id,jobNames(l)[i]]).filter(([id])=>id!==m.id&&id!==leadOf(l,m.id)).map(x=>x[1]);return o.length?`<div class="alsoon">Also on: ${esc(o.join(", "))}</div>`:""};
   $("#timeline").innerHTML=ml.length?ml.map(l=>{const sm=subMeta(l,m.id);return `<div class="entry e-${stClass(sm.status).slice(3)}">
      <div class="ehead">
        <div class="row"><div class="type">${l.wo?`<span class="wotag">${esc(subLabel(l,m.id))}</span>`:""}${esc(sm.type||l.type)}${l.orderNo?`<span class="ordtag">Order ${esc(l.orderNo)}</span>`:""}</div>${statusSel(l,m.id)}</div>
@@ -2677,7 +2709,7 @@ $("#timeline").addEventListener("change",async e=>{
   let patch={status,statusUpdatedAt:new Date().toISOString()};
   if(isDone(status)&&l&&!l.dateCompleted)patch.dateCompleted=today();
   if(s.dataset.mid&&l){ // a sub-job: change just that mould's status, and roll the work order up
-    const mid=s.dataset.mid,subs=JSON.parse(JSON.stringify(l.subs||{}));
+    const mid=leadOf(l,s.dataset.mid),subs=JSON.parse(JSON.stringify(l.subs||{}));
     subs[mid]={...(subs[mid]||{}),status};if(isDone(status)&&!subs[mid].dateCompleted)subs[mid].dateCompleted=today();
     patch={subs,statusUpdatedAt:new Date().toISOString()};
     const tabs=tabIdsFor(l.mouldId,l.extraMouldIds);
@@ -2810,6 +2842,7 @@ async function startEdit(id,subId){
   resetPM();
   formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",partsList:l.partsList,procs:setProcs(l).map(x=>procSnap(x,x.st)),updates:updClean(l.updates),hrz:hrzClean(l.hrz)};
   for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",partsList:v.partsList,procs:setProcs(v).map(x=>procSnap(x,x.st)),updates:updClean(v.updates),hrz:hrzClean(v.hrz)}}
+  formJoined=JSON.parse(JSON.stringify(l.joined||{}));
   for(const [x,sm] of Object.entries(l.subs||{})){if(!sm||!formPM[x])continue;if(sm.no)formSubNo[x]=sm.no;Object.assign(formPM[x],{status:sm.status,date:sm.date,done:sm.dateCompleted||"",type:sm.type||"",desc:sm.description||""})}
   $("#f-wo").value=l.wo||"";$("#f-order").value=l.orderNo||"";setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);
   formTodos=(l.todos||[]).map(i=>({...i}));mountFormTodos();$("#f-date").value=l.date||today();
@@ -2879,7 +2912,7 @@ function buildEntry(){
   const main=pmClean(mouldId), extras=extraIds.filter(x=>x!==mouldId);
   const perMould={};for(const x of extras)perMould[x]=pmClean(x);
   const subs={};for(const x of tabIdsFor(mouldId,extras)){const v=formPM[x]||{};subs[x]={no:formSubNo[x]||null,status:v.status||segVal("#f-status"),date:v.date??$("#f-date").value,dateCompleted:v.done||"",type:v.type||$("#f-type").value,description:String(v.desc||"").trim()}}
-  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,procs:main.procs,updates:main.updates,hrz:main.hrz,todos:cleanItems(formTodos),subs,orderNo:$("#f-order").value.trim(),woNotes:$("#f-wonotes").value.trim()}};
+  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),joined:joinedFor(mouldId,extraIds.filter(x=>x!==mouldId)),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,procs:main.procs,updates:main.updates,hrz:main.hrz,todos:cleanItems(formTodos),subs,orderNo:$("#f-order").value.trim(),woNotes:$("#f-wonotes").value.trim()}};
 }
 function markDirty(delay){
   if(!db)return;
@@ -3456,7 +3489,7 @@ function drivePanelFor(t){
 function attPanel(l,forId){
   const num=woNum(l.wo);
   if(!num)return `<div class="small">This job has no work order number, so it has no Drive folder.</div>`;
-  const id=forId||l.mouldId;
+  const id=leadOf(l,forId||l.mouldId); // a mould that joined a sub-job uses that sub-job's folder
   return drivePanelFor({num,label:jobTool(l),sub:tabIdsFor(l.mouldId,l.extraMouldIds).includes(id)?subName(id):""});
 }
 function formTarget(){
@@ -4417,12 +4450,12 @@ function hrParseWo(v){const m=String(v||"").trim().toUpperCase().replace(/^#/,""
   let mouldId=null;if(l&&m[2]){const hit=Object.entries(l.subs||{}).find(([,s])=>s&&String(s.no)===m[2]);mouldId=hit?hit[0]:null}
   return {wo:l?l.wo:base,sub:m[2]?Number(m[2]):null,log:l||null,mouldId,badSub:!!(m[2]&&l&&!mouldId)}}
 const hrLog=h=>logs.find(l=>l.id===h.logId)||logs.find(l=>normWo(l.wo)===normWo(h.wo))||null;
-function hrTools(h){if(h.mouldId)return [h.mouldId];const l=hrLog(h);return l?jobIds(l):[]}
+function hrTools(h){const l=hrLog(h);if(h.mouldId)return [h.mouldId,...joinedOf(l,h.mouldId)];return l?allIds(l):[]}
 function hrMatch(h,f){if(!f||f==="all")return true;const ids=hrTools(h);
   if(f.startsWith("m:"))return ids.includes(f.slice(2));
   if(f.startsWith("c:"))return ids.some(id=>{const m=moulds.find(x=>x.id===id);return m&&String(m.company||"").trim()===f.slice(2)});
   return true}
-function hrLabel(h){const l=hrLog(h);if(h.mouldId){const m=moulds.find(x=>x.id===h.mouldId);return m?mlabel(m):(l?jobTool(l):"")}return l?jobTool(l):"Work order not found"}
+function hrLabel(h){const l=hrLog(h);if(h.mouldId){const m=moulds.find(x=>x.id===h.mouldId);const mem=joinedOf(l,h.mouldId);return m?[mlabel(m),...mem.map(mName)].join(" + "):(l?jobTool(l):"")}return l?jobTool(l):"Work order not found"}
 // Hours on a work order (or one of its sub-jobs), for the small total on the work order page
 function hoursFor(logId,mouldId){const l=logs.find(x=>x.id===logId);return hoursList.filter(h=>(h.logId===logId||(l&&!h.logId&&normWo(h.wo)===normWo(l.wo)))&&(!mouldId||h.mouldId===mouldId)).reduce((a,h)=>a+(Number(h.hours)||0),0)}
 function renderFormHours(){
@@ -4499,7 +4532,7 @@ function calBuild(){const by={};const add=(d,e)=>{if(/^\d{4}-\d{2}-\d{2}$/.test(
   for(const l of logs){const tabs=tabIdsFor(l.mouldId,l.extraMouldIds),ids=[...new Set([l.mouldId||null,...(l.extraMouldIds||[])])];
     for(const id of ids){const prim=id===(l.mouldId||null),m=id&&moulds.find(x=>x.id===id),sub=tabs.includes(id);
       for(const u of updClean(pmVal(l,prim?null:id).updates))add(u.date,{kind:"wo",l,open:sub?id:null,wo:sub?subLabel(l,id):(l.wo||""),
-        tool:m?mlabel(m):(prim?(l.mouldName||jobTool(l)):"Mould"),status:subMeta(l,id).status,text:u.text||"",files:u.files||[],
+        tool:m?[mlabel(m),...joinedOf(l,id).map(mName)].join(" + "):(prim?(l.mouldName||jobTool(l)):"Mould"),status:subMeta(l,id).status,text:u.text||"",files:u.files||[],
         t:{num:woNum(l.wo),label:jobTool(l),sub:prim?"":subName(id)}})}}
   for(const n of inbox)add(n.date,{kind:"inbox",id:n.id,wo:"",tool:"Unassigned update",status:"",text:n.text||"",files:n.files||[],t:INBOX_T});
   for(const d in by)by[d].sort((a,b)=>(a.kind==="inbox")-(b.kind==="inbox")||String(a.wo).localeCompare(String(b.wo),undefined,{numeric:true}));
@@ -5114,7 +5147,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.19-101";
+const APP_VERSION="2026.10.19-102";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
