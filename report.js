@@ -66,7 +66,9 @@ async function rptDriveFiles(l,onlyId,withPhotos,progress){
   const tabs=tabIdsFor(l.mouldId,l.extraMouldIds),root=await listAll(folder.id);
   const subTitle=name=>{const id=tabs.find(x=>subName(x)===name);return id?`${subLabel(l,id)}  ${jobNames(l)[jobIds(l).indexOf(id)]||name}`:name};
   let sets=[];
-  if(onlyId&&tabs.includes(onlyId)){const sf=root.find(f=>f.mimeType===FOLDER_MT&&f.name===subName(onlyId));if(sf)sets.push({title:"",items:await listAll(sf.id)})}
+  if(onlyId&&tabs.includes(onlyId)){const mem=joinedOf(l,onlyId);
+    // the sub-job's folder, then a folder for each mould that joined it
+    for(const id of [onlyId,...mem]){const sf=root.find(f=>f.mimeType===FOLDER_MT&&f.name===subName(id));if(sf)sets.push({title:mem.length?mName(id):"",items:await listAll(sf.id)})}}
   else{sets.push({title:tabs.length?"Work order":"",items:root.filter(f=>f.mimeType!==FOLDER_MT)});
     for(const sf of root.filter(f=>f.mimeType===FOLDER_MT))sets.push({title:subTitle(sf.name),items:await listAll(sf.id)})}
   const skip=f=>/ Work order\.md$/i.test(f.name||"")||/ report\.(pdf|docx)$/i.test(f.name||"");
