@@ -212,7 +212,13 @@ function buildPdf(R,photos,logo){
           const cells=r.map((v,i)=>{const f0=tot||(b.bold||[]).includes(i)?"B":"",lines=[];
             (Array.isArray(v)?v:String(v??"").split(/\r?\n/)).forEach(par=>{const o=typeof par==="object"&&par?par:{t:par},f=o.b?"B":f0;
               pdfWrap(winBytes(String(o.t??"").trim()),f,fs,ws[i]-16).forEach(t=>lines.push({t,f,c:o.m?C.muted:C.ink}))});return {lines}});
-          let done=0;const total=Math.max(1,...cells.map(c=>c.lines.length));
+          // the row as a list of printed lines: the cells side by side, then an optional full-width note under them (b.sub)
+          const slots=[];const nCell=Math.max(1,...cells.map(c=>c.lines.length));
+          for(let k=0;k<nCell;k++)slots.push(cells.map((c,i)=>{const L=c.lines[k];return L&&{...L,i}}).filter(Boolean));
+          const sub=b.sub&&b.sub[ri];
+          if(sub){const sx=xs[b.subFrom||1],sw=M+CW-sx-16,sf=9.2;
+            String(sub).split(/\r?\n/).forEach(par=>pdfWrap(winBytes(par.trim()),"",sf,sw).forEach(t=>slots.push([{t,f:"",c:"3d3a35",x:sx+8,sz:sf}])))}
+          let done=0;const total=slots.length;
           while(done<total){let fitN=Math.floor((BOT-y-pt-pb)/lh);
             const left=total-done;
             // short rows move to the next page whole; only tall rows are split, and never leaving a line on its own
@@ -220,7 +226,8 @@ function buildPdf(R,photos,logo){
             const n=fitN>=left?left:(left-fitN===1&&fitN>2?fitN-1:fitN),h=pt+n*lh+pb-(done+n<total?pb-2:0);
             if(tot){fill(M,y,CW,h,"f3ede1");hline(M,y,CW,C.ink,.8)}else if(ri%2)fill(M,y,CW,h,"faf9f6");
             if(done&&!tot){txt(fit(r[0],ws[0],""),xs[0]+8,y+pt+9.4,"",8.6,C.muted);txt("cont.",xs[0]+8,y+pt+9.4+lh,"I",8.2,C.muted)}
-            cells.forEach((c,i)=>(done&&i===0?[]:c.lines.slice(done,done+n)).forEach((L,k)=>txt(L.t,right.includes(i)?xs[i]+ws[i]-8-pdfW(L.t,L.f,fs):xs[i]+8,y+pt+9.4+k*lh,L.f,fs,L.c)));
+            slots.slice(done,done+n).forEach((sl,k)=>sl.forEach(L=>{if(done&&L.i===0)return;const sz=L.sz||fs;
+              txt(L.t,L.x!=null?L.x:right.includes(L.i)?xs[L.i]+ws[L.i]-8-pdfW(L.t,L.f,sz):xs[L.i]+8,y+pt+9.4+k*lh,L.f,sz,L.c)}));
             y+=h;done+=n;if(!tot&&ri<b.rows.length-1&&done>=total)hline(M,y,CW,"ebe8e2",.5)}
         });
         hline(M,y,CW,C.line,.6);y+=6;continue}

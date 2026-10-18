@@ -4130,7 +4130,8 @@ function hrByWo(entries){const g={};
     if(!g[k]){const mid=l&&h.sub?(subJobs(l).find(x=>String(x.no)===String(h.sub))||{}).id:null;
       const sm=l&&mid?subMeta(l,mid):null;
       g[k]={l,mid,wo:h.sub?`${h.wo}-${h.sub}`:h.wo,tool:hrLabel(h),status:sm?sm.status:(l?l.status||"Complete":""),
-        desc:(sm&&sm.description)||(l?l.description||"":""),company:[...new Set(hrTools(h).map(id=>(moulds.find(x=>x.id===id)||{}).company).filter(Boolean))].join(", "),hours:0,n:0,techs:{}}}
+        desc:(sm&&sm.description)||(l?l.description||"":""),company:[...new Set(hrTools(h).map(id=>(moulds.find(x=>x.id===id)||{}).company).filter(Boolean))].join(", "),hours:0,n:0,techs:{},start:sm?sm.date:(l?l.date||"":""),end:(sm?sm.dateCompleted:(l?l.dateCompleted||"":""))||""};
+      const st=g[k].status;if(l&&!isDone(st))g[k].end="present"}
     const t=(h.tech||"").trim()||"Unnamed";g[k].hours+=Number(h.hours)||0;g[k].n++;g[k].techs[t]=(g[k].techs[t]||0)+(Number(h.hours)||0)}
   Object.values(g).forEach(r=>r.byTech=Object.entries(r.techs).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])));
   return Object.values(g).sort((a,b)=>String(a.wo).localeCompare(String(b.wo),undefined,{numeric:true}))}
@@ -4152,7 +4153,7 @@ function renderHours(){
   $("#hr-totals").innerHTML=`<div><span>${esc(monthName)}</span><b>${fmtH(sum(inMonth))}</b></div><div><span>Running total</span><b>${fmtH(running)}</b><small>All hours up to the end of ${esc(monthName)}</small></div>`;
   const byTech={};inMonth.forEach(h=>byTech[h.tech]=(byTech[h.tech]||0)+(Number(h.hours)||0));
   const bw=hrByWo(inMonth);
-  $("#hr-bywo").innerHTML=bw.length?`<div class="label" style="margin:0 0 6px">By work order · ${esc(monthName)}</div><div class="hrwot">${bw.map(r=>`<button type="button" class="hrwor"${r.l?` data-hrwo="${esc(r.l.id)}"${r.mid?` data-hrsub="${esc(r.mid)}"`:""}`:""}><span class="hrwot-t"><span><b class="mono">#${esc(r.wo)}</b> ${esc(r.tool)}</span>${r.desc?`<small>${esc(r.desc.length>90?r.desc.slice(0,90)+"…":r.desc)}</small>`:""}<small class="hrwot-tech">${r.byTech.map(([t,v])=>`${esc(t)} <b>${fmtH(v)}</b>`).join(" · ")}</small></span><span class="hrwot-r"><span class="mono hrwoh">${fmtH(r.hours)}</span>${r.status?`<span class="stpill ${stClass(r.status)}">${esc(r.status)}</span>`:""}</span></button>`).join("")}<div class="hrwor tot"><span>Total</span><span class="hrwot-r"><span class="mono hrwoh">${fmtH(sum(inMonth))}</span></span></div></div>`:"";
+  $("#hr-bywo").innerHTML=bw.length?`<div class="label" style="margin:0 0 6px">By work order · ${esc(monthName)}</div><div class="hrwot">${bw.map(r=>`<button type="button" class="hrwor"${r.l?` data-hrwo="${esc(r.l.id)}"${r.mid?` data-hrsub="${esc(r.mid)}"`:""}`:""}><span class="hrwot-t"><span><b class="mono">#${esc(r.wo)}</b> ${esc(r.tool)}</span>${r.desc?`<small>${esc(r.desc.length>90?r.desc.slice(0,90)+"…":r.desc)}</small>`:""}${r.start?`<small>${esc(fmtDate(r.start))} – ${r.end==="present"?"present":r.end?esc(fmtDate(r.end)):"?"}</small>`:""}<small class="hrwot-tech">${r.byTech.map(([t,v])=>`${esc(t)} <b>${fmtH(v)}</b>`).join(" · ")}</small></span><span class="hrwot-r"><span class="mono hrwoh">${fmtH(r.hours)}</span>${r.status?`<span class="stpill ${stClass(r.status)}">${esc(r.status)}</span>`:""}</span></button>`).join("")}<div class="hrwor tot"><span>Total</span><span class="hrwot-r"><span class="mono hrwoh">${fmtH(sum(inMonth))}</span></span></div></div>`:"";
   $("#hr-bytech").innerHTML=Object.keys(byTech).length>1?Object.entries(byTech).sort((a,b)=>b[1]-a[1]).map(([t,v])=>`<span>${esc(t)} <b>${fmtH(v)}</b></span>`).join(""):"";
   $("#hr-list").innerHTML=inMonth.length?inMonth.map(h=>`<div class="hrrow${hrEditing===h.id?" editing":""}">
       <button type="button" class="hrmain" data-hredit="${esc(h.id)}" aria-label="Edit this entry">
@@ -4178,7 +4179,7 @@ $("#hr-csv").onclick=()=>{
   const mon=$("#hr-month").value,q=v=>'"'+String(v??"").replace(/"/g,'""')+'"',rows=hrMonthEntries(),bw=hrByWo(rows),tot=rows.reduce((t,h)=>t+(Number(h.hours)||0),0);
   const comp=h=>[...new Set(hrTools(h).map(id=>(moulds.find(x=>x.id===id)||{}).company).filter(Boolean))].join(", ");
   const L=[[`Work hours – ${hrMonthName(mon)}`],[hrFilterTitle()],[],
-    ["Work order","Mould / job","Company","Description","Status","Technicians","Hours"],...bw.map(r=>[r.wo,r.tool,r.company,r.desc,r.status,r.byTech.map(([t,v])=>`${t} ${fmtH(v)}`).join("; "),r.hours]),["","","","","","Total",tot],[],
+    ["Work order","Mould / job","Company","Description","Start","End","Status","Technicians","Hours"],...bw.map(r=>[r.wo,r.tool,r.company,r.desc,r.start,r.end==="present"?"Present":r.end,r.status,r.byTech.map(([t,v])=>`${t} ${fmtH(v)}`).join("; "),r.hours]),["","","","","","","","Total",tot],[],
     ["Date","Technician","Work order","Mould / job","Company","Hours"],...rows.map(h=>[h.date,h.tech,h.sub?h.wo+"-"+h.sub:h.wo,hrLabel(h),comp(h),h.hours])];
   saveFile(hrFileBase()+".csv",new Blob(["\ufeff"+L.map(r=>r.map(q).join(",")).join("\r\n")],{type:"text/csv"}));
 };
@@ -4187,14 +4188,19 @@ $("#hr-pdf").onclick=async()=>{const b=$("#hr-pdf");b.disabled=true;
   try{await lazy("report");const mon=$("#hr-month").value,rows=hrMonthEntries();if(!rows.length){toast("No hours logged for this month and filter");return}
     const bw=hrByWo(rows),tot=rows.reduce((t,h)=>t+(Number(h.hours)||0),0),techs=[...new Set(rows.map(h=>h.tech).filter(Boolean))];
     const R={org:rptOrg(),created:new Date(),kind:"Work hours report",title:"Work hours · "+hrMonthName(mon),subtitle:hrFilterTitle(),blocks:[]};
-    const byTech={};rows.forEach(h=>{const t=(h.tech||"").trim()||"Unnamed";byTech[t]=(byTech[t]||0)+(Number(h.hours)||0)});
-    R.blocks.push({t:"grid",items:[{k:"Month",v:hrMonthName(mon)},{k:"Total hours",v:fmtH(tot)},{k:"Work orders",v:String(bw.length)},{k:"Technicians",v:Object.entries(byTech).sort((a,b)=>b[1]-a[1]).map(([t,v])=>`${t} ${fmtH(v)}`).join(",  ")||"–"}]});
+    const byTech={};rows.forEach(h=>{const t=(h.tech||"").trim()||"Unnamed";byTech[t]=byTech[t]||{h:0,wo:new Set()};byTech[t].h+=Number(h.hours)||0;byTech[t].wo.add((h.logId||normWo(h.wo))+"|"+(h.sub||""))});
+    const techList=Object.entries(byTech).sort((a,b)=>b[1].h-a[1].h||a[0].localeCompare(b[0]));
+    R.blocks.push({t:"grid",items:[{k:"Month",v:hrMonthName(mon)},{k:"Total hours",v:fmtH(tot)},{k:"Work orders",v:String(bw.length)}]});
+    R.blocks.push({t:"h",text:"Hours by technician"});
+    R.blocks.push({t:"table",cols:["Technician","Work orders","Hours"],widths:[.6,.24,.16],right:[1,2],bold:[0],wrap:true,total:techList.length>1,
+      rows:[...techList.map(([t,v])=>[t,String(v.wo.size),{t:fmtH(v.h),b:true}].map(x=>typeof x==="object"?[x]:x)),...(techList.length>1?[["Total",String(bw.length),fmtH(tot)]]:[])]});
     R.blocks.push({t:"h",text:"Hours by work order"});
     // each work order lists its technicians with their hours, then the work order's total when more than one worked on it
     const techCell=r=>r.byTech.length>1?[...r.byTech.map(([t])=>({t,m:true})),{t:"Total",b:true}]:r.byTech.map(([t])=>t);
     const hrsCell=r=>r.byTech.length>1?[...r.byTech.map(([,v])=>({t:fmtH(v),m:true})),{t:fmtH(r.hours),b:true}]:[{t:fmtH(r.hours),b:true}];
-    R.blocks.push({t:"table",cols:["Work order","Mould / job","Description","Status","Technician","Hours"],widths:[.11,.18,.32,.14,.15,.10],right:[5],bold:[0],total:true,wrap:true,
-      rows:[...bw.map(r=>[r.wo,r.tool,r.desc||"–",r.status||"",techCell(r),hrsCell(r)]),["Total","","","","",fmtH(tot)]]});
+    const datesCell=r=>r.start?[fmtDate(r.start),{t:"to "+(r.end==="present"?"present":r.end?fmtDate(r.end):"–"),m:r.end!=="present"}]:["–"];
+    R.blocks.push({t:"table",cols:["Work order","Mould / job","Dates","Status","Technician","Hours"],widths:[.12,.27,.17,.14,.17,.13],right:[5],bold:[0],total:true,wrap:true,
+      rows:[...bw.map(r=>[r.wo,r.tool,datesCell(r),r.status||"",techCell(r),hrsCell(r)]),["Total","","","","",fmtH(tot)]],sub:bw.map(r=>r.desc||"")});
     if(bw.some(r=>r.company)&&!hrFilter.startsWith("c:"))R.blocks.push({t:"note",text:"Companies: "+[...new Set(bw.map(r=>r.company).filter(Boolean))].join(", ")});
     const pdf=buildPdf(R,null,await rptLogo());
     saveFile(hrFileBase()+".pdf",new Blob([pdf],{type:"application/pdf"}));
@@ -4637,7 +4643,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-81";
+const APP_VERSION="2026.10.18-82";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
