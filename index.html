@@ -440,7 +440,7 @@ textarea.autogrow{resize:none;overflow:hidden}
 .calc.fut{opacity:.55}
 .calc .caln{position:relative;z-index:1;font-size:15px;font-variant-numeric:tabular-nums}
 button.calc{cursor:pointer}
-.calc.has{background:color-mix(in srgb,var(--accent) 38%,var(--surface));font-weight:600}
+.calc.has{background:var(--band-sub);font-weight:600} /* the blue-grey of the job lists */
 button.calc:not(.has):hover{background:var(--sunk)}
 .calc.has:hover{outline:2px solid var(--accent);outline-offset:-2px}
 .calc.today{box-shadow:inset 0 0 0 2px var(--fg)}
@@ -5027,7 +5027,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-98";
+const APP_VERSION="2026.10.18-99";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
