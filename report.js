@@ -201,12 +201,12 @@ function buildPdf(R,photos,logo){
       // column widths: given as fractions of the page width, or a narrow first column and the rest shared
       const ws=b.widths?b.widths.map(f=>f*CW):b.cols.map((_,i)=>i?(CW-c0)/(b.cols.length-1):c0),xs=ws.map((_,i)=>M+ws.slice(0,i).reduce((a,c)=>a+c,0));
       const fit=(v,w,f)=>{let t=winBytes(String(v??""));if(pdfW(t,f,9.6)<=w-14)return t;while(t.length>1&&pdfW(t+"...",f,9.6)>w-14)t=t.slice(0,-1);return t+"..."};
-      const right=b.right||[],fs=9.6;
+      const right=b.right||[],fs=b.fs||9.6;
       const head=()=>{fill(M,y,CW,rh,C.soft);b.cols.forEach((c,i)=>{const t=winBytes(c);txt(t,right.includes(i)?xs[i]+ws[i]-8-pdfW(t,"B",8.6):xs[i]+8,y+12,"B",8.6,C.muted)});y+=rh};
       need(rh*2+4);y+=4;head();
       if(b.wrap){
         // Wrapping table: every cell shows in full over as many lines as it needs; a very long row carries on over the page
-        const lh=12.4,pt=5,pb=6;
+        const lh=Math.round(fs*1.3*10)/10,pt=5,pb=6,bl=fs-.2;
         b.rows.forEach((r,ri)=>{const tot=b.total&&ri===b.rows.length-1;
           // a cell is text (newlines kept) or a list of lines, each text or {t, b: bold, m: muted}
           const cells=r.map((v,i)=>{const f0=tot||(b.bold||[]).includes(i)?"B":"",lines=[];
@@ -225,9 +225,9 @@ function buildPdf(R,photos,logo){
             if(fitN<Math.min(2,left)||(fitN<left&&left*lh<(BOT-M)/3)){newPage();head();continue}
             const n=fitN>=left?left:(left-fitN===1&&fitN>2?fitN-1:fitN),h=pt+n*lh+pb-(done+n<total?pb-2:0);
             if(tot){fill(M,y,CW,h,"f3ede1");hline(M,y,CW,C.ink,.8)}else if(ri%2)fill(M,y,CW,h,"faf9f6");
-            if(done&&!tot){txt(fit(r[0],ws[0],""),xs[0]+8,y+pt+9.4,"",8.6,C.muted);txt("cont.",xs[0]+8,y+pt+9.4+lh,"I",8.2,C.muted)}
+            if(done&&!tot){txt(fit(r[0],ws[0],""),xs[0]+8,y+pt+bl,"",8.6,C.muted);txt("cont.",xs[0]+8,y+pt+bl+lh,"I",8.2,C.muted)}
             slots.slice(done,done+n).forEach((sl,k)=>sl.forEach(L=>{if(done&&L.i===0)return;const sz=L.sz||fs;
-              txt(L.t,L.x!=null?L.x:right.includes(L.i)?xs[L.i]+ws[L.i]-8-pdfW(L.t,L.f,sz):xs[L.i]+8,y+pt+9.4+k*lh,L.f,sz,L.c)}));
+              txt(L.t,L.x!=null?L.x:right.includes(L.i)?xs[L.i]+ws[L.i]-8-pdfW(L.t,L.f,sz):xs[L.i]+8,y+pt+bl+k*lh,L.f,sz,L.c)}));
             y+=h;done+=n;if(!tot&&ri<b.rows.length-1&&done>=total)hline(M,y,CW,"ebe8e2",.5)}
         });
         hline(M,y,CW,C.line,.6);y+=6;continue}
