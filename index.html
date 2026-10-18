@@ -1969,6 +1969,11 @@ try{if(!history.state||!history.state.ml)history.replaceState({ml:"root"},"")}ca
 try{history.scrollRestoration="manual"}catch(e){} // the app places the scroll itself (e.g. back on a work order's row)
 const histDepth=()=>{const st=history.state;return !st||st.ml==="root"?0:st.ml==="nav"?(st.d||1):st.ml==="guard"?1:-1}; // -1: a sheet / sub-job / viewer entry
 function histPush(){try{history.pushState({ml:"nav",d:navStack.length},"")}catch(e){}}
+// Opening a work order (or leaving one) waits for the last save first, which can take a while on a weak signal.
+// The phone only keeps history steps added while your tap is fresh, so the step is added straight away, at the tap,
+// and the page change that follows uses it.
+let prePushed=false;
+function navPrePush(){if(navRestoring||navReplace||prePushed)return;try{history.pushState({ml:"nav",d:navStack.length+1,pre:1},"");prePushed=true}catch(e){}}
 // after going back, drop any history entries left over (e.g. for a work order that has since been deleted)
 function navSync(){if(skipPop>0)return;try{const d=histDepth(),want=navStack.length;if(d>want){skipPop++;history.go(want-d)}}catch(e){}}
 // in-app Back / Done: step the phone's history back too, so the two stay in step
@@ -1988,7 +1993,7 @@ async function leaveLogIfNeeded(target){
     else if(!ok){const be=buildEntry();toast(be.error?"Not saved yet: "+be.error+". Tap + New job to get back to it.":"Not saved yet. Check your connection.")}
   }
 }
-async function goTab(view){await leaveLogIfNeeded(view);show(view)}
+async function goTab(view){if(currentView()==="log"&&view!=="log")navPrePush();await leaveLogIfNeeded(view);show(view)}
 window.addEventListener("popstate",async()=>{
   if(skipPop>0){skipPop--;if(popWaiter){const f=popWaiter;popWaiter=null;f()}return}
   if(!$("#moresheet").hidden){closeMore(true);return}
@@ -2009,7 +2014,10 @@ function locNow(){const v=currentView();return {view:v,logId:v==="log"?editingId
 function navNote(){ // called after every page change
   const now=locNow();
   if(!navRestoring&&curLoc&&locKey(now)!==locKey(curLoc)&&curLoc.view!=="share"&&!(curLoc.view==="log"&&!curLoc.logId&&now.view==="log")){
-    if(!navReplace){navStack.push(curLoc);if(navStack.length>40)navStack.shift();histPush()}}
+    if(!navReplace){navStack.push(curLoc);if(navStack.length>40)navStack.shift();
+      if(prePushed){prePushed=false;try{history.replaceState({ml:"nav",d:navStack.length},"")}catch(e){}}else histPush()}}
+  // a step added at the tap, but the page didn't change after all: take it back off
+  if(prePushed){prePushed=false;try{if(history.state&&history.state.pre){skipPop++;history.back()}}catch(e){}}
   navReplace=false;curLoc=now;setHistBack()}
 window.addEventListener("scroll",()=>{if(curLoc&&!navRestoring&&locKey(curLoc)===locKey(locNow())){curLoc.scroll=window.scrollY;curLoc.sub=subPage;curLoc.woTab=woTab}},{passive:true});
 async function navBack(){
@@ -2167,12 +2175,13 @@ function swipePager(o){let s=null;
   document.addEventListener("touchend",()=>{if(!s)return;const {dx,el,lock}=s,dt=Math.max(1,Date.now()-s.t);s=null;if(!lock)return;
     const dir=dx<0?1:-1,go=o.can(dir)&&(Math.abs(dx)>window.innerWidth*.26||(Math.abs(dx)>45&&Math.abs(dx)/dt>.5));
     if(!go){reset(el,true);return}
+    if(o.pre)o.pre();
     if(reduceMotion()){reset(el);o.go(dir);return}
     el.style.transition="transform .14s ease-in,opacity .14s ease-in";el.style.transform=`translate3d(${-dir*window.innerWidth*.4}px,0,0)`;el.style.opacity="0";
     setTimeout(async()=>{reset(el);await o.go(dir)},140)});
   document.addEventListener("touchcancel",()=>{if(s&&s.lock)reset(s.el,true);s=null});
 }
-swipePager({on:()=>TABS.includes(currentView()),el:()=>$("#v-"+currentView()),
+swipePager({on:()=>TABS.includes(currentView()),el:()=>$("#v-"+currentView()),pre:navPrePush,
   can:dir=>!!TABS[TABS.indexOf(currentView())+dir],
   go:async dir=>{const to=TABS[TABS.indexOf(currentView())+dir];await goTab(to);tabAnim(to,dir)}});
 
@@ -2839,6 +2848,7 @@ async function startEdit(id,subId){
   if(subId)setTimeout(()=>{if(editingId===id)openSub(subId)},30);
   const l=logs.find(x=>x.id===id);if(!l)return;
   returnTab=["all","todo"].includes(currentView())?currentView():"open";
+  if(!(currentView()==="log"&&editingId===id))navPrePush();
   await flushSave();
   editingId=id;dirty=false;origWo=l.wo||"";invLedger[id]=l.invUsed||{};if(woTab!=="details")setWoTab("details");
   resetPM();
@@ -5169,7 +5179,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.19-104";
+const APP_VERSION="2026.10.19-105";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
