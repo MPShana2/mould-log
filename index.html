@@ -391,6 +391,37 @@ textarea.autogrow{resize:none;overflow:hidden}
 .hrtotals span{display:block;font-size:12px;color:var(--muted);font-weight:600}
 .hrtotals b{display:block;font-family:var(--mono);font-size:22px;margin-top:2px}
 .hrtotals small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+#v-cal,#v-calday{width:100%;max-width:640px;margin-inline:auto}
+.calwk{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--hdrh,64px));z-index:3;display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);margin:0 -16px;padding:6px 16px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--muted);text-align:center}
+.calmonth h3{display:flex;align-items:baseline;justify-content:center;gap:10px;margin:18px 0 10px;font-size:19px;font-weight:600}
+.calmonth h3 small{font-size:12.5px;font-weight:500;color:var(--muted)}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.calc{position:relative;aspect-ratio:1;border-radius:6px;background:var(--surface);border:0;padding:0;font:inherit;color:var(--fg);display:flex;align-items:center;justify-content:center;overflow:hidden;min-width:0}
+.calc.blank{background:none}
+.calc.fut{opacity:.55}
+.calc .caln{position:relative;z-index:1;font-size:15px;font-variant-numeric:tabular-nums}
+button.calc{cursor:pointer}
+.calc.has{background:color-mix(in srgb,var(--accent) 38%,var(--surface));font-weight:600}
+.calc.has:hover{outline:2px solid var(--accent);outline-offset:-2px}
+.calc.today{box-shadow:inset 0 0 0 2px var(--fg)}
+.calc .calimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.calc.ph::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.18),rgba(0,0,0,.42))}
+.calc.ph .caln{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.7);font-size:16px}
+.calcount{position:absolute;top:3px;right:3px;z-index:2;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:rgba(0,0,0,.72);color:#fff;font-size:11px;font-weight:700;line-height:17px;text-align:center}
+@media (min-width:560px){.calc .caln{font-size:17px}.calgrid{gap:4px}}
+.cdnav{display:flex;justify-content:space-between;gap:8px}.cdnav .btn{padding:8px 12px;font-size:14px}.cdnav #cd-next{margin-left:auto}
+.cdlist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.cdrow{all:unset;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 14px;border-top:1px solid var(--line);cursor:pointer}
+.cdrow:first-child{border-top:0}.cdrow:hover{background:var(--sunk)}
+.cdtxt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.cdtool{font-size:16px}
+.cdmeta{display:flex;align-items:center;gap:8px;font-size:14px}.cdmeta .stpill{font-size:11.5px;padding:2px 8px}
+.cdbody{white-space:pre-line;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;font-size:14.5px;line-height:1.4}
+.cdbody.muted{color:var(--muted)}
+.cdimg{position:relative;width:88px;height:88px;border-radius:8px;overflow:hidden;background:var(--sunk);display:flex;align-items:center;justify-content:center}
+.cdimg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cdimg .ext{font-size:11px;color:var(--muted)}
+.cdplay{position:absolute;z-index:1;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
 .hrwot{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
 .hrwor{all:unset;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 12px;border-top:1px solid var(--line);cursor:pointer}
 .hrwor:first-child{border-top:0}.hrwor:hover{background:var(--sunk)}
@@ -824,6 +855,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <span class="syncnote" id="syncnote" role="status" hidden></span>
     <button type="button" class="menubtn" id="menubtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="menu" id="menu" role="menu" hidden>
+      <button type="button" role="menuitem" data-page="cal"><span>Calendar</span><small>Updates by day · scroll through the months</small></button>
       <button type="button" role="menuitem" data-page="inv"><span>Inventory <b class="menucount" id="invcount" hidden></b></span><small>Consumables · mould parts · equipment</small></button>
       <button type="button" role="menuitem" data-page="inbox"><span>Unassigned updates <b class="menucount" id="inboxcount" hidden></b></span><small>Quick notes waiting for a work order</small></button>
       <button type="button" role="menuitem" data-page="hours"><span>Work hours</span><small>Log time · monthly totals</small></button>
@@ -1030,6 +1062,18 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       </form>
     </div>
   </section>
+  <section id="v-cal" class="stackcol page" hidden>
+    <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Calendar</h2></div>
+    <div class="calwk" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+    <div id="calmonths"></div>
+  </section>
+
+  <section id="v-calday" class="stackcol page" hidden>
+    <div class="pagehead"><button type="button" class="subback" data-pageback>← Calendar</button><h2 id="cd-title">Day</h2></div>
+    <div class="cdnav"><button type="button" class="btn ghost" id="cd-prev">‹ <span></span></button><button type="button" class="btn ghost" id="cd-next"><span></span> ›</button></div>
+    <div id="cd-list"></div>
+  </section>
+
   <section id="v-inv" class="stackcol page" hidden>
     <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Inventory</h2></div>
     <div class="ibtools"><input type="search" id="inv-q" placeholder="Search name, size, part no., location…" autocomplete="off" style="flex:1;min-width:180px"><button type="button" class="btn" id="inv-add">+ Add item</button></div>
@@ -1771,7 +1815,7 @@ function dropGuard(){if(skipPop>0)return; /* a step back is already on its way *
 const lazyMods={};
 function lazy(name){return lazyMods[name]||(lazyMods[name]=new Promise((res,rej)=>{const sc=document.createElement("script");sc.src=name+".js";
   sc.onload=res;sc.onerror=()=>{delete lazyMods[name];sc.remove();rej(new Error("Couldn't load that part of the app. Check your connection and try again."))};document.head.appendChild(sc)}))}
-const PAGES=["inv","inbox","hours","settings","account","backup","share","proc","procedit"];
+const PAGES=["cal","calday","inv","inbox","hours","settings","account","backup","share","proc","procedit"];
 function currentView(){return ["log","open","all","todo","moulds","hist",...PAGES].find(v=>!$("#v-"+v).hidden)||"open"}
 async function leaveLogIfNeeded(target){
   if($("#v-log").hidden||target==="log")return;
@@ -1796,8 +1840,8 @@ window.addEventListener("popstate",async()=>{
 // ---- Page history: Back (gesture, button or Done) returns to the page you came from, step by step ----
 // Each place is {view, logId, sub, mould, scroll, woTab}; Open jobs is home when the history runs out.
 let navStack=[],navRestoring=false,navReplace=false,curLoc=null,navTarget=null;
-const locKey=l=>l?[l.view,l.logId||"",l.mould||""].join("|"):"";
-function locNow(){const v=currentView();return {view:v,logId:v==="log"?editingId:null,sub:v==="log"?subPage:null,mould:v==="hist"?current:null,scroll:window.scrollY,woTab}}
+const locKey=l=>l?[l.view,l.logId||"",l.mould||"",l.day||""].join("|"):"";
+function locNow(){const v=currentView();return {view:v,logId:v==="log"?editingId:null,sub:v==="log"?subPage:null,mould:v==="hist"?current:null,day:v==="calday"?calDay:null,scroll:window.scrollY,woTab}}
 function navGuard(){if(navStack.length||currentView()!=="open")ensureGuard();else dropGuard()}
 function navNote(){ // called after every page change
   const now=locNow();
@@ -1814,7 +1858,7 @@ async function navBack(){
   try{
     if(to.view==="log"&&to.logId){await startEdit(to.logId,to.sub||undefined);if(to.woTab==="photos")setTimeout(()=>{if(editingId===to.logId)setWoTab("photos")},to.sub?60:0)}
     else if(to.view==="hist"){await leaveLogIfNeeded("hist");openMould(to.mould)}
-    else await goTab(to.view);
+    else{if(to.view==="calday")calDay=to.day||calDay;await goTab(to.view)}
     if(to.view==="log"){const y=to.scroll||0;setTimeout(()=>window.scrollTo(0,y),to.sub?90:30)}
   }finally{navRestoring=false;navTarget=null;curLoc=locNow();if(to.scroll!=null)curLoc.scroll=to.scroll;navGuard();setHistBack()}
 }
@@ -1932,6 +1976,8 @@ function show(view){
   if(view==="all")renderAllJobs();
   if(view==="todo")renderTodo(true);
   if(view==="hours"){hrConfirm=null;renderHours()}
+  if(view==="cal")renderCal();
+  if(view==="calday")renderCalDay();
   if(view==="inbox"){renderInbox();renderInboxDrive()}
   if(view==="backup")loadAutoBkInfo();
   if(view==="inv")renderInv();
@@ -1943,6 +1989,7 @@ function show(view){
     if(back&&["all","open","todo"].includes(view)){const row=$("#v-"+view).querySelector(`[data-open="${CSS.escape(back)}"]`),r=row&&row.getBoundingClientRect();
       if(!row||r.top<60||r.bottom>window.innerHeight-60)scrollToWo(view,back);else{row.classList.remove("rowflash");void row.offsetWidth;row.classList.add("rowflash");setTimeout(()=>row.classList.remove("rowflash"),1700)}}}
   else if(!(back&&["all","open","todo"].includes(view)&&scrollToWo(view,back)))window.scrollTo(0,0);
+  if(view==="cal"&&!(navRestoring&&navTarget&&navTarget.view==="cal"))calScrollNow();
   if(view==="log"){growAll();renderFormDrive()}
   if(typeof updFabShow==="function")setTimeout(updFabShow,0);
   if(typeof navNote==="function")navNote();
@@ -2486,7 +2533,7 @@ function renderAll(){
   const nm=moulds.filter(m=>!isGen(m)).length,ng=moulds.filter(isGen).length;
   $("#countline").textContent=loaded.m?`${nm} mould${nm===1?"":"s"}${ng?` · ${ng} general`:""} · ${logs.length} entr${logs.length===1?"y":"ies"}`:"Loading…";
   if(editingId)woNavUpdate();
-  renderSelect();renderList();if(!$("#v-hist").hidden)renderHist();renderProcLists();if(!$("#v-proc").hidden)renderProc();if(!$("#v-log").hidden&&document.activeElement!==$("#f-wo"))renderFormDrive();
+  renderSelect();renderList();if(!$("#v-hist").hidden)renderHist();calRefresh();renderProcLists();if(!$("#v-proc").hidden)renderProc();if(!$("#v-log").hidden&&document.activeElement!==$("#f-wo"))renderFormDrive();
 }
 
 let editingId=null, origWo=null;
@@ -3175,7 +3222,7 @@ $("#wotabs").addEventListener("click",e=>{const b=e.target.closest("[data-wotab]
 let formDriveTimer=null;
 function renderFormDriveSoon(){clearTimeout(formDriveTimer);formDriveTimer=setTimeout(renderFormDrive,500)}
 $("#f-wo").addEventListener("input",renderFormDriveSoon);
-function renderAttViews(){if(!$("#v-inbox").hidden){renderInboxDrive();renderInbox()}if(!$("#qsheet").hidden)qThumbs();if(!$("#v-hist").hidden)renderHist();if(!$("#v-log").hidden){renderFormDrive();updRefreshPhotos()}}
+function renderAttViews(){calPhotosLoaded();if(!$("#v-inbox").hidden){renderInboxDrive();renderInbox()}if(!$("#qsheet").hidden)qThumbs();if(!$("#v-hist").hidden)renderHist();if(!$("#v-log").hidden){renderFormDrive();updRefreshPhotos()}}
 function onDriveConnected(){setTimeout(()=>autoBackup(false),3000);for(const k in driveState){if(driveState[k].status!=="ready")delete driveState[k]}renderAttViews();renderAccount();processQueue();processBackups()}
 async function connectDrive(forceConsent){
   try{await requestToken(forceConsent||!driveOk?"consent":"");
@@ -4124,6 +4171,79 @@ $("#hr-flist").addEventListener("click",e=>{const o=e.target.closest("[data-i]")
 $("#hr-fq").addEventListener("blur",()=>{setTimeout(()=>{if(document.activeElement===$("#hr-fq"))return;
   if(!$("#hr-fq").value.trim()&&hrFilter!=="all")hrFSet("all");else $("#hr-fq").value=hrFilterLabel(hrFilter);hrFClose()},120)});
 $("#hr-fclear").onclick=()=>hrFSet("all");
+
+// ---- Calendar: every update by the day it's dated, months scrolling like a diary ----
+var calDay=null;let calIdx=null,calIO=null;const calImg={};
+const calISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+// date -> the updates made that day: one per work order / sub-job (same-day updates are already merged), plus unassigned ones
+function calBuild(){const by={};const add=(d,e)=>{if(/^\d{4}-\d{2}-\d{2}$/.test(d||""))(by[d]=by[d]||[]).push(e)};
+  for(const l of logs){const tabs=tabIdsFor(l.mouldId,l.extraMouldIds),ids=[...new Set([l.mouldId||null,...(l.extraMouldIds||[])])];
+    for(const id of ids){const prim=id===(l.mouldId||null),m=id&&moulds.find(x=>x.id===id),sub=tabs.includes(id);
+      for(const u of updClean(pmVal(l,prim?null:id).updates))add(u.date,{kind:"wo",l,open:sub?id:null,wo:sub?subLabel(l,id):(l.wo||""),
+        tool:m?mlabel(m):(prim?(l.mouldName||jobTool(l)):"Mould"),status:subMeta(l,id).status,text:u.text||"",files:u.files||[],
+        t:{num:woNum(l.wo),label:jobTool(l),sub:prim?"":subName(id)}})}}
+  for(const n of inbox)add(n.date,{kind:"inbox",id:n.id,wo:"",tool:"Unassigned update",status:"",text:n.text||"",files:n.files||[],t:INBOX_T});
+  for(const d in by)by[d].sort((a,b)=>(a.kind==="inbox")-(b.kind==="inbox")||String(a.wo).localeCompare(String(b.wo),undefined,{numeric:true}));
+  return by}
+// Photo thumbnails come from each work order's Drive folder; folders are listed a few at a time, only for days on screen
+const calQ=[];let calBusy=0;
+function calPump(){while(calBusy<3&&calQ.length){const k=calQ.shift();calBusy++;Promise.resolve(driveLoad(k)).catch(()=>{}).finally(()=>{calBusy--;calPump()})}}
+function calThumb(e,size){if(!e.files.length||!e.t.num)return null;const key=dkey(e.t),st=driveState[key];
+  if(!st){if(driveRoot&&hasToken()){driveState[key]={stack:[],status:"loading",label:e.t.label,num:e.t.num,sub:e.t.sub||""};calQ.push(key);calPump()}return null}
+  for(const n of e.files){const f=(st.items||[]).find(x=>x.name===n);if(f&&f.thumbnailLink)return {src:sizedThumb(f.thumbnailLink,size),video:isVideo(f)}}
+  return null}
+function calCellImg(btn){const d=btn.dataset.cald;if(calImg[d]||!calIdx||!calIdx[d])return;
+  for(const e of calIdx[d]){const th=calThumb(e,200);if(th){calImg[d]=th.src;btn.insertAdjacentHTML("afterbegin",`<img class="calimg" src="${esc(th.src)}" referrerpolicy="no-referrer" alt="" draggable="false">`);btn.classList.add("ph");return}}}
+function calPhotosLoaded(){if(!$("#v-cal").hidden)document.querySelectorAll("#calmonths .calc.vis:not(.ph)[data-calph]").forEach(calCellImg);if(!$("#v-calday").hidden)calDayImgs()}
+function renderCal(){
+  const hdr=document.querySelector("header.top");if(hdr)document.documentElement.style.setProperty("--hdrh",hdr.offsetHeight+"px");
+  calIdx=calBuild();const days=Object.keys(calIdx).sort(),now=new Date(),todayS=calISO(now);
+  // from the first month with an update (or three months back) to this month, or the last dated update if that's later
+  let a=days.length?new Date(days[0]+"T00:00:00"):new Date(now.getFullYear(),now.getMonth()-2,1);const last=days.length?new Date(days[days.length-1]+"T00:00:00"):now;
+  if(a>now)a=new Date(now.getFullYear(),now.getMonth(),1);const endM=last>now?last:now;
+  let y=a.getFullYear(),m=a.getMonth();if((endM.getFullYear()-y)*12+endM.getMonth()-m>240){y=endM.getFullYear()-20;m=endM.getMonth()}
+  let h="";
+  while(y<endM.getFullYear()||(y===endM.getFullYear()&&m<=endM.getMonth())){
+    const first=new Date(y,m,1),nd=new Date(y,m+1,0).getDate(),lead=(first.getDay()+6)%7,mk=`${y}-${String(m+1).padStart(2,"0")}`;
+    let cells="";for(let i=0;i<lead;i++)cells+=`<span class="calc blank"></span>`;
+    for(let d=1;d<=nd;d++){const ds=`${mk}-${String(d).padStart(2,"0")}`,es=calIdx[ds]||[],cls=["calc"];if(ds===todayS)cls.push("today");if(ds>todayS)cls.push("fut");
+      if(!es.length){cells+=`<span class="${cls.join(" ")}"><span class="caln">${d}</span></span>`;continue}
+      cls.push("has");const ph=es.some(e=>e.files.length),img=calImg[ds];if(img)cls.push("ph");
+      cells+=`<button type="button" class="${cls.join(" ")}" data-cald="${ds}"${ph?" data-calph":""} aria-label="${esc(new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"}))}: ${es.length} update${es.length===1?"":"s"}">${img?`<img class="calimg" src="${esc(img)}" referrerpolicy="no-referrer" alt="" draggable="false">`:""}<span class="caln">${d}</span>${es.length>1?`<b class="calcount">${es.length}</b>`:""}</button>`}
+    const tot=Object.keys(calIdx).filter(k=>k.startsWith(mk)).reduce((t,k)=>t+calIdx[k].length,0);
+    h+=`<section class="calmonth" data-calm="${mk}"><h3>${esc(first.toLocaleDateString(undefined,{month:"long",year:"numeric"}))}${tot?`<small>${tot} update${tot===1?"":"s"}</small>`:""}</h3><div class="calgrid">${cells}</div></section>`;
+    if(++m>11){m=0;y++}}
+  $("#calmonths").innerHTML=h;
+  if(calIO)calIO.disconnect();
+  calIO="IntersectionObserver" in window?new IntersectionObserver(es=>es.forEach(x=>{x.target.classList.toggle("vis",x.isIntersecting);if(x.isIntersecting)calCellImg(x.target)}),{rootMargin:"300px 0px"}):null;
+  document.querySelectorAll("#calmonths .calc[data-calph]").forEach(b=>{if(calIO)calIO.observe(b);else{b.classList.add("vis");calCellImg(b)}});
+}
+// Opening the calendar shows this month at the bottom of the screen with the months before it above, like a diary
+function calScrollNow(){const n=new Date(),el=document.querySelector(`#calmonths [data-calm="${calISO(n).slice(0,7)}"]`);if(!el)return;
+  const r=el.getBoundingClientRect();window.scrollTo(0,Math.max(0,r.bottom+window.scrollY-window.innerHeight+90))}
+let calRT=null;function calRefresh(){if(($("#v-cal").hidden&&$("#v-calday").hidden)||calRT)return;calRT=setTimeout(()=>{calRT=null;if(!$("#v-cal").hidden){const y=window.scrollY;renderCal();window.scrollTo(0,y)}else if(!$("#v-calday").hidden)renderCalDay()},250)}
+$("#calmonths").addEventListener("click",e=>{const b=e.target.closest("[data-cald]");if(!b)return;calDay=b.dataset.cald;goTab("calday")});
+// ---- One day: the updates made that day; tap one to open its work order ----
+function calDayStep(dir){const days=Object.keys(calIdx||{}).sort();if(dir<0){for(let i=days.length-1;i>=0;i--)if(days[i]<calDay)return days[i]}else{for(const d of days)if(d>calDay)return d}return null}
+function renderCalDay(){
+  calIdx=calBuild();if(!calDay)calDay=today();const es=calIdx[calDay]||[],dt=new Date(calDay+"T00:00:00");
+  $("#cd-title").textContent=dt.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  const sd=d=>new Date(d+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"});
+  const pv=calDayStep(-1),nx=calDayStep(1);
+  $("#cd-prev").hidden=!pv;$("#cd-next").hidden=!nx;if(pv)$("#cd-prev span").textContent=sd(pv);if(nx)$("#cd-next span").textContent=sd(nx);
+  $("#cd-list").innerHTML=es.length?`<div class="cdlist">${es.map((e,i)=>`<button type="button" class="cdrow" data-cdi="${i}">
+    <span class="cdtxt"><b class="cdtool">${esc(e.tool)}</b><span class="cdmeta">${e.kind==="inbox"?`<span class="stpill none">Not assigned yet</span>`:`<span class="mono">#${esc(e.wo||"–")}</span>${e.status?` <span class="stpill ${stClass(e.status)}">${esc(e.status)}</span>`:""}`}</span>
+    ${e.text?`<span class="cdbody">${esc(e.text)}</span>`:`<span class="cdbody muted">${e.files.length} photo${e.files.length===1?"":"s"}</span>`}</span>
+    ${e.files.length?`<span class="cdimg" data-cdimg="${i}"><span class="ext">IMG</span>${e.files.length>1?`<b class="calcount">${e.files.length}</b>`:""}</span>`:""}</button>`).join("")}</div>`
+    :`<div class="empty">No updates on this day.</div>`;
+  calDayImgs();
+}
+function calDayImgs(){const es=(calIdx&&calIdx[calDay])||[];document.querySelectorAll("#cd-list [data-cdimg]").forEach(el=>{if(el.querySelector("img"))return;const e=es[+el.dataset.cdimg],th=e&&calThumb(e,320);
+  if(th)el.insertAdjacentHTML("afterbegin",`<img src="${esc(th.src)}" referrerpolicy="no-referrer" alt="" draggable="false">${th.video?`<span class="cdplay" aria-hidden="true">▶</span>`:""}`)})}
+$("#cd-list").addEventListener("click",e=>{const b=e.target.closest("[data-cdi]");if(!b)return;const x=((calIdx&&calIdx[calDay])||[])[+b.dataset.cdi];if(!x)return;
+  if(x.kind==="inbox")goTab("inbox");else startEdit(x.l.id,x.open||undefined)});
+const calGo=dir=>{const d=calDayStep(dir);if(!d)return;calDay=d;navReplace=true;show("calday")};
+$("#cd-prev").onclick=()=>calGo(-1);$("#cd-next").onclick=()=>calGo(1);
 // Hours for the month grouped by work order (and sub-job): the end-of-month breakdown
 function hrByWo(entries){const g={};
   for(const h of entries){const l=hrLog(h),k=(l?l.id:"wo:"+normWo(h.wo))+"|"+(h.sub||"");
@@ -4640,7 +4760,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-83";
+const APP_VERSION="2026.10.18-84";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -4678,7 +4798,7 @@ function startData(){
   unsubs.push(db.collection("procedures").onSnapshot(s=>{procedures=s.docs.map(d=>({id:d.id,...d.data()}));renderProcLists();renderProc();renderList();ensureServiceProc()},e=>dataError(e)));
   unsubs.push(db.collection("hours").onSnapshot(s=>{hoursList=s.docs.map(d=>({id:d.id,...d.data()}));renderHours();renderFormHours()},e=>dataError(e)));
   unsubs.push(db.collection("inventory").onSnapshot(s=>{inventory=s.docs.map(d=>({id:d.id,...d.data()}));loaded.inv=true;renderInv();plStockRefresh();renderInvBadge();if(!$("#v-hist").hidden)renderHistParts();if(!$("#invsheet").hidden&&ivEdit)ivUsed()},e=>dataError(e)));
-  unsubs.push(db.collection("inbox").onSnapshot(s=>{inbox=s.docs.map(d=>({id:d.id,...d.data()}));renderInbox()},e=>dataError(e)));
+  unsubs.push(db.collection("inbox").onSnapshot(s=>{inbox=s.docs.map(d=>({id:d.id,...d.data()}));renderInbox();calRefresh()},e=>dataError(e)));
   unsubs.push(db.collection("todolists").onSnapshot(s=>{todoLists=s.docs.map(d=>({id:d.id,...d.data()}));renderTodo()},e=>dataError(e)));
   unsubs.push(db.doc("settings/drive").onSnapshot(s=>{
     const d=s.exists?s.data():null;const nr=d&&d.rootId?{id:d.rootId,name:d.rootName}:null;
