@@ -452,6 +452,34 @@ button.calc:not(.has):hover{background:var(--sunk)}
 .caljobs small{font-weight:500;opacity:.8}
 .calc.ph .caljobs{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)}
 .offnote{background:var(--sunk);border-radius:8px;padding:6px 10px;margin-bottom:8px;color:var(--muted)}
+.dsedit{display:flex;flex-direction:column;gap:8px}
+.dsedit:empty{display:none}
+.dsrow{display:grid;grid-template-columns:70px minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.dsrow .dsf{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.dsrow .dsf input{width:100%;min-width:0}
+.dsrow .dsrem{grid-column:1/-2;display:flex;align-items:center;gap:8px;font-size:14px}
+.dsrow .dsx{grid-column:-2/-1;grid-row:1;align-self:center;border:0;background:none;color:var(--muted);font-size:20px;width:36px;height:36px;border-radius:8px;cursor:pointer}
+.dsrow .dsx:hover{background:var(--sunk);color:var(--fg)}
+.dschip{display:inline-flex;align-items:baseline;gap:4px;padding:3px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px;font-weight:500;margin:2px 4px 2px 0;white-space:nowrap}
+.dschip small{color:var(--muted)}.dschip b{font-family:var(--mono)}
+.dschip.ok b{color:var(--ok)}.dschip.due{border-color:var(--accent)}.dschip.due b{color:var(--warn)}
+.dsfacts{display:flex;flex-wrap:wrap;white-space:normal!important;margin-top:4px}
+.facts .dschip span,.facts .dschip small{font-size:inherit;text-transform:none;letter-spacing:0}
+.facts .dschip small{color:var(--muted);font-size:12px}.facts .dschip span.mono{color:var(--fg)}.facts .dschip b{display:inline;font-size:13px}
+.dsrow .dsrem input{width:auto;margin:0;flex:none}.dsrow .dsrem{justify-content:flex-start;color:var(--fg)}
+.dssum{padding:10px 14px;border-radius:10px;background:var(--surface);border:1px solid var(--line);box-shadow:inset 4px 0 0 var(--accent)}
+.dsneed{color:var(--warn);font-weight:600}.dsdone{color:var(--ok);font-weight:600}
+.dssizes,.dsmoulds{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.dssize{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:10px 14px;border-top:1px solid var(--line);align-items:center}
+.dssize:first-child,.dsm:first-child{border-top:0}
+.dssz-t,.dssz-n{display:flex;flex-direction:column}.dssz-t small,.dssz-n small{color:var(--muted);font-size:12.5px}.dssz-n{align-items:flex-end}.dssz-n b{font-size:18px}
+.dssz-y{display:flex;flex-wrap:wrap;gap:4px}.dssz-d{text-align:right;font-size:13px}
+.dsyr{font-size:12.5px;padding:2px 8px;border-radius:999px;background:var(--sunk)}.dsyr.ok{background:var(--ok-bg);color:var(--ok)}.dsyr.due{background:var(--warn-bg);color:var(--warn)}
+.dsm{display:flex;flex-direction:column;gap:4px;padding:10px 14px;border-top:1px solid var(--line)}
+.dsm-n{font-weight:700;font-size:15px;text-align:left}.dsm small{color:var(--muted)}
+.dsm-l{display:flex;flex-direction:column;gap:4px}.dsm-s{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dsset{padding:5px 10px;font-size:13px}
+@media (min-width:1000px){.dssize{grid-template-columns:minmax(0,1fr) 110px minmax(0,1.4fr) 180px}.dssz-n{align-items:flex-start}}
 .calcount{position:absolute;top:3px;right:3px;z-index:2;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:rgba(0,0,0,.72);color:#fff;font-size:11px;font-weight:700;line-height:17px;text-align:center}
 @media (min-width:560px){.calc .caln{font-size:17px}.calgrid{gap:4px}}
 .cdnav{display:flex;justify-content:space-between;gap:8px}.cdnav .btn{padding:8px 12px;font-size:14px}.cdnav #cd-next{margin-left:auto}
@@ -1165,7 +1193,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
   <section id="v-inv" class="stackcol page" hidden>
     <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Inventory</h2></div>
     <div class="ibtools"><input type="search" id="inv-q" placeholder="Search name, size, part no., location…" autocomplete="off" style="flex:1;min-width:180px"><button type="button" class="btn" id="inv-add">+ Add item</button></div>
-    <div class="seg" id="inv-cat" role="group" aria-label="Category"><button type="button" data-v="" aria-pressed="true">All</button><button type="button" data-v="consumable" aria-pressed="false">Consumables</button><button type="button" data-v="mould" aria-pressed="false">Mould parts</button><button type="button" data-v="equipment" aria-pressed="false">Equipment</button><button type="button" data-v="low" aria-pressed="false" id="inv-lowbtn">Low stock</button><button type="button" data-v="haz" aria-pressed="false" id="inv-hazbtn">⚠ Hazardous</button></div>
+    <div class="seg" id="inv-cat" role="group" aria-label="Category"><button type="button" data-v="" aria-pressed="true">All</button><button type="button" data-v="consumable" aria-pressed="false">Consumables</button><button type="button" data-v="mould" aria-pressed="false">Mould parts</button><button type="button" data-v="equipment" aria-pressed="false">Equipment</button><button type="button" data-v="ds" aria-pressed="false">Date stamps</button><button type="button" data-v="low" aria-pressed="false" id="inv-lowbtn">Low stock</button><button type="button" data-v="haz" aria-pressed="false" id="inv-hazbtn">⚠ Hazardous</button></div>
     <div id="invlist"></div>
   </section>
 
@@ -1346,6 +1374,10 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
           <div class="field"><label class="label" for="e-mat">Material</label><input id="e-mat" placeholder="e.g. PP"></div>
         </div>
         <div class="field"><label class="label" for="e-comp">Company</label><input id="e-comp" list="complist" placeholder="Who the mould belongs to or runs for"></div>
+        <div class="field"><span class="label">Date stamps</span>
+          <div id="e-ds" class="dsedit"></div>
+          <button type="button" class="addmould" id="e-dsadd">+ Add a date stamp</button>
+          <div class="hint">One line per size. The arrow year is the year the stamp currently shows; Inventory → Date stamps lists every stamp so you can change the arrows each new year.</div></div>
       </div><datalist id="complist"></datalist>
       <div class="field" id="e-genfields"><label class="label" for="e-area">Area / location</label><input id="e-area" placeholder="e.g. Tool room"></div>
       <div class="stackcol" id="e-clifields">
@@ -2538,7 +2570,7 @@ $("#histhead").addEventListener("click",e=>{if(e.target.closest("#meditbtn"))ope
 function openMouldEdit(){
   const m=moulds.find(x=>x.id===current);if(!m)return;const gen=isGen(m);
   $("#e-name").value=mlabel(m);$("#e-alias").value=(m.aliases||[]).join(", ");$("#e-part").value=m.part||"";$("#e-cav").value=m.cavities||"";$("#e-mat").value=m.material||"";$("#e-comp").value=m.company||"";$("#complist").innerHTML=companies().map(c=>`<option value="${esc(c)}">`).join("");$("#e-area").value=m.area||"";
-  segSet("#e-kind",kindOf(m));editKindFields();
+  segSet("#e-kind",kindOf(m));editKindFields();dsEditRender(m.dateStamps||[]);
   $("#e-ccomp").value=m.company||"";$("#e-ccontact").value=m.contact||"";$("#e-cphone").value=m.phone||"";$("#e-cemail").value=m.email||"";$("#e-caddr").value=m.address||"";setTimeout(growAll,0);
   resetMouldDel();
   $("#mouldedit").hidden=false;$("#e-name").focus();
@@ -2589,6 +2621,7 @@ $("#mouldedit").addEventListener("submit",async e=>{
   const k=segVal("#e-kind")||kindOf(m),was=kindOf(m);
   const patch=k==="client"?{name,company:$("#e-ccomp").value.trim(),contact:$("#e-ccontact").value.trim(),phone:$("#e-cphone").value.trim(),email:$("#e-cemail").value.trim(),address:$("#e-caddr").value.trim()}:k==="generic"?{name,area:$("#e-area").value.trim()}:{name,part:$("#e-part").value.trim(),cavities:$("#e-cav").value.trim(),material:$("#e-mat").value.trim(),company:$("#e-comp").value.trim()};
   patch.kind=k==="mould"?"":k;
+  if(k==="mould")patch.dateStamps=dsEditRead();
   patch.aliases=[...new Set($("#e-alias").value.split(/[,;\n]/).map(x=>x.trim()).filter(Boolean))].slice(0,20);
   try{await db.collection("moulds").doc(m.id).update({...patch,updatedAt:new Date().toISOString()});
     // a main job turning into a mould becomes a sub-job on work orders with other moulds: give it the next number
@@ -2606,7 +2639,7 @@ function renderHist(){
    <div style="margin-top:10px"><button type="button" class="btn ghost" id="meditbtn">Edit details</button></div>
    <div class="facts">${isClient(m)?`<div><span>Client</span><b>${esc(m.company||"—")}</b></div><div><span>Contact</span><b>${esc(m.contact||"—")}</b></div><div><span>Phone</span><b>${m.phone?`<a href="${esc(telHref(m.phone))}">${esc(m.phone)}</a>`:"—"}</b></div>${m.email?`<div><span>Email</span><b><a href="mailto:${esc(m.email)}">${esc(m.email)}</a></b></div>`:""}${m.address?`<div class="wide"><span>Address</span><b>${esc(m.address)}</b></div>`:""}<div><span>Entries</span><b>${s.count}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`:isGen(m)?`<div><span>Area</span><b>${esc(m.area||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`:
    `${m.company?`<div><span>Company</span><b>${esc(m.company)}</b></div>`:""}<div><span>Cavities</span><b>${esc(m.cavities||"—")}</b></div><div><span>Material</span><b>${esc(m.material||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div>
-   <div><span>Latest shots</span><b>${fmtNum(s.shots)}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`}</div>`;
+   <div><span>Latest shots</span><b>${fmtNum(s.shots)}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>${(m.dateStamps||[]).length?`<div class="wide"><span>Date stamps</span><b class="dsfacts">${m.dateStamps.map(dsChip).join("")}</b></div>`:""}`}</div>`;
   const ml=logs.filter(l=>hasMould(l,m.id));
   const lastUpd=l=>{const u=updClean(pmVal(l,m.id).updates);if(!u.length)return "";const x=u[u.length-1];return `<div class="lastupd"><b>Update ${esc(fmtDate(x.date))}</b> ${esc(x.text.length>110?x.text.slice(0,110)+"…":x.text)}${u.length>1?` <span>(${u.length} updates)</span>`:""}</div>`};
   const alsoOn=l=>{const o=jobIds(l).map((id,i)=>[id,jobNames(l)[i]]).filter(([id])=>id!==m.id).map(x=>x[1]);return o.length?`<div class="alsoon">Also on: ${esc(o.join(", "))}</div>`:""};
@@ -2746,7 +2779,7 @@ function renderAll(){
   const nm=moulds.filter(m=>!isGen(m)).length,ng=moulds.filter(isGen).length;
   $("#countline").textContent=loaded.m?`${nm} mould${nm===1?"":"s"}${ng?` · ${ng} general`:""} · ${logs.length} entr${logs.length===1?"y":"ies"}`:"Loading…";
   if(editingId)woNavUpdate();
-  renderSelect();renderList();if(!$("#v-hist").hidden)renderHist();calRefresh();renderProcLists();if(!$("#v-proc").hidden)renderProc();if(!$("#v-log").hidden&&document.activeElement!==$("#f-wo"))renderFormDrive();
+  renderSelect();renderList();if(!$("#v-hist").hidden)renderHist();calRefresh();if(!$("#v-inv").hidden&&invCat==="ds")renderInv();renderProcLists();if(!$("#v-proc").hidden)renderProc();if(!$("#v-log").hidden&&document.activeElement!==$("#f-wo"))renderFormDrive();
 }
 
 let editingId=null, origWo=null;
@@ -3857,7 +3890,7 @@ function invRow(it){const low=invLow(it),used=invUsedIn(it.id).length,sds=sdsSta
     <span class="invq"><button type="button" data-ivstep="${esc(it.id)}|-1" aria-label="One less">−</button><span class="mono"><b>${fmtQty(it.qty)}</b><small>${esc(it.unit||"pcs")}</small></span><button type="button" data-ivstep="${esc(it.id)}|1" aria-label="One more">+</button></span>
     ${low?`<span class="invlow">Low · reorder at ${fmtQty(it.min)}</span>`:""}${sds?sdsBadge(it):""}</div>`}
 function renderInv(){renderInvBadge();const el=$("#invlist");if(!el||$("#v-inv").hidden)return;
-  const q=$("#inv-q").value.trim();let list=inventory.filter(it=>invMatch(it,q));
+  const q=$("#inv-q").value.trim();if(invCat==="ds"){renderDateStamps(el,q);return}let list=inventory.filter(it=>invMatch(it,q));
   if(invCat==="low")list=list.filter(invLow);else if(invCat==="haz")list=list.filter(it=>it.hazardous);else if(invCat)list=list.filter(it=>(it.cat||"consumable")===invCat);
   list.sort((a,b)=>String(a.name).localeCompare(String(b.name),undefined,{numeric:true,sensitivity:"base"})||String(a.spec||"").localeCompare(String(b.spec||""),undefined,{numeric:true}));
   if(!inventory.length){el.innerHTML=`<div class="empty"><strong>No items yet</strong>Add your consumables (O-rings, sandpaper, screws…), spare mould parts and toolroom equipment. Set a <b>Reorder at</b> level and the app tells you when stock runs low.</div>`;return}
@@ -3866,6 +3899,51 @@ function renderInv(){renderInvBadge();const el=$("#invlist");if(!el||$("#v-inv")
   if(invCat==="haz"){const k=it=>it.sdsDate?sdsDue(it.sdsDate):"0000";list.sort((a,b)=>k(a).localeCompare(k(b)))}
   const groups=invCat==="haz"?[[null,list]]:invCat?[[null,list]]:Object.keys(INV_CATS).map(k=>[k,list.filter(it=>(it.cat||"consumable")===k)]).filter(g=>g[1].length);
   el.innerHTML=groups.map(([k,items])=>`${k?`<div class="ogh">${esc(INV_PLURAL[k])}<span>${items.length}</span></div>`:""}<div class="invlist">${items.map(invRow).join("")}</div>`).join("")}
+
+// ---- Date stamps: each mould's stamps (size, removable arrow, arrow year) and the yearly arrow change-over ----
+// m.dateStamps=[{qty, dia (mm), rem (arrow can be swapped), year (year the arrow shows)}]
+const dsYear=()=>new Date().getFullYear();
+function dsChip(d){const Y=dsYear(),y=+d.year||0,st=!y?"none":y>=Y?"ok":"due";
+  return `<span class="dschip ${st}"><span class="mono">${(+d.qty||1)>1?`${+d.qty}× `:""}Ø${esc(d.dia||"?")}</span> <small>${d.rem?"removable":"fixed"} arrow</small>${y?` <b>${y}</b>`:""}</span>`}
+function dsEditRender(list){$("#e-ds").innerHTML=list.map(d=>dsEditRow(d)).join("")}
+function dsEditRow(d){d=d||{};return `<div class="dsrow">
+  <label class="dsf"><span>Qty</span><input type="number" inputmode="numeric" min="1" class="ds-qty" value="${esc(d.qty||1)}"></label>
+  <label class="dsf"><span>Diameter (mm)</span><input inputmode="decimal" class="ds-dia mono" value="${esc(d.dia||"")}" placeholder="e.g. 10"></label>
+  <label class="dsf"><span>Arrow year</span><input type="number" inputmode="numeric" min="1990" max="2100" class="ds-year mono" value="${esc(d.year||"")}" placeholder="${dsYear()}"></label>
+  <label class="dsrem"><input type="checkbox" class="ds-rem"${d.rem?" checked":""}> Removable arrow</label>
+  <button type="button" class="dsx" aria-label="Remove this date stamp">×</button></div>`}
+function dsEditRead(){return [...document.querySelectorAll("#e-ds .dsrow")].map(r=>({qty:Math.max(1,parseInt(r.querySelector(".ds-qty").value,10)||1),dia:r.querySelector(".ds-dia").value.trim().replace(/^[Øø]\s*/,"").replace(/\s*mm$/i,""),rem:r.querySelector(".ds-rem").checked,year:parseInt(r.querySelector(".ds-year").value,10)||null})).filter(d=>d.dia||d.year)}
+$("#e-dsadd").onclick=()=>{$("#e-ds").insertAdjacentHTML("beforeend",dsEditRow({qty:1,year:dsYear(),rem:true}));const r=$("#e-ds").lastElementChild;r.querySelector(".ds-dia").focus()};
+$("#e-ds").addEventListener("click",e=>{const x=e.target.closest(".dsx");if(x)x.closest(".dsrow").remove()});
+// Inventory → Date stamps: totals by size and arrow type, then every mould's stamps with a one-tap "changed to this year"
+function renderDateStamps(el,q){const Y=dsYear();
+  let rows=[];for(const m of moulds){if(isGen(m)||isClient(m))continue;(m.dateStamps||[]).forEach((d,i)=>rows.push({m,d,i}))}
+  if(q)rows=rows.filter(r=>searchScore([mlabel(r.m),r.m.company,mAlias(r.m),"Ø"+r.d.dia,r.d.dia,r.d.year].join(" "),q)>0);
+  if(!rows.length){el.innerHTML=`<div class="empty"><strong>${q?"Nothing matches":"No date stamps yet"}</strong>${q?"":"Add them on each mould: Moulds → the mould → Edit details → Date stamps."}</div>`;return}
+  const qty=r=>+r.d.qty||1,sum=a=>a.reduce((t,r)=>t+qty(r),0),groups={};
+  for(const r of rows){const k=(r.d.dia||"?")+"|"+(r.d.rem?1:0);(groups[k]=groups[k]||[]).push(r)}
+  const keys=Object.keys(groups).sort((a,b)=>(parseFloat(a)||1e9)-(parseFloat(b)||1e9)||a.localeCompare(b));
+  const total=sum(rows),cur=sum(rows.filter(r=>+r.d.year>=Y));
+  const sizeRow=k=>{const g=groups[k],[dia,rem]=k.split("|"),yrs={};g.forEach(r=>{const y=r.d.year||"—";yrs[y]=(yrs[y]||0)+qty(r)});
+    const due=sum(g.filter(r=>!(+r.d.year>=Y))),ms=new Set(g.map(r=>r.m.id)).size;
+    return `<div class="dssize"><div class="dssz-t"><b class="mono">Ø${esc(dia)} mm</b><small>${rem==="1"?"Removable arrow":"Fixed arrow"}</small></div>
+      <div class="dssz-n"><b>${sum(g)}</b><small>in ${ms} mould${ms===1?"":"s"}</small></div>
+      <div class="dssz-y">${Object.keys(yrs).sort().reverse().map(y=>`<span class="dsyr ${y==="—"?"none":+y>=Y?"ok":"due"}">${esc(y)} <b>×${yrs[y]}</b></span>`).join("")}</div>
+      <div class="dssz-d">${due?`<span class="dsneed">${due} to change to ${Y}</span>`:`<span class="dsdone">All on ${Y}</span>`}</div></div>`};
+  const byMould={};rows.forEach(r=>{(byMould[r.m.id]=byMould[r.m.id]||{m:r.m,list:[]}).list.push(r)});
+  const late=x=>x.list.some(r=>!(+r.d.year>=Y))?0:1;
+  const ml=Object.values(byMould).sort((a,b)=>late(a)-late(b)||mlabel(a.m).localeCompare(mlabel(b.m),undefined,{numeric:true}));
+  el.innerHTML=`<div class="dssum"><b>${cur} of ${total}</b> date stamp${total===1?"":"s"} show ${Y}${cur<total?` · <span class="dsneed">${total-cur} to change</span>`:""}</div>
+    <div class="ogh">By size<span>${keys.length}</span></div><div class="dssizes">${keys.map(sizeRow).join("")}</div>
+    <div class="ogh">By mould<span>${ml.length}</span></div><div class="dsmoulds">${ml.map(({m,list})=>`<div class="dsm">
+      <div><button type="button" class="dsm-n linkish" data-dsmould="${esc(m.id)}">${esc(mlabel(m))}</button>${m.company?` <small>${esc(m.company)}</small>`:""}</div>
+      <div class="dsm-l">${list.map(r=>`<div class="dsm-s">${dsChip(r.d)}${+r.d.year>=Y?"":`<button type="button" class="btn ghost dsset" data-dsset="${esc(m.id)}|${r.i}">${r.d.rem?"Arrow":"Insert"} changed to ${Y}</button>`}</div>`).join("")}</div></div>`).join("")}</div>`}
+$("#invlist").addEventListener("click",async e=>{
+  const o=e.target.closest("[data-dsmould]");if(o){openMould(o.dataset.dsmould);return}
+  const b=e.target.closest("[data-dsset]");if(!b)return;const [id,i]=b.dataset.dsset.split("|"),m=moulds.find(x=>x.id===id);if(!m||!db)return;
+  const list=(m.dateStamps||[]).map(d=>({...d}));if(!list[+i])return;list[+i].year=dsYear();b.disabled=true;
+  try{await db.collection("moulds").doc(id).update({dateStamps:list,updatedAt:new Date().toISOString()});toast(`${mlabel(m)}: date stamp set to ${dsYear()}`)}
+  catch(err){b.disabled=false;toast("Couldn't save: "+(err.message||err.code))}});
 $("#inv-q").addEventListener("input",renderInv);
 $("#inv-cat").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;invCat=b.dataset.v;segSet("#inv-cat",invCat);renderInv()});
 // +/- straight from the list (saved a moment after the last tap)
@@ -5027,7 +5105,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-99";
+const APP_VERSION="2026.10.18-100";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
