@@ -393,6 +393,10 @@ textarea.autogrow{resize:none;overflow:hidden}
 .hrtotals small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
 #v-cal,#v-calday{width:100%;max-width:640px;margin-inline:auto}
 .calwk{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--hdrh,64px));z-index:3;display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);margin:0 -16px;padding:6px 16px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--muted);text-align:center}
+.caltools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.caltools .btn{padding:8px 12px;font-size:14px}
+.caljump{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);margin-left:auto}.caljump input{width:auto;padding:7px 10px;font-size:14px}
+.caltop{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0 0;font-size:14px}.caltop small{color:var(--muted);font-size:12.5px}
+#calmonths{overflow-anchor:none}
 .calmonth h3{display:flex;align-items:baseline;justify-content:center;gap:10px;margin:18px 0 10px;font-size:19px;font-weight:600}
 .calmonth h3 small{font-size:12.5px;font-weight:500;color:var(--muted)}
 .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
@@ -1065,7 +1069,9 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
   </section>
   <section id="v-cal" class="stackcol page" hidden>
     <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Calendar</h2></div>
+    <div class="caltools"><button type="button" class="btn ghost" id="cal-now">This month</button><label class="caljump"><span>Go to month</span><input type="month" id="cal-jump" aria-label="Go to month"></label></div>
     <div class="calwk" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+    <div class="caltop" id="caltop"></div>
     <div id="calmonths"></div>
   </section>
 
@@ -1978,7 +1984,7 @@ function show(view){
   if(view==="all")renderAllJobs();
   if(view==="todo")renderTodo(true);
   if(view==="hours"){hrConfirm=null;renderHours()}
-  if(view==="cal")renderCal();
+  if(view==="cal"){if(!(navRestoring&&navTarget&&navTarget.view==="cal"))calStart=null;renderCal()}
   if(view==="calday")renderCalDay();
   if(view==="inbox"){renderInbox();renderInboxDrive()}
   if(view==="backup")loadAutoBkInfo();
@@ -4198,29 +4204,56 @@ function calThumb(e,size){if(!e.files.length||!e.t.num)return null;const key=dke
 function calCellImg(btn){const d=btn.dataset.cald;if(calImg[d]||!calIdx||!calIdx[d])return;
   for(const e of calIdx[d]){const th=calThumb(e,200);if(th){calImg[d]=th.src;btn.insertAdjacentHTML("afterbegin",`<img class="calimg" src="${esc(th.src)}" referrerpolicy="no-referrer" alt="" draggable="false">`);btn.classList.add("ph");return}}}
 function calPhotosLoaded(){if(!$("#v-cal").hidden)document.querySelectorAll("#calmonths .calc.vis:not(.ph)[data-calph]").forEach(calCellImg);if(!$("#v-calday").hidden)calDayImgs()}
+// One month of the calendar
+function calMonthHtml(y,m,todayS){
+  const first=new Date(y,m,1),nd=new Date(y,m+1,0).getDate(),lead=(first.getDay()+6)%7,mk=`${y}-${String(m+1).padStart(2,"0")}`;
+  let cells="";for(let i=0;i<lead;i++)cells+=`<span class="calc blank"></span>`;
+  for(let d=1;d<=nd;d++){const ds=`${mk}-${String(d).padStart(2,"0")}`,es=calIdx[ds]||[],cls=["calc"],lbl=esc(new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"}));
+    if(ds===todayS)cls.push("today");if(ds>todayS)cls.push("fut");
+    if(!es.length){cells+=`<button type="button" class="${cls.join(" ")}" data-cald="${ds}" aria-label="${lbl}"><span class="caln">${d}</span></button>`;continue}
+    cls.push("has");const ph=es.some(e=>e.files.length),img=calImg[ds];if(img)cls.push("ph");
+    cells+=`<button type="button" class="${cls.join(" ")}" data-cald="${ds}"${ph?" data-calph":""} aria-label="${lbl}: ${es.length} update${es.length===1?"":"s"}">${img?`<img class="calimg" src="${esc(img)}" referrerpolicy="no-referrer" alt="" draggable="false">`:""}<span class="caln">${d}</span>${es.length>1?`<b class="calcount">${es.length}</b>`:""}</button>`}
+  const tot=Object.keys(calIdx).filter(k=>k.startsWith(mk)).reduce((t,k)=>t+calIdx[k].length,0);
+  return `<section class="calmonth" data-calm="${mk}"><h3>${esc(first.toLocaleDateString(undefined,{month:"long",year:"numeric"}))}${tot?`<small>${tot} update${tot===1?"":"s"}</small>`:""}</h3><div class="calgrid">${cells}</div></section>`}
+// Months from calStart to this month (or the last dated update if later). It opens on the last 6 months;
+// scrolling up to the top loads 6 more at a time, as far back as you like, so only what you've looked at is built.
+const CAL_STEP=6;var calStart=null;let calTopIO=null;
+const calMAdd=(o,n)=>{const d=new Date(o.y,o.m+n,1);return {y:d.getFullYear(),m:d.getMonth()}};
+function calMonthsHtml(a,b,todayS){let h="",c={...a};while(c.y<b.y||(c.y===b.y&&c.m<=b.m)){h+=calMonthHtml(c.y,c.m,todayS);c=calMAdd(c,1)}return h}
+function calWatch(root){if(calIO)root.querySelectorAll(".calc[data-calph]").forEach(b=>calIO.observe(b));else root.querySelectorAll(".calc[data-calph]").forEach(b=>{b.classList.add("vis");calCellImg(b)})}
 function renderCal(){
   const hdr=document.querySelector("header.top");if(hdr)document.documentElement.style.setProperty("--hdrh",hdr.offsetHeight+"px");
   calIdx=calBuild();const days=Object.keys(calIdx).sort(),now=new Date(),todayS=calISO(now);
-  // from the first month with an update (or three months back) to this month, or the last dated update if that's later
-  let a=days.length?new Date(days[0]+"T00:00:00"):new Date(now.getFullYear(),now.getMonth()-2,1);const last=days.length?new Date(days[days.length-1]+"T00:00:00"):now;
-  if(a>now)a=new Date(now.getFullYear(),now.getMonth(),1);const endM=last>now?last:now;
-  let y=a.getFullYear(),m=a.getMonth();if((endM.getFullYear()-y)*12+endM.getMonth()-m>240){y=endM.getFullYear()-20;m=endM.getMonth()}
-  let h="";
-  while(y<endM.getFullYear()||(y===endM.getFullYear()&&m<=endM.getMonth())){
-    const first=new Date(y,m,1),nd=new Date(y,m+1,0).getDate(),lead=(first.getDay()+6)%7,mk=`${y}-${String(m+1).padStart(2,"0")}`;
-    let cells="";for(let i=0;i<lead;i++)cells+=`<span class="calc blank"></span>`;
-    for(let d=1;d<=nd;d++){const ds=`${mk}-${String(d).padStart(2,"0")}`,es=calIdx[ds]||[],cls=["calc"];if(ds===todayS)cls.push("today");if(ds>todayS)cls.push("fut");
-      if(!es.length){cells+=`<button type="button" class="${cls.join(" ")}" data-cald="${ds}" aria-label="${esc(new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"}))}"><span class="caln">${d}</span></button>`;continue}
-      cls.push("has");const ph=es.some(e=>e.files.length),img=calImg[ds];if(img)cls.push("ph");
-      cells+=`<button type="button" class="${cls.join(" ")}" data-cald="${ds}"${ph?" data-calph":""} aria-label="${esc(new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"}))}: ${es.length} update${es.length===1?"":"s"}">${img?`<img class="calimg" src="${esc(img)}" referrerpolicy="no-referrer" alt="" draggable="false">`:""}<span class="caln">${d}</span>${es.length>1?`<b class="calcount">${es.length}</b>`:""}</button>`}
-    const tot=Object.keys(calIdx).filter(k=>k.startsWith(mk)).reduce((t,k)=>t+calIdx[k].length,0);
-    h+=`<section class="calmonth" data-calm="${mk}"><h3>${esc(first.toLocaleDateString(undefined,{month:"long",year:"numeric"}))}${tot?`<small>${tot} update${tot===1?"":"s"}</small>`:""}</h3><div class="calgrid">${cells}</div></section>`;
-    if(++m>11){m=0;y++}}
-  $("#calmonths").innerHTML=h;
+  const last=days.length?days[days.length-1]:todayS,endD=last>todayS?new Date(last+"T00:00:00"):now,end={y:endD.getFullYear(),m:endD.getMonth()};
+  if(!calStart)calStart=calMAdd({y:now.getFullYear(),m:now.getMonth()},-(CAL_STEP-1));
+  $("#calmonths").innerHTML=calMonthsHtml(calStart,end,todayS);
   if(calIO)calIO.disconnect();
   calIO="IntersectionObserver" in window?new IntersectionObserver(es=>es.forEach(x=>{x.target.classList.toggle("vis",x.isIntersecting);if(x.isIntersecting)calCellImg(x.target)}),{rootMargin:"300px 0px"}):null;
-  document.querySelectorAll("#calmonths .calc[data-calph]").forEach(b=>{if(calIO)calIO.observe(b);else{b.classList.add("vis");calCellImg(b)}});
+  calWatch($("#calmonths"));calTopNote();
+  if(!calTopIO&&"IntersectionObserver" in window){calTopIO=new IntersectionObserver(es=>{if(es.some(x=>x.isIntersecting)&&!$("#v-cal").hidden)calMore()},{rootMargin:"500px 0px 0px 0px"});calTopIO.observe($("#caltop"))}
 }
+function calTopNote(){const first=days0();$("#caltop").innerHTML=`<button type="button" class="linkish" id="calmore">Show earlier months</button>${first&&first<`${calStart.y}-${String(calStart.m+1).padStart(2,"0")}`?`<small>Your updates go back to ${esc(new Date(first+"-01T00:00:00").toLocaleDateString(undefined,{month:"long",year:"numeric"}))}</small>`:""}`}
+const days0=()=>{const k=Object.keys(calIdx||{}).sort()[0];return k?k.slice(0,7):null};
+// Add earlier months above, keeping what's on screen where it is
+let calAdding=false;
+function calMore(n){if(calAdding||!calStart)return;calAdding=true;
+  const box=$("#calmonths"),anchor=box.querySelector(".calmonth"),t0=anchor?anchor.getBoundingClientRect().top:0;
+  const from=calMAdd(calStart,-(n||CAL_STEP)),to=calMAdd(calStart,-1);calStart=from;
+  const tmp=document.createElement("div");tmp.innerHTML=calMonthsHtml(from,to,calISO(new Date()));calWatch(tmp);
+  box.prepend(...tmp.children);
+  if(anchor){const d=anchor.getBoundingClientRect().top-t0;if(d)window.scrollBy(0,d)}
+  calTopNote();
+  // still at the top (a tall screen)? keep going
+  requestAnimationFrame(()=>{calAdding=false;const r=$("#caltop").getBoundingClientRect();if(!$("#v-cal").hidden&&r.bottom>-500&&r.top<window.innerHeight)setTimeout(()=>calMore(),50)})}
+$("#caltop").addEventListener("click",e=>{if(e.target.closest("#calmore"))calMore()});
+// Jump straight to a month: builds the months back to it if needed
+function calJump(mk){if(!/^\d{4}-\d{2}$/.test(mk||""))return;const y=+mk.slice(0,4),m=+mk.slice(5,7)-1;
+  if(!calStart||y<calStart.y||(y===calStart.y&&m<calStart.m)){calStart={y,m};const sy=window.scrollY;renderCal();window.scrollTo(0,sy)}
+  const el=document.querySelector(`#calmonths [data-calm="${mk}"]`);if(!el){calScrollNow();return}
+  const off=(document.querySelector("header.top")||{offsetHeight:64}).offsetHeight+($(".calwk")||{offsetHeight:30}).offsetHeight+6;
+  window.scrollTo(0,el.getBoundingClientRect().top+window.scrollY-off)}
+$("#cal-jump").addEventListener("change",e=>{calJump(e.target.value);e.target.value=""});
+$("#cal-now").onclick=()=>calScrollNow();
 // Opening the calendar shows this month at the bottom of the screen with the months before it above, like a diary
 function calScrollNow(){const n=new Date(),el=document.querySelector(`#calmonths [data-calm="${calISO(n).slice(0,7)}"]`);if(!el)return;
   const r=el.getBoundingClientRect();window.scrollTo(0,Math.max(0,r.bottom+window.scrollY-window.innerHeight+90))}
@@ -4763,7 +4796,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-85";
+const APP_VERSION="2026.10.18-86";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
