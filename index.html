@@ -174,7 +174,8 @@ html.moreopen nav.tabs [data-more]{color:var(--bar-fg)}
 .tabin-r{animation:tabinR .3s cubic-bezier(.2,.8,.2,1)}
 .tabin-l{animation:tabinL .3s cubic-bezier(.2,.8,.2,1)}
 #v-open,#v-cal,#v-all,#v-moulds{touch-action:pan-y}
-body{overflow-x:clip}
+.wrap{overflow-x:clip}
+html,body{overscroll-behavior-x:none}
 /* Dashboard: to-do under the open work orders */
 .dashtodo{margin-top:10px;padding-top:18px;border-top:1px solid var(--line)}
 .dashtodo h2 .tabcount{vertical-align:3px;font-size:12px}
@@ -1054,8 +1055,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <div id="todowo" class="tdgrid"></div>
       <details class="tddone" id="tododone" hidden><summary id="tododonesum"></summary><div id="tododonelist" class="tdgrid"></div></details>
     </div>
-    <button type="button" class="updfab" id="qfab" aria-label="Add a quick update"><span aria-hidden="true">+</span> Update</button>
   </section>
+  <button type="button" class="updfab" id="qfab" aria-label="Add a quick update"><span aria-hidden="true">+</span> Update</button>
 
   <!-- ALL JOBS -->
   <section id="v-all" class="stackcol" hidden>
@@ -2036,7 +2037,7 @@ function tabIndicator(){const ind=document.querySelector("nav.tabs .tabind"),cur
 window.addEventListener("resize",()=>tabIndicator());
 const reduceMotion=()=>window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
 // a tab slides in from the side it's on
-function tabAnim(view,dir){if(reduceMotion()||!dir)return;const el=$("#v-"+view);if(!el)return;el.classList.remove("tabin-l","tabin-r");void el.offsetWidth;el.classList.add(dir>0?"tabin-r":"tabin-l");setTimeout(()=>el.classList.remove("tabin-l","tabin-r"),360)}
+function tabAnim(view,dir,node){if(reduceMotion()||!dir)return;const el=node||$("#v-"+view);if(!el)return;el.classList.remove("tabin-l","tabin-r");void el.offsetWidth;el.classList.add(dir>0?"tabin-r":"tabin-l");setTimeout(()=>el.classList.remove("tabin-l","tabin-r"),360)}
 async function tabGo(view){const a=TABS.indexOf(currentView()==="calday"?"cal":currentView()),b=TABS.indexOf(view);await goTab(view);if(a>=0&&b>=0&&a!==b)tabAnim(view,b>a?1:-1)}
 async function goPage(page){const cur=currentView();if(!PAGES.includes(cur))pageReturn=cur==="log"?(returnTab||"open"):cur;await goTab(page)}
 // More: slides up from the bottom; the phone's back gesture closes it
@@ -2054,29 +2055,32 @@ function closeMore(fromPop){const m=$("#moresheet");if(m.hidden)return Promise.r
 $("#moresheet").addEventListener("click",async e=>{if(e.target===$("#moresheet")){closeMore();return}
   const b=e.target.closest("[data-page]");if(!b)return;await closeMore();goPage(b.dataset.page)});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#moresheet").hidden)closeMore()});
-// ---- Swipe left / right on a main tab to move to the next one ----
-(()=>{let s=null;
-  // a text box being typed in, a list that scrolls sideways, or anything marked noswipe keeps the gesture
-  const blocked=t=>{const f=t.closest("input,textarea,select,[contenteditable]");return (f&&(f===document.activeElement||f.matches("input[type=range],select")))||t.closest(".updphotos,.noswipe,nav.tabs,header.top")};
+// ---- Swipe pages sideways: the page follows your finger, then the next one slides in ----
+// Used for the main tabs (Dashboard ↔ Calendar ↔ All jobs ↔ Moulds) and a work order's Details ↔ Photos.
+function swipePager(o){let s=null;
+  const blocked=t=>{const f=t.closest("input,textarea,select,[contenteditable]");return (f&&(f===document.activeElement||f.matches("input[type=range],select")))||t.closest(".updphotos,.noswipe,nav.tabs,header.top"+(o.skip?","+o.skip:""))};
   const overlay=()=>!$("#moresheet").hidden||!$("#lb").hidden||!$("#qsheet").hidden||!$("#asheet").hidden||!$("#rptm").hidden;
-  function scrollsX(n){for(;n&&n!==document.body;n=n.parentElement){if(n.scrollWidth>n.clientWidth+2){const o=getComputedStyle(n).overflowX;if(o==="auto"||o==="scroll")return true}}return false}
-  const reset=(el,anim)=>{el.style.transition=anim?"transform .22s cubic-bezier(.2,.8,.2,1),opacity .22s ease":"";el.style.transform="";el.style.opacity="";if(anim)setTimeout(()=>{el.style.transition=""},240)};
-  document.addEventListener("touchstart",e=>{s=null;if(e.touches.length!==1||overlay())return;const v=currentView();if(!TABS.includes(v))return;
-    const t=e.touches[0];if(t.clientX<28||t.clientX>window.innerWidth-28)return; // leave the screen edges to the phone's back gesture
+  function scrollsX(n){for(;n&&n!==document.body;n=n.parentElement){if(n.scrollWidth>n.clientWidth+2){const ov=getComputedStyle(n).overflowX;if(ov==="auto"||ov==="scroll")return true}}return false}
+  const reset=(el,anim)=>{el.style.transition=anim?"transform .24s cubic-bezier(.2,.8,.2,1),opacity .24s ease":"";el.style.transform="";el.style.opacity="";el.style.willChange="";if(anim)setTimeout(()=>{if(!s||s.el!==el)el.style.transition=""},260)};
+  document.addEventListener("touchstart",e=>{s=null;if(e.touches.length!==1||overlay()||!o.on())return;
+    const t=e.touches[0];if(t.clientX<28||t.clientX>window.innerWidth-28)return; // the screen edges belong to the phone's back gesture
     if(blocked(e.target)||scrollsX(e.target))return;
-    s={x:t.clientX,y:t.clientY,t:Date.now(),v,lock:0,dx:0,el:$("#v-"+v)}},{passive:true});
+    s={x:t.clientX,y:t.clientY,t:Date.now(),lock:0,dx:0,el:o.el()}},{passive:true});
   document.addEventListener("touchmove",e=>{if(!s)return;const t=e.touches[0],dx=t.clientX-s.x,dy=t.clientY-s.y;
-    if(!s.lock){if(Math.abs(dx)<12&&Math.abs(dy)<12)return;if(Math.abs(dx)>Math.abs(dy)*1.4)s.lock=1;else{s=null;return}}
-    const to=TABS[TABS.indexOf(s.v)+(dx<0?1:-1)],d=to?dx:dx*.22;s.dx=dx;
-    s.el.style.transition="none";s.el.style.transform=`translate3d(${d}px,0,0)`;s.el.style.opacity=String(1-Math.min(.45,Math.abs(d)/window.innerWidth*.7))},{passive:true});
-  const end=()=>{if(!s)return;const {dx,el,v,lock}=s,dt=Math.max(1,Date.now()-s.t);s=null;if(!lock)return;
-    const dir=dx<0?1:-1,to=TABS[TABS.indexOf(v)+dir],go=to&&(Math.abs(dx)>window.innerWidth*.26||(Math.abs(dx)>45&&Math.abs(dx)/dt>.5));
+    if(!s.lock){if(Math.abs(dx)<12&&Math.abs(dy)<12)return;if(Math.abs(dx)>Math.abs(dy)*1.4){s.lock=1;s.x=t.clientX-Math.sign(dx)*2;s.el.style.willChange="transform"}else{s=null;return}}
+    const ddx=t.clientX-s.x,d=o.can(ddx<0?1:-1)?ddx:ddx*.22;s.dx=ddx;
+    s.el.style.transition="none";s.el.style.transform=`translate3d(${d}px,0,0)`;s.el.style.opacity=String(1-Math.min(.4,Math.abs(d)/window.innerWidth*.6))},{passive:true});
+  document.addEventListener("touchend",()=>{if(!s)return;const {dx,el,lock}=s,dt=Math.max(1,Date.now()-s.t);s=null;if(!lock)return;
+    const dir=dx<0?1:-1,go=o.can(dir)&&(Math.abs(dx)>window.innerWidth*.26||(Math.abs(dx)>45&&Math.abs(dx)/dt>.5));
     if(!go){reset(el,true);return}
-    if(reduceMotion()){reset(el);goTab(to);return}
-    el.style.transition="transform .15s ease-in,opacity .15s ease-in";el.style.transform=`translate3d(${-dir*window.innerWidth*.45}px,0,0)`;el.style.opacity="0";
-    setTimeout(async()=>{reset(el);await goTab(to);tabAnim(to,dir)},150)};
-  document.addEventListener("touchend",end);document.addEventListener("touchcancel",()=>{if(s&&s.lock)reset(s.el,true);s=null});
-})();
+    if(reduceMotion()){reset(el);o.go(dir);return}
+    el.style.transition="transform .14s ease-in,opacity .14s ease-in";el.style.transform=`translate3d(${-dir*window.innerWidth*.4}px,0,0)`;el.style.opacity="0";
+    setTimeout(async()=>{reset(el);await o.go(dir)},140)});
+  document.addEventListener("touchcancel",()=>{if(s&&s.lock)reset(s.el,true);s=null});
+}
+swipePager({on:()=>TABS.includes(currentView()),el:()=>$("#v-"+currentView()),
+  can:dir=>!!TABS[TABS.indexOf(currentView())+dir],
+  go:async dir=>{const to=TABS[TABS.indexOf(currentView())+dir];await goTab(to);tabAnim(to,dir)}});
 // ---- Theme: match the device, or always light / dark (kept on this device) ----
 function applyTheme(t){
   if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme;
@@ -2090,6 +2094,7 @@ function show(view){
   if(view!=="share"&&!$("#v-share").hidden&&shareFiles.length)leaveShare();
   if(view!=="log"&&subPage){stashPM();subPage=null;$("#logform").classList.remove("subpage")}
   if(view==="todo")view="open"; // To-do lives on the Dashboard now
+  $("#qfab").hidden=view!=="open";
   ["log",...TABS,"hist",...PAGES].forEach(v=>$("#v-"+v).hidden=v!==view);
   closeMenu();
   if(view==="open"){renderOpen();renderTodo(true)}
@@ -3330,18 +3335,13 @@ function setWoTab(t,dir){
   $("#logform").classList.toggle("tabp",ph);$("#wogallery").hidden=!ph;
   document.querySelectorAll("#wotabs [data-wotab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.wotab===t)));
   if(ph)renderFormDrive();
-  const f=$("#logform");f.classList.remove("slide-l","slide-r");void f.offsetWidth;f.classList.add(dir==="r"?"slide-r":"slide-l");
+  tabAnim("log",dir==="r"?-1:1,$("#logform"));
   window.scrollTo(0,0);
 }
 $("#wotabs").addEventListener("click",e=>{const b=e.target.closest("[data-wotab]");if(b)setWoTab(b.dataset.wotab,b.dataset.wotab==="photos"?"l":"r")});
-(function(){let sx=0,sy=0,st=0,ok=false;
-  const skip=el=>el.closest("input,textarea,select,.combo-list,.attgrid.selecting,.lb,.pl,.wotabs");
-  document.addEventListener("touchstart",e=>{ok=false;if($("#v-log").hidden||e.touches.length!==1||!$("#lb").hidden||sel.key||skip(e.target))return;
-    ok=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;st=Date.now()},{passive:true});
-  document.addEventListener("touchend",e=>{if(!ok)return;ok=false;const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;
-    if(Date.now()-st>700||Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*2)return;
-    if(dx<0&&woTab==="details")setWoTab("photos","l");else if(dx>0&&woTab==="photos")setWoTab("details","r")},{passive:true});
-})();
+swipePager({on:()=>!$("#v-log").hidden&&!sel.key,el:()=>$("#logform"),skip:".combo-list,.attgrid.selecting,.pl,.wotabs,.editbar",
+  can:dir=>dir>0?woTab==="details":woTab==="photos",
+  go:dir=>setWoTab(dir>0?"photos":"details",dir>0?"l":"r")});
 let formDriveTimer=null;
 function renderFormDriveSoon(){clearTimeout(formDriveTimer);formDriveTimer=setTimeout(renderFormDrive,500)}
 $("#f-wo").addEventListener("input",renderFormDriveSoon);
@@ -4911,7 +4911,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-87";
+const APP_VERSION="2026.10.18-88";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
