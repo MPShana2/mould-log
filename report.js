@@ -208,8 +208,10 @@ function buildPdf(R,photos,logo){
         // Wrapping table: every cell shows in full over as many lines as it needs; a very long row carries on over the page
         const lh=12.4,pt=5,pb=6;
         b.rows.forEach((r,ri)=>{const tot=b.total&&ri===b.rows.length-1;
-          const cells=r.map((v,i)=>{const f=tot||(b.bold||[]).includes(i)?"B":"";const lines=[];
-            String(v??"").split(/\r?\n/).forEach(par=>lines.push(...pdfWrap(winBytes(par.trim()),f,fs,ws[i]-16)));return {f,lines}});
+          // a cell is text (newlines kept) or a list of lines, each text or {t, b: bold, m: muted}
+          const cells=r.map((v,i)=>{const f0=tot||(b.bold||[]).includes(i)?"B":"",lines=[];
+            (Array.isArray(v)?v:String(v??"").split(/\r?\n/)).forEach(par=>{const o=typeof par==="object"&&par?par:{t:par},f=o.b?"B":f0;
+              pdfWrap(winBytes(String(o.t??"").trim()),f,fs,ws[i]-16).forEach(t=>lines.push({t,f,c:o.m?C.muted:C.ink}))});return {lines}});
           let done=0;const total=Math.max(1,...cells.map(c=>c.lines.length));
           while(done<total){let fitN=Math.floor((BOT-y-pt-pb)/lh);
             const left=total-done;
@@ -218,7 +220,7 @@ function buildPdf(R,photos,logo){
             const n=fitN>=left?left:(left-fitN===1&&fitN>2?fitN-1:fitN),h=pt+n*lh+pb-(done+n<total?pb-2:0);
             if(tot){fill(M,y,CW,h,"f3ede1");hline(M,y,CW,C.ink,.8)}else if(ri%2)fill(M,y,CW,h,"faf9f6");
             if(done&&!tot){txt(fit(r[0],ws[0],""),xs[0]+8,y+pt+9.4,"",8.6,C.muted);txt("cont.",xs[0]+8,y+pt+9.4+lh,"I",8.2,C.muted)}
-            cells.forEach((c,i)=>(done&&i===0?[]:c.lines.slice(done,done+n)).forEach((t,k)=>txt(t,right.includes(i)?xs[i]+ws[i]-8-pdfW(t,c.f,fs):xs[i]+8,y+pt+9.4+k*lh,c.f,fs,C.ink)));
+            cells.forEach((c,i)=>(done&&i===0?[]:c.lines.slice(done,done+n)).forEach((L,k)=>txt(L.t,right.includes(i)?xs[i]+ws[i]-8-pdfW(L.t,L.f,fs):xs[i]+8,y+pt+9.4+k*lh,L.f,fs,L.c)));
             y+=h;done+=n;if(!tot&&ri<b.rows.length-1&&done>=total)hline(M,y,CW,"ebe8e2",.5)}
         });
         hline(M,y,CW,C.line,.6);y+=6;continue}
