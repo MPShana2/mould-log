@@ -2012,6 +2012,8 @@ let navStack=[],navRestoring=false,navReplace=false,curLoc=null,navTarget=null;
 const locKey=l=>l?[l.view,l.logId||"",l.mould||"",l.day||""].join("|"):"";
 function locNow(){const v=currentView();return {view:v,logId:v==="log"?editingId:null,sub:v==="log"?subPage:null,mould:v==="hist"?current:null,day:v==="calday"?calDay:null,scroll:window.scrollY,woTab}}
 function navNote(){ // called after every page change
+  // the app opens on the Dashboard without a page change, so the first step away starts from there
+  if(!curLoc)curLoc={view:"open",logId:null,sub:null,mould:null,day:null,scroll:window.scrollY,woTab};
   const now=locNow();
   if(!navRestoring&&curLoc&&locKey(now)!==locKey(curLoc)&&curLoc.view!=="share"&&!(curLoc.view==="log"&&!curLoc.logId&&now.view==="log")){
     if(!navReplace){navStack.push(curLoc);if(navStack.length>40)navStack.shift();
@@ -5179,7 +5181,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.19-105";
+const APP_VERSION="2026.10.19-106";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
