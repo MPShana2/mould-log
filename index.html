@@ -402,6 +402,7 @@ textarea.autogrow{resize:none;overflow:hidden}
 .calc .caln{position:relative;z-index:1;font-size:15px;font-variant-numeric:tabular-nums}
 button.calc{cursor:pointer}
 .calc.has{background:color-mix(in srgb,var(--accent) 38%,var(--surface));font-weight:600}
+button.calc:not(.has):hover{background:var(--sunk)}
 .calc.has:hover{outline:2px solid var(--accent);outline-offset:-2px}
 .calc.today{box-shadow:inset 0 0 0 2px var(--fg)}
 .calc .calimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -1072,6 +1073,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <div class="pagehead"><button type="button" class="subback" data-pageback>← Calendar</button><h2 id="cd-title">Day</h2></div>
     <div class="cdnav"><button type="button" class="btn ghost" id="cd-prev">‹ <span></span></button><button type="button" class="btn ghost" id="cd-next"><span></span> ›</button></div>
     <div id="cd-list"></div>
+    <button type="button" class="updfab" id="cdfab" aria-label="Add an update for this day"><span aria-hidden="true">+</span> Update</button>
   </section>
 
   <section id="v-inv" class="stackcol page" hidden>
@@ -3822,9 +3824,9 @@ let qDraftKey="ml_qdraft",qFiles=[];
 function qThumbs(){$("#q-photos").innerHTML=ibThumbs(qFiles,"data-qrm")}
 function qAttach(names){qFiles=[...new Set([...qFiles,...names])];qDraftSave();qThumbs()}
 $("#q-photos").addEventListener("click",e=>{const r=e.target.closest("[data-qrm]");if(!r)return;qFiles=qFiles.filter(n=>n!==r.dataset.qrm);qDraftSave();qThumbs();toast("Removed from this update (it stays in Unassigned photos)")});
-function openQuick(){
+function openQuick(date){
   let d={};try{d=JSON.parse(localStorage.getItem(qDraftKey)||"{}")||{}}catch(e){}
-  $("#q-date").value=d.date||today();$("#q-text").value=d.text||"";qFiles=Array.isArray(d.files)?d.files:[];qThumbs();
+  $("#q-date").value=date||d.date||today();if(date)qDraftSave();$("#q-text").value=d.text||"";qFiles=Array.isArray(d.files)?d.files:[];qThumbs();
   $("#qsheet").hidden=false;document.documentElement.classList.add("lbopen");
   const t=$("#q-text");grow(t);setTimeout(()=>t.focus(),30);
 }
@@ -3832,13 +3834,14 @@ function closeQuick(clear){$("#qsheet").hidden=true;document.documentElement.cla
 const qDraftSave=()=>{try{localStorage.setItem(qDraftKey,JSON.stringify({date:$("#q-date").value,text:$("#q-text").value,files:qFiles}))}catch(e){}};
 $("#q-text").addEventListener("input",()=>{grow($("#q-text"));qDraftSave()});$("#q-date").addEventListener("change",qDraftSave);
 $("#qfab").onclick=()=>openQuick();
+$("#cdfab").onclick=()=>openQuick(calDay||today());
 $("#q-cancel").onclick=()=>{if($("#q-text").value.trim()&&!$("#q-cancel").dataset.armed){$("#q-cancel").dataset.armed="1";$("#q-cancel").textContent="Discard it?";setTimeout(()=>{$("#q-cancel").dataset.armed="";$("#q-cancel").textContent="Cancel"},3000);return}
   $("#q-cancel").dataset.armed="";$("#q-cancel").textContent="Cancel";closeQuick(true)};
 $("#q-save").onclick=async()=>{const text=$("#q-text").value.trim(),date=$("#q-date").value||today(),files=qFiles.slice();
   if(!text&&!files.length){toast("Write what happened first");$("#q-text").focus();return}
   if(!db){toast("Sign in first");return}
   const id=ibId(),now=new Date().toISOString(),doc={date,text,...(files.length?{files}:{}),createdAt:now,updatedAt:now};
-  inbox=inbox.concat({id,...doc});closeQuick(true);renderInbox();
+  inbox=inbox.concat({id,...doc});closeQuick(true);renderInbox();calRefresh();
   toast("Saved to Unassigned updates");
   try{await db.collection("inbox").doc(id).set(doc)}catch(err){toast("Couldn't save: "+(err.message||err.code))}};
 $("#q-text").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();$("#q-save").click()}});
@@ -4207,7 +4210,7 @@ function renderCal(){
     const first=new Date(y,m,1),nd=new Date(y,m+1,0).getDate(),lead=(first.getDay()+6)%7,mk=`${y}-${String(m+1).padStart(2,"0")}`;
     let cells="";for(let i=0;i<lead;i++)cells+=`<span class="calc blank"></span>`;
     for(let d=1;d<=nd;d++){const ds=`${mk}-${String(d).padStart(2,"0")}`,es=calIdx[ds]||[],cls=["calc"];if(ds===todayS)cls.push("today");if(ds>todayS)cls.push("fut");
-      if(!es.length){cells+=`<span class="${cls.join(" ")}"><span class="caln">${d}</span></span>`;continue}
+      if(!es.length){cells+=`<button type="button" class="${cls.join(" ")}" data-cald="${ds}" aria-label="${esc(new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"}))}"><span class="caln">${d}</span></button>`;continue}
       cls.push("has");const ph=es.some(e=>e.files.length),img=calImg[ds];if(img)cls.push("ph");
       cells+=`<button type="button" class="${cls.join(" ")}" data-cald="${ds}"${ph?" data-calph":""} aria-label="${esc(new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"}))}: ${es.length} update${es.length===1?"":"s"}">${img?`<img class="calimg" src="${esc(img)}" referrerpolicy="no-referrer" alt="" draggable="false">`:""}<span class="caln">${d}</span>${es.length>1?`<b class="calcount">${es.length}</b>`:""}</button>`}
     const tot=Object.keys(calIdx).filter(k=>k.startsWith(mk)).reduce((t,k)=>t+calIdx[k].length,0);
@@ -4235,7 +4238,7 @@ function renderCalDay(){
     <span class="cdtxt"><b class="cdtool">${esc(e.tool)}</b><span class="cdmeta">${e.kind==="inbox"?`<span class="stpill none">Not assigned yet</span>`:`<span class="mono">#${esc(e.wo||"–")}</span>${e.status?` <span class="stpill ${stClass(e.status)}">${esc(e.status)}</span>`:""}`}</span>
     ${e.text?`<span class="cdbody">${esc(e.text)}</span>`:`<span class="cdbody muted">${e.files.length} photo${e.files.length===1?"":"s"}</span>`}</span>
     ${e.files.length?`<span class="cdimg" data-cdimg="${i}"><span class="ext">IMG</span>${e.files.length>1?`<b class="calcount">${e.files.length}</b>`:""}</span>`:""}</button>`).join("")}</div>`
-    :`<div class="empty">No updates on this day.</div>`;
+    :`<div class="empty">No updates on this day yet. Tap <b>+ Update</b> to add one; it's saved to Unassigned updates with this date, ready to assign to a work order.</div>`;
   calDayImgs();
 }
 function calDayImgs(){const es=(calIdx&&calIdx[calDay])||[];document.querySelectorAll("#cd-list [data-cdimg]").forEach(el=>{if(el.querySelector("img"))return;const e=es[+el.dataset.cdimg],th=e&&calThumb(e,320);
@@ -4760,7 +4763,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-84";
+const APP_VERSION="2026.10.18-85";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
