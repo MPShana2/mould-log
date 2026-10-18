@@ -331,11 +331,10 @@ textarea.autogrow{resize:none;overflow:hidden}
 .temptag{display:block;width:max-content;margin-top:3px;font-family:var(--font,inherit);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-ink);background:var(--accent);border-radius:999px;padding:1px 7px}
 .hint.temp{color:var(--fg);background:var(--warn-bg);border-left:3px solid var(--accent);border-radius:6px;padding:6px 8px}
 .upd{display:flex;flex-direction:column;gap:8px}
-.updlist{display:flex;flex-direction:column;border-left:3px solid var(--accent);padding-left:12px;gap:0}
-.updlist>.upditem{padding:10px 0}
+/* each update in its own box, with the amber edge used on the job lists and the calendar */
+.updlist{display:flex;flex-direction:column;gap:8px}
+.updlist>.upditem{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:inset 4px 0 0 var(--accent);padding:11px 14px 12px 18px;gap:4px}
 .updmerge{color:var(--muted);font-style:italic;align-self:center}
-.updlist>.upditem:first-child{padding-top:2px}
-.updlist>.upditem+.upditem{border-top:1px solid var(--line)}
 .upditem{display:flex;flex-direction:column;gap:2px}
 .updhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .upddate{font-size:12.5px;font-weight:700;color:var(--accent);font-family:var(--mono);letter-spacing:.02em}
@@ -5027,7 +5026,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-94";
+const APP_VERSION="2026.10.18-95";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
