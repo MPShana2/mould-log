@@ -459,6 +459,7 @@ button.calc:not(.has):hover{background:var(--sunk)}
 .cdlist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
 .cdrow{all:unset;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 14px;border-top:1px solid var(--line);cursor:pointer}
 .cdrow:first-child{border-top:0}.cdrow:hover{background:var(--sunk)}
+.cdrow{box-shadow:inset 4px 0 0 var(--accent);padding-left:18px}
 .cdtxt{display:flex;flex-direction:column;gap:3px;min-width:0}
 .cdtool{font-size:16px}
 .cdmeta{display:flex;align-items:center;gap:8px;font-size:14px}.cdmeta .stpill{font-size:11.5px;padding:2px 8px}
@@ -5026,7 +5027,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-93";
+const APP_VERSION="2026.10.18-94";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
