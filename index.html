@@ -482,6 +482,8 @@ button.calc:not(.has):hover{background:var(--sunk)}
 @media (min-width:1000px){.dssize{grid-template-columns:minmax(0,1fr) 110px minmax(0,1.4fr) 180px}.dssz-n{align-items:flex-start}}
 .calcount{position:absolute;top:3px;right:3px;z-index:2;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:rgba(0,0,0,.72);color:#fff;font-size:11px;font-weight:700;line-height:17px;text-align:center}
 @media (min-width:560px){.calc .caln{font-size:17px}.calgrid{gap:4px}}
+.cdjump{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:14px}
+#v-calday{touch-action:pan-y}
 .cdnav{display:flex;justify-content:space-between;gap:8px}.cdnav .btn{padding:8px 12px;font-size:14px}.cdnav #cd-next{margin-left:auto}
 .cdlist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
 .cdrow{all:unset;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 14px;border-top:1px solid var(--line);cursor:pointer}
@@ -1187,8 +1189,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <div class="pagehead"><button type="button" class="subback" data-pageback>← Calendar</button><h2 id="cd-title">Day</h2></div>
     <div class="cdnav"><button type="button" class="btn ghost" id="cd-prev">‹ <span></span></button><button type="button" class="btn ghost" id="cd-next"><span></span> ›</button></div>
     <div id="cd-list"></div>
-    <button type="button" class="updfab" id="cdfab" aria-label="Add an update for this day"><span aria-hidden="true">+</span> Update</button>
   </section>
+  <button type="button" class="updfab" id="cdfab" hidden aria-label="Add an update for this day"><span aria-hidden="true">+</span> Update</button>
 
   <section id="v-inv" class="stackcol page" hidden>
     <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Inventory</h2></div>
@@ -2210,7 +2212,7 @@ function show(view){
   if(view!=="share"&&!$("#v-share").hidden&&shareFiles.length)leaveShare();
   if(view!=="log"&&subPage){stashPM();subPage=null;$("#logform").classList.remove("subpage")}
   if(view==="todo")view="open"; // To-do lives on the Dashboard now
-  $("#qfab").hidden=view!=="open";
+  $("#qfab").hidden=view!=="open";$("#cdfab").hidden=view!=="calday";
   ["log",...TABS,"hist",...PAGES].forEach(v=>$("#v-"+v).hidden=v!==view);
   closeMenu();
   if(view==="open"){renderOpen();renderTodo(true)}
@@ -4574,21 +4576,28 @@ function renderCalDay(){
   calIdx=calBuild();if(!calDay)calDay=today();const es=calIdx[calDay]||[],dt=new Date(calDay+"T00:00:00");
   $("#cd-title").textContent=dt.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   const sd=d=>new Date(d+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"});
+  // ‹ › step one day at a time (swipe does the same)
+  $("#cd-prev span").textContent=sd(calAdj(-1));$("#cd-next span").textContent=sd(calAdj(1));
   const pv=calDayStep(-1),nx=calDayStep(1);
-  $("#cd-prev").hidden=!pv;$("#cd-next").hidden=!nx;if(pv)$("#cd-prev span").textContent=sd(pv);if(nx)$("#cd-next span").textContent=sd(nx);
   $("#cd-list").innerHTML=es.length?`<div class="cdlist">${es.map((e,i)=>`<button type="button" class="cdrow" data-cdi="${i}">
     <span class="cdtxt"><b class="cdtool">${esc(e.tool)}</b><span class="cdmeta">${e.kind==="inbox"?`<span class="stpill none">Not assigned yet</span>`:`<span class="mono">#${esc(e.wo||"–")}</span>${e.status?` <span class="stpill ${stClass(e.status)}">${esc(e.status)}</span>`:""}`}</span>
     ${e.text?`<span class="cdbody">${esc(e.text)}</span>`:`<span class="cdbody muted">${e.files.length} photo${e.files.length===1?"":"s"}</span>`}</span>
     ${e.files.length?`<span class="cdimg" data-cdimg="${i}"><span class="ext">IMG</span>${e.files.length>1?`<b class="calcount">${e.files.length}</b>`:""}</span>`:""}</button>`).join("")}</div>`
-    :`<div class="empty">No updates on this day yet. Tap <b>+ Update</b> to add one; it's saved to Unassigned updates with this date, ready to assign to a work order.</div>`;
+    :`<div class="empty">No updates on this day yet. Tap <b>+ Update</b> to add one; it's saved to Unassigned updates with this date, ready to assign to a work order.
+      ${pv||nx?`<div class="cdjump">${pv?`<button type="button" class="linkish" data-cdjump="${pv}">‹ Last update: ${esc(sd(pv))}</button>`:""}${nx?`<button type="button" class="linkish" data-cdjump="${nx}">Next update: ${esc(sd(nx))} ›</button>`:""}</div>`:""}</div>`;
   calDayImgs();
 }
 function calDayImgs(){const es=(calIdx&&calIdx[calDay])||[];document.querySelectorAll("#cd-list [data-cdimg]").forEach(el=>{if(el.querySelector("img"))return;const e=es[+el.dataset.cdimg],th=e&&calThumb(e,320);
   if(th)el.insertAdjacentHTML("afterbegin",`<img src="${esc(th.src)}" referrerpolicy="no-referrer" alt="" draggable="false">${th.video?`<span class="cdplay" aria-hidden="true">▶</span>`:""}`)})}
 $("#cd-list").addEventListener("click",e=>{const b=e.target.closest("[data-cdi]");if(!b)return;const x=((calIdx&&calIdx[calDay])||[])[+b.dataset.cdi];if(!x)return;
   if(x.kind==="inbox")goTab("inbox");else startEdit(x.l.id,x.open||undefined)});
-const calGo=dir=>{const d=calDayStep(dir);if(!d)return;calDay=d;navReplace=true;show("calday")};
+// the day before / after (Back still returns to the calendar, not through every day)
+const calAdj=dir=>{const d=new Date(calDay+"T12:00:00");d.setDate(d.getDate()+dir);return calISO(d)};
+const calTo=(d,dir)=>{calDay=d;navReplace=true;show("calday");tabAnim("calday",dir)};
+const calGo=dir=>calTo(calAdj(dir),dir);
 $("#cd-prev").onclick=()=>calGo(-1);$("#cd-next").onclick=()=>calGo(1);
+$("#cd-list").addEventListener("click",e=>{const j=e.target.closest("[data-cdjump]");if(j)calTo(j.dataset.cdjump,j.dataset.cdjump<calDay?-1:1)});
+swipePager({on:()=>!$("#v-calday").hidden,el:()=>$("#v-calday"),skip:".cdnav",can:()=>true,go:dir=>calGo(dir)});
 // Hours for the month grouped by work order (and sub-job): the end-of-month breakdown
 function hrByWo(entries){const g={};
   for(const h of entries){const l=hrLog(h),k=(l?l.id:"wo:"+normWo(h.wo))+"|"+(h.sub||"");
@@ -5105,7 +5114,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-100";
+const APP_VERSION="2026.10.19-101";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
