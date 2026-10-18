@@ -838,19 +838,23 @@ details summary{cursor:pointer;font-weight:600;color:var(--steel)}
   .toast{bottom:calc(24px + env(safe-area-inset-bottom,0px));left:calc(50% + 110px)}
   .gate{z-index:40}
   .editbar{margin:-24px -32px 0;padding:8px 32px}
-  /* Log job: details on the left, checklist + parts + photos on the right */
-  #logform{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:24px 28px;align-items:start}
-  #logform.multi{grid-template-columns:minmax(0,1fr)}
+  /* Work order: every detail down the left, its photos & files beside them on the right (no tabs) */
+  #logform,#logform.subpage{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(340px,1fr);grid-template-rows:repeat(4,auto) 1fr;gap:24px 28px;align-items:start}
+  #logform>*{grid-column:1}
+  #logform>#wogallery{display:block!important;grid-column:2;grid-row:1/-1;margin:0;position:sticky;top:calc(env(safe-area-inset-top,0px) + 136px);max-height:calc(100vh - 156px);overflow-y:auto;overscroll-behavior:contain;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+  #logform>#wogallery::before{content:"Photos & files";display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
   #logform.multi .fcol-side{display:none}
-  .mbox,#savebtn{grid-column:1/-1}
-  #logform.subpage{display:block}
+  #wotabs{display:none}
+  /* no tabs on a wide screen: the work order bar is one line, Export / Done on the right */
+  .editbar{flex-wrap:nowrap;padding-bottom:8px}
+  .wotabrow{flex:none;margin:0 0 0 auto}.wotabrow .eb-btns{padding-bottom:0}
+  /* a sub-job's status / dates wrap in the narrower details column */
+  .mmeta{display:flex;flex-direction:column;align-items:stretch}
+  .fcol-side{position:static!important}
+  .wogallery .attgrid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
   .subtop{padding:16px 18px 0}
-  .mbody{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px 28px;align-items:start;padding:18px}
-  .mmeta{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);align-items:end;gap:14px 24px}
-  .mmeta .subhead{flex-direction:column;gap:6px;align-self:center}
-  #logform>#savebtn{grid-column:1/-1;justify-self:start;min-width:220px}
-  .fcol-side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 140px)}
-  #logform.hasbox .fcol-side{position:static}
+  .mbody{display:grid;grid-template-columns:minmax(0,1fr);gap:16px 28px;align-items:start;padding:18px}
+  #logform>#savebtn{justify-self:start;min-width:220px}
   .fcol-side details.ck[open] .cklist{max-height:58vh;overflow-y:auto}
   #v-log>.editbar{max-width:none}
   /* Open jobs: a full table */
@@ -874,6 +878,7 @@ details summary{cursor:pointer;font-weight:600;color:var(--steel)}
   .attgrid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
   .lb-body{padding:0 48px 16px}
 }
+@media (min-width:1700px){.mbody{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}.mmeta{display:grid;grid-column:1/-1;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);align-items:end;gap:14px 24px}.mmeta .subhead{flex-direction:column;gap:6px;align-self:center}}
 @media (min-width:1400px){
   .mpanels>details[open]{grid-column:span 2}
   .group{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
@@ -3362,7 +3367,9 @@ function renderFormDrive(){
 }
 // ---- Details | Photos & files tabs (tap, or swipe sideways) ----
 let woTab="details";
+const woSplit=()=>window.matchMedia&&matchMedia("(min-width:1000px)").matches;
 function setWoTab(t,dir){
+  if(t==="photos"&&woSplit())t="details"; // on a wide screen the photos are always beside the details
   if(t===woTab)return;woTab=t;const ph=t==="photos";
   $("#logform").classList.toggle("tabp",ph);$("#wogallery").hidden=!ph;
   document.querySelectorAll("#wotabs [data-wotab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.wotab===t)));
@@ -3371,7 +3378,8 @@ function setWoTab(t,dir){
   window.scrollTo(0,0);
 }
 $("#wotabs").addEventListener("click",e=>{const b=e.target.closest("[data-wotab]");if(b)setWoTab(b.dataset.wotab,b.dataset.wotab==="photos"?"l":"r")});
-swipePager({on:()=>!$("#v-log").hidden&&!sel.key,el:()=>$("#logform"),skip:".combo-list,.attgrid.selecting,.pl,.wotabs,.editbar",
+window.addEventListener("resize",()=>{if(woSplit()&&woTab==="photos")setWoTab("details")});
+swipePager({on:()=>!$("#v-log").hidden&&!sel.key&&!woSplit(),el:()=>$("#logform"),skip:".combo-list,.attgrid.selecting,.pl,.wotabs,.editbar",
   can:dir=>dir>0?woTab==="details":woTab==="photos",
   go:dir=>setWoTab(dir>0?"photos":"details",dir>0?"l":"r")});
 let formDriveTimer=null;
@@ -4945,7 +4953,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.18-90";
+const APP_VERSION="2026.10.18-91";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
