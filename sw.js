@@ -1,11 +1,13 @@
 // GT Hub service worker: lets the app open offline and install as an app.
-const VERSION="mould-log-v114";
+const VERSION="mould-log-v115";
 const LIBS="mould-log-libs"; // Firebase and fonts: kept across app versions (their addresses change when they do)
+const THUMBS="gt-thumbs";    // small copies of Drive photo thumbnails, kept across app versions for offline use
+const THUMB_MAX=5000;
 const SHELL=["./","index.html","report.js","diarium.js","config.js","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","icons/favicon.svg","icons/favicon-32.png","icons/apple-touch-icon.png"];
 // Each release changes VERSION, so the browser installs this worker afresh and it downloads the new app files here
 // (bypassing the browser's HTTP cache). Opening the app then never waits on the network.
 self.addEventListener("install",e=>{e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL.map(u=>new Request(u,{cache:"reload"})))).then(()=>self.skipWaiting()))});
-self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION&&k!==LIBS).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
+self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION&&k!==LIBS&&k!==THUMBS).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 // Photos shared to GT Hub from another app (e.g. Google Photos) arrive here; they wait in the
 // "mouldlog-share" store until the app shows the "pick a work order" screen
 function shareDb(){return new Promise((res,rej)=>{const r=indexedDB.open("mouldlog-share",1);r.onupgradeneeded=()=>r.result.createObjectStore("inbox",{keyPath:"id"});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
@@ -24,6 +26,7 @@ self.addEventListener("fetch",e=>{
   if(req.method==="POST"&&new URL(req.url).pathname.endsWith("/share-target")){e.respondWith(receiveShare(req));return}
   if(req.method!=="GET")return;
   const url=new URL(req.url);
+  if(url.origin===self.location.origin&&url.pathname.includes("/gtthumb/")){e.respondWith(thumb(url));return}
   // App files: open instantly from the saved copy (new versions arrive through the worker update above);
   // anything not saved yet comes from the network and is kept for next time
   if(url.origin===self.location.origin){
@@ -36,4 +39,30 @@ self.addEventListener("fetch",e=>{
   if(url.hostname==="www.gstatic.com"&&url.pathname.startsWith("/firebasejs/")||url.hostname==="fonts.googleapis.com"||url.hostname==="fonts.gstatic.com"){
     e.respondWith(caches.match(req).then(r=>r||fetch(req).then(res=>{if(res.ok||res.type==="opaque"){const copy=res.clone();caches.open(LIBS).then(c=>c.put(req,copy))}return res})));
   }
+});
+
+// ---- Drive thumbnails: gtthumb/<file id>?u=<Google's thumbnail address> ----
+// Small ones: the saved copy if there is one, else download, save and show it.
+// Big ones (the photo viewer): from Google when online; with no signal, the saved small copy.
+let thumbPuts=0;
+async function thumb(url){
+  const id=decodeURIComponent(url.pathname.split("/gtthumb/")[1]||""),u=url.searchParams.get("u"),big=url.searchParams.get("big")==="1";
+  const key=new URL("gtthumb/"+encodeURIComponent(id),self.registration.scope).href,c=await caches.open(THUMBS);
+  if(!big){const hit=await c.match(key);if(hit)return hit}
+  if(u){
+    try{const res=await fetch(u,{mode:"cors",credentials:"omit",referrerPolicy:"no-referrer"});
+      if(res.ok){if(!big){await c.put(key,res.clone());if(++thumbPuts%40===0)trimThumbs(c)}return res}
+      if(big){const hit=await c.match(key);if(hit)return hit}
+      return res}
+    catch(e){ // no signal, or the image server didn't allow a copy: show it the ordinary way
+      try{return await fetch(u,{mode:"no-cors",credentials:"omit",referrerPolicy:"no-referrer"})}catch(e2){}}
+  }
+  const hit=await c.match(key);if(hit)return hit;
+  return new Response("",{status:504,statusText:"Offline"});
+}
+async function trimThumbs(c){try{const ks=await c.keys();if(ks.length>THUMB_MAX)for(const k of ks.slice(0,ks.length-THUMB_MAX))await c.delete(k)}catch(e){}}
+// The app asks how many photos are saved, or to clear them
+self.addEventListener("message",e=>{const d=e.data||{};
+  if(d.type==="thumbs-count")e.waitUntil(caches.open(THUMBS).then(c=>c.keys()).then(ks=>e.source&&e.source.postMessage({type:"thumbs-count",n:ks.length})));
+  if(d.type==="thumbs-clear")e.waitUntil(caches.delete(THUMBS).then(()=>e.source&&e.source.postMessage({type:"thumbs-count",n:0})));
 });
