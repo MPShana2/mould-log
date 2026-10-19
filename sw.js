@@ -1,5 +1,5 @@
 // GT Hub service worker: lets the app open offline and install as an app.
-const VERSION="mould-log-v133";
+const VERSION="mould-log-v134";
 const LIBS="mould-log-libs"; // Firebase and fonts: kept across app versions (their addresses change when they do)
 const THUMBS="gt-thumbs";    // small copies of Drive photo thumbnails, kept across app versions for offline use
 const THUMB_MAX=5000;
@@ -11,15 +11,17 @@ self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.
 // Photos shared to GT Hub from another app (e.g. Google Photos) arrive here; they wait in the
 // "mouldlog-share" store until the app shows the "pick a work order" screen
 function shareDb(){return new Promise((res,rej)=>{const r=indexedDB.open("mouldlog-share",1);r.onupgradeneeded=()=>r.result.createObjectStore("inbox",{keyPath:"id"});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
-async function receiveShare(req){
+async function receiveShare(req){let batch="";
   try{
     const form=await req.formData(),files=form.getAll("media").filter(f=>f&&f.size);
     const db=await shareDb();
-    await new Promise((res,rej)=>{const t=db.transaction("inbox","readwrite"),st=t.objectStore("inbox");
-      files.forEach((f,i)=>st.put({id:Date.now().toString(36)+"-"+i,name:f.name||("shared_"+i),type:f.type||"",lastModified:f.lastModified||Date.now(),blob:f}));
+    // each share is its own batch, and replaces anything left over from an earlier share that was never finished
+    batch=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    await new Promise((res,rej)=>{const t=db.transaction("inbox","readwrite"),st=t.objectStore("inbox");st.clear();
+      files.forEach((f,i)=>st.put({id:batch+"-"+i,batch,name:f.name||("shared_"+i),type:f.type||"",lastModified:f.lastModified||Date.now(),blob:f}));
       t.oncomplete=res;t.onerror=()=>rej(t.error)});
   }catch(err){}
-  return Response.redirect("./?share=1",303);
+  return Response.redirect("./?share="+encodeURIComponent(batch||"1"),303);
 }
 self.addEventListener("fetch",e=>{
   const req=e.request;

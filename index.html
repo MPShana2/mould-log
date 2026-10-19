@@ -2187,11 +2187,13 @@ async function navBack(){
 }
 // ---- Photos shared from another app (Google Photos etc.) ----
 // The service worker keeps them in the "mouldlog-share" store and opens the app with ?share=1
-let shareWanted=/[?&]share=1/.test(location.search),shareFiles=[],shareUrls=[];
+let shareBatch=(location.search.match(/[?&]share=([^&]+)/)||[])[1]||"",shareWanted=!!shareBatch,shareFiles=[],shareUrls=[],shareIds=[];
+try{shareBatch=decodeURIComponent(shareBatch)}catch(e){}
 if(shareWanted){try{history.replaceState(history.state,"",location.pathname)}catch(e){}}
 function shareDb(){return new Promise((res,rej)=>{try{const r=indexedDB.open("mouldlog-share",1);r.onupgradeneeded=()=>r.result.createObjectStore("inbox",{keyPath:"id"});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}})}
 async function shareInbox(){try{const d=await shareDb();return await new Promise((res,rej)=>{const r=d.transaction("inbox").objectStore("inbox").getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error)})}catch(e){return[]}}
-async function shareClear(){try{const d=await shareDb();await new Promise(res=>{const t=d.transaction("inbox","readwrite");t.objectStore("inbox").clear();t.oncomplete=res;t.onerror=res})}catch(e){}}
+// remove just these shared photos (a newer share may already be waiting)
+async function shareDel(ids){if(!ids||!ids.length)return;try{const d=await shareDb();await new Promise(res=>{const t=d.transaction("inbox","readwrite"),os=t.objectStore("inbox");ids.forEach(id=>os.delete(id));t.oncomplete=res;t.onerror=res})}catch(e){}}
 // The day a photo was taken: from the JPEG's EXIF data, else from a dated file name (PXL_20251103_…, IMG_20251103_…)
 async function photoDate(file){
   try{
@@ -2221,7 +2223,10 @@ async function photoDate(file){
 }
 function maybeOpenShare(){if(shareWanted&&db&&loaded.l&&loaded.m){shareWanted=false;openShare()}}
 async function openShare(){
-  const items=await shareInbox();if(!items.length)return;
+  // only this share's photos: anything else in the store was left over from an earlier share and is thrown away
+  const all=await shareInbox(),mine=shareBatch&&shareBatch!=="1"?all.filter(it=>it.batch===shareBatch):all;
+  shareDel(all.filter(it=>!mine.includes(it)).map(it=>it.id));
+  const items=mine.slice().sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));shareIds=items.map(it=>it.id);if(!items.length)return;
   shareFiles=await Promise.all(items.map(async it=>{const file=new File([it.blob],it.name,{type:it.type||it.blob.type||"",lastModified:it.lastModified});return {file,date:await photoDate(file)}}));
   shareUrls.forEach(u=>URL.revokeObjectURL(u));shareUrls=[];
   const imgs=shareFiles.filter(x=>String(x.file.type).startsWith("image/"));
@@ -2256,7 +2261,7 @@ $("#sharelist").addEventListener("click",async e=>{
   const b=e.target.closest("[data-shareto]");if(!b||!shareFiles.length)return;
   const l=logs.find(x=>x.id===b.dataset.shareto);if(!l)return;const sub=b.dataset.sharesub||"";
   const num=woNum(l.wo);if(!num){toast("That work order has no number");return}
-  const files=shareFiles.map(x=>x.file);shareFiles=[];
+  const files=shareFiles.map(x=>x.file),ids=shareIds;shareFiles=[];shareIds=[];
   // Show the choice straight away, open the work order on its Photos tab, then get the photos ready in the background
   b.classList.add("picked");b.querySelector(".stpill").textContent="Opening…";
   document.querySelectorAll("#sharelist .sharerow").forEach(r=>{if(r!==b)r.disabled=true});
@@ -2266,10 +2271,10 @@ $("#sharelist").addEventListener("click",async e=>{
   prepNote(t,files.length,0);
   pageReturn="open";await startEdit(l.id,sub||undefined);
   setTimeout(()=>{if(editingId===l.id)setWoTab("photos")},sub?60:0);
-  enqueue(files,t,false).finally(()=>{shareClear();shareUrls.forEach(u=>URL.revokeObjectURL(u));shareUrls=[]});
+  enqueue(files,t,false).finally(()=>{shareDel(ids);shareUrls.forEach(u=>URL.revokeObjectURL(u));shareUrls=[]});
 });
 // Leaving the screen without picking a work order discards the shared photos (share them again to retry)
-function leaveShare(){if(shareFiles.length){shareFiles=[];shareClear();toast("Shared photos not added")}}
+function leaveShare(){if(shareFiles.length){shareFiles=[];shareDel(shareIds);shareIds=[];toast("Shared photos not added")}}
 
 // ---- Menu (top right) and its pages ----
 function closeMenu(){const m=$("#menu");if(m&&!m.hidden){m.hidden=true;$("#menubtn").setAttribute("aria-expanded","false")}}
@@ -5499,7 +5504,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.19-110";
+const APP_VERSION="2026.10.20-111";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
