@@ -693,6 +693,11 @@ details.ck>summary span:first-child{flex:1}
 .ibphotos{margin-top:18px;padding-top:14px;border-top:2px solid var(--line)}
 .ibphotos h3{margin:0 0 4px;font-size:16px}
 .qbox #q-photos:empty{display:none}
+.ugridw{overflow:auto;max-height:min(62dvh,560px)}
+.ugrid .thumb{position:relative}
+.ugrid .uused,.ugrid .udate{position:absolute;right:5px;padding:2px 6px;border-radius:999px;font-size:10.5px;font-weight:600;pointer-events:none}
+.ugrid .udate{bottom:5px;background:rgba(0,0,0,.6);color:#fff}
+.ugrid .uused{top:5px;background:var(--accent);color:#111}
 .sharerow.nohit{cursor:default;opacity:.75}
 @media (min-width:700px){.qsheet{align-items:center}}
 .updfab{position:fixed;right:16px;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:7;display:inline-flex;align-items:center;gap:8px;padding:0 20px 0 16px;height:52px;border:0;border-radius:999px;background:var(--accent);color:var(--accent-ink);font:inherit;font-weight:700;font-size:16px;box-shadow:0 6px 18px rgba(0,0,0,.28),0 1px 3px rgba(0,0,0,.2);cursor:pointer}
@@ -1569,6 +1574,11 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
   <div class="alist" id="alist"></div>
   <div class="attbtns" style="margin:0"><button type="button" class="btn ghost" id="a-cancel">Cancel</button></div>
 </div></div>
+<div class="qsheet" id="usheet" hidden><div class="qbox" role="dialog" aria-modal="true" aria-labelledby="utitle">
+  <div class="qhead"><b id="utitle">Add photos from Unassigned</b><small id="usub"></small></div>
+  <div id="ugrid" class="ugridw"></div>
+  <div class="attbtns" style="margin:0"><button type="button" class="btn" id="u-add" disabled>Add photos</button><button type="button" class="btn ghost" id="u-cancel">Cancel</button></div>
+</div></div>
 <div class="gate" id="gate">
   <div class="gate-card">
     <img class="gate-mark" src="icons/icon-192.png" alt="">
@@ -2162,6 +2172,7 @@ window.addEventListener("popstate",async()=>{
   if(skipPop>0){skipPop--;if(popWaiter){const f=popWaiter;popWaiter=null;f()}return}
   if(!$("#moresheet").hidden){closeMore(true);return}
   if(!$("#lb").hidden){closeViewer(true);return}
+  if(!$("#usheet").hidden){closeUnPick(true);return}
   if(!$("#rptm").hidden){closeReport(true);return}
   if(subPage&&!$("#v-log").hidden){closeSub(true);return}
   if(!$("#asheet").hidden){closeAssign();return}
@@ -2341,7 +2352,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#moresheet").hi
 // Used for the main tabs (Dashboard ↔ Calendar ↔ All jobs ↔ Moulds) and a work order's Details ↔ Photos.
 function swipePager(o){let s=null;
   const blocked=t=>{const f=t.closest("input,textarea,select,[contenteditable]");return (f&&(f===document.activeElement||f.matches("input[type=range],select")))||t.closest(".updphotos,.noswipe,nav.tabs,header.top"+(o.skip?","+o.skip:""))};
-  const overlay=()=>!$("#moresheet").hidden||!$("#lb").hidden||!$("#qsheet").hidden||!$("#asheet").hidden||!$("#rptm").hidden;
+  const overlay=()=>!$("#moresheet").hidden||!$("#usheet").hidden||!$("#lb").hidden||!$("#qsheet").hidden||!$("#asheet").hidden||!$("#rptm").hidden;
   function scrollsX(n){for(;n&&n!==document.body;n=n.parentElement){if(n.scrollWidth>n.clientWidth+2){const ov=getComputedStyle(n).overflowX;if(ov==="auto"||ov==="scroll")return true}}return false}
   const reset=(el,anim)=>{el.style.transition=anim?"transform .24s cubic-bezier(.2,.8,.2,1),opacity .24s ease":"";el.style.transform="";el.style.opacity="";el.style.willChange="";if(anim)setTimeout(()=>{if(!s||s.el!==el)el.style.transition=""},260)};
   document.addEventListener("touchstart",e=>{s=null;if(e.touches.length!==1||overlay()||!o.on())return;
@@ -3807,7 +3818,7 @@ let formDriveTimer=null;
 $("#g-att").addEventListener("click",e=>{const b=e.target.closest("[data-galtool]");if(!b)return;galTool=b.dataset.galtool;renderFormDrive()});
 function renderFormDriveSoon(){clearTimeout(formDriveTimer);formDriveTimer=setTimeout(renderFormDrive,500)}
 $("#f-wo").addEventListener("input",renderFormDriveSoon);
-function renderAttViews(){calPhotosLoaded();if(!$("#v-inbox").hidden){renderInboxDrive();renderInbox()}if(!$("#qsheet").hidden)qThumbs();if(!$("#v-hist").hidden)renderHist();if(!$("#v-log").hidden){renderFormDrive();updRefreshPhotos()}}
+function renderAttViews(){calPhotosLoaded();if(!$("#usheet").hidden)renderUnPick();if(!$("#v-inbox").hidden){renderInboxDrive();renderInbox()}if(!$("#qsheet").hidden)qThumbs();if(!$("#v-hist").hidden)renderHist();if(!$("#v-log").hidden){renderFormDrive();updRefreshPhotos()}}
 function onDriveConnected(){setTimeout(()=>offPrefetch(),8000);setTimeout(()=>autoBackup(false),3000);for(const k in driveState){if(driveState[k].status!=="ready")delete driveState[k]}renderAttViews();renderAccount();processQueue();processBackups()}
 async function connectDrive(forceConsent){
   try{await requestToken(forceConsent||!driveOk?"consent":"");
@@ -4178,13 +4189,47 @@ function renderUpd(p){
       ${!ed&&isDone(st)?`<label class="updreopen"><input type="checkbox" class="updro"> Reopen ${p==="b"?"this sub-job":"the work order"}</label>`:""}</div>
       <textarea class="autogrow updt" rows="2" placeholder="What's been found or done? e.g. Pulled the B-side, ejector pin on cav 3 cracked, replacement ordered">${esc(ed?ed.text:"")}</textarea>
       <div class="updnewph"></div>
-      ${t?`<div class="attbtns" style="margin:0"><label class="btn ghost" for="pick-photo" ${da} role="button" tabindex="0">Take photo</label><label class="btn ghost" for="pick-gallery" ${da} role="button" tabindex="0">Add photos</label></div>`:`<div class="small">Fill in the mould and work order no. to add photos to updates.</div>`}
+      ${t?`<div class="attbtns" style="margin:0"><label class="btn ghost" for="pick-photo" ${da} role="button" tabindex="0">Take photo</label><label class="btn ghost" for="pick-gallery" ${da} role="button" tabindex="0">Add photos</label>${driveRoot?`<button type="button" class="btn ghost" data-updunas="${p}">From Unassigned</button>`:""}</div>`:`<div class="small">Fill in the mould and work order no. to add photos to updates.</div>`}
       <div class="attbtns" style="margin:0"><button type="button" class="btn" data-updsave="${p}">${ed?"Save update":"Add update"}</button><button type="button" class="btn ghost" data-updcancel="${p}">Cancel</button></div></div>`;
     const ta=comp.querySelector(".updt");setTimeout(()=>{grow(ta);ta.focus()},0);
   }
   comp.querySelector(".updnewph").innerHTML=updThumbs(p,open.files,true);
   updMergeHint(comp,p);
 }
+// ---- Updates: add photos from Unassigned. The picked photos move into this job's folder (or the tool's folder for a
+// sub-job) and are added to the update; an unassigned update that showed one of them lets go of it ----
+let uPick=null;
+function openUnPick(p){const t=updTarget(p);if(!t)return;
+  if(!driveRoot){toast("Set your Drive Work Orders folder first (Settings)");return}
+  uPick={p,t,sel:new Set()};$("#usub").textContent=`They move into #${t.num}${t.sub?" / "+t.sub:""} and are added to this update.`;
+  const st=dsEnsure(INBOX_NUM,INBOX_T);if(st&&st.cached&&hasToken())driveLoad(INBOX_NUM);
+  $("#usheet").hidden=false;document.documentElement.classList.add("lbopen");try{history.pushState({ml:"usheet"},"")}catch(e){}
+  renderUnPick()}
+function closeUnPick(fromPop){if($("#usheet").hidden)return;$("#usheet").hidden=true;uPick=null;document.documentElement.classList.remove("lbopen");
+  if(fromPop!==true){try{if(history.state&&history.state.ml==="usheet"){skipPop++;history.back()}}catch(e){}}}
+function renderUnPick(){if(!uPick||$("#usheet").hidden)return;const el=$("#ugrid"),st=driveState[INBOX_NUM],b=$("#u-add");
+  const n=uPick.sel.size;b.disabled=!n||!!uPick.busy;b.textContent=uPick.busy?"Moving…":n?`Add ${n} photo${n===1?"":"s"}`:"Add photos";
+  if(!hasToken()&&!(st&&st.items)){el.innerHTML=`<div class="small">Connect Google Drive to see the Unassigned photos. <button type="button" class="linkish" data-dconnect="1">Connect</button></div>`;return}
+  if(!st||(!st.items&&st.status==="loading")){el.innerHTML=`<div class="small">Loading Unassigned…</div>`;return}
+  if(!st.items){el.innerHTML=st.status==="nofolder"?`<div class="empty small">Nothing in Unassigned yet.</div>`:`<div class="small">Couldn't load Unassigned. <button type="button" class="linkish" data-uretry="1">Try again</button></div>`;return}
+  const imgs=st.items.filter(isMediaF),used=new Set(inbox.flatMap(x=>x.files||[]));
+  if(!imgs.length){el.innerHTML=`<div class="empty small">No photos in Unassigned.</div>`;return}
+  el.innerHTML=`<div class="attgrid selecting ugrid">${imgs.map(f=>{const on=uPick.sel.has(f.name),tk=fileTaken(f);
+    return `<button type="button" class="thumb${on?" picked":""}" data-upick="${esc(f.name)}" aria-pressed="${on}" aria-label="${on?"Unselect":"Select"} ${esc(f.name)}"><span class="tick" aria-hidden="true"></span>${f.thumbnailLink?`<img src="${esc(thumbUrl(f,400))}" referrerpolicy="no-referrer" alt="" loading="lazy" draggable="false">`:`<span class="ext">${isVideo(f)?"VIDEO":"IMG"}</span>`}${vidBadge(f)}${used.has(f.name)?`<span class="uused">In an update</span>`:""}${tk?`<span class="udate">${esc(fmtDate(tk.slice(0,10)))}</span>`:""}</button>`}).join("")}</div>`}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-updunas]");if(b)openUnPick(b.dataset.updunas)});
+$("#usheet").addEventListener("click",e=>{if(e.target===$("#usheet")){closeUnPick();return}
+  if(e.target.closest("[data-uretry]")){delete driveState[INBOX_NUM];dsEnsure(INBOX_NUM,INBOX_T);renderUnPick();return}
+  const t=e.target.closest("[data-upick]");if(!t||!uPick||uPick.busy)return;const n=t.dataset.upick;if(uPick.sel.has(n))uPick.sel.delete(n);else uPick.sel.add(n);renderUnPick()});
+$("#u-cancel").onclick=()=>closeUnPick();
+$("#u-add").onclick=async()=>{const u=uPick;if(!u||!u.sel.size||u.busy)return;
+  if(!hasToken()||!navigator.onLine){toast("Moving photos needs a connection to Google Drive");return}
+  const st=driveState[INBOX_NUM],names=[...u.sel],files=((st&&st.items)||[]).filter(f=>names.includes(f.name));
+  u.busy=true;renderUnPick();
+  try{const ren=await moveToJob(names,files,u.t),fin=names.map(n=>ren[n]||n);
+    for(const x of inbox){const keep=(x.files||[]).filter(n=>!names.includes(n));if(keep.length!==(x.files||[]).length&&db)await db.collection("inbox").doc(x.id).update({files:keep,updatedAt:new Date().toISOString()})}
+    closeUnPick();updAttach(u.p,fin);driveLoad(dkey(u.t));
+    toast(`Added ${fin.length} photo${fin.length===1?"":"s"} from Unassigned`)}
+  catch(err){u.busy=false;renderUnPick();toast("Couldn't move the photos: "+((err&&err.message)||err))}};
 function updRefreshPhotos(){if($("#v-log").hidden)return;["f","b"].forEach(p=>{const el=$(p==="f"?"#f-upd":"#b-upd");if(el&&el.querySelector(".updlistw"))renderUpd(p)})}
 // Photos picked from an update's buttons upload to the work order's folder and are linked to the update
 function updAttach(p,names){if(!updOpen||updOpen.p!==p||!names.length)return;updOpen.files=[...new Set([...(updOpen.files||[]),...names])];renderUpd(p);markDirty(250)}
@@ -4571,7 +4616,7 @@ async function assignTo(logId,asub){
     renderInbox();renderAttViews();
   }catch(err){toast("Couldn't assign: "+((err&&err.message)||err.code||"unknown error"));delete driveState[INBOX_NUM];renderAttViews()}
 }
-document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(!$("#asheet").hidden)closeAssign();else if(!$("#qsheet").hidden)$("#q-cancel").click()});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(!$("#usheet").hidden){closeUnPick();return}if(!$("#asheet").hidden)closeAssign();else if(!$("#qsheet").hidden)$("#q-cancel").click()});
 
 // ---- The floating "+ Update" button: start an update from anywhere on the work order, one-handed ----
 const updFabP=()=>subPage?"b":($("#pmmain").classList.contains("off")?null:"f");
@@ -5580,7 +5625,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.20-113";
+const APP_VERSION="2026.10.20-114";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
