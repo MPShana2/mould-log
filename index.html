@@ -77,6 +77,7 @@ header.top{align-items:center}
 .sharerow .wo{font-family:var(--mono);font-weight:600}
 .sharerow .nm{min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis}
 .sharerow .nm small{display:block;font-weight:400;color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shareun{margin-bottom:6px}.shareun .sharerow{border-left-color:var(--steel)}.shareun .wo{display:flex;width:36px;justify-content:center;color:var(--steel)}
 .sharerow.sub{border-left-color:transparent;border-top:1px dashed var(--line);padding-block:9px;background:var(--sub-bg)}
 .sharerow.sub .wo{font-size:13px;color:var(--muted);padding-left:6px}
 .pagehead{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
@@ -2252,13 +2253,22 @@ function renderShareList(){
     return `<div class="sharegroup"><button type="button" class="sharerow" data-shareto="${esc(l.id)}"><span class="wo">${esc(l.wo)}</span><span class="nm">${esc(jobTool(l))}<small>${l.orderNo?"Order "+esc(l.orderNo)+" · ":""}${l.date?fmtDate(l.date):""}${l.dateCompleted?" – "+fmtDate(l.dateCompleted):""}${(l.description||l.notes)?" · "+esc(String(l.description||l.notes).slice(0,60)):""}</small></span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`+
       subs.map(x=>`<button type="button" class="sharerow sub" data-shareto="${esc(l.id)}" data-sharesub="${esc(x.id)}"><span class="wo">${esc(l.wo)}-${x.no}</span><span class="nm">${esc(x.name)}</span><span class="stpill ${stClass(x.status)}">${esc(x.status)}</span></button>`).join("")+`</div>`};
   const lim=q?60:40;
-  $("#sharelist").innerHTML=(sug.length?`<div class="ogh">Running when these were taken<span>${sug.length}</span></div>${sug.slice(0,12).map(row).join("")}`:"")+
+  // or put them in Unassigned, to sort out later (on the Unassigned page, or in Drive at the PC)
+  const un=q?"":`<div class="sharegroup shareun"><button type="button" class="sharerow" data-shareto="${INBOX_NUM}"><span class="wo" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5l2.6-8h11.8l2.6 8v5.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19z"/><path d="M3.5 13.5h5l1.2 2.5h4.6l1.2-2.5h5"/></svg></span><span class="nm">Unassigned<small>Sort them into work orders later</small></span><span class="stpill none">Later</span></button></div>`;
+  $("#sharelist").innerHTML=un+(sug.length?`<div class="ogh">Running when these were taken<span>${sug.length}</span></div>${sug.slice(0,12).map(row).join("")}`:"")+
     `<div class="ogh">${q?"Matching work orders":"All work orders"}<span>${rest.length}</span></div>`+(rest.length?rest.slice(0,lim).map(row).join(""):`<div class="empty small">No work orders match.</div>`)+
     (rest.length>lim?`<div class="small" style="margin-top:8px">Showing the newest ${lim}. Search to find older ones.</div>`:"");
 }
 $("#sharesearch").addEventListener("input",renderShareList);
 $("#sharelist").addEventListener("click",async e=>{
   const b=e.target.closest("[data-shareto]");if(!b||!shareFiles.length)return;
+  if(b.dataset.shareto===INBOX_NUM){const files=shareFiles.map(x=>x.file),ids=shareIds;shareFiles=[];shareIds=[];
+    b.classList.add("picked");b.querySelector(".stpill").textContent="Adding…";document.querySelectorAll("#sharelist .sharerow").forEach(r=>{if(r!==b)r.disabled=true});
+    toast(`Adding ${files.length} ${files.length===1?"photo":"photos"} to Unassigned`);
+    await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));
+    prepNote(INBOX_T,files.length,0);await goPage("inbox");
+    setTimeout(()=>{const ph=document.querySelector("#v-inbox .ibphotos");if(ph&&!$("#v-inbox").hidden)ph.scrollIntoView({block:"start",behavior:reduceMotion()?"auto":"smooth"})},80);
+    enqueue(files,INBOX_T,false).finally(()=>{shareDel(ids);shareUrls.forEach(u=>URL.revokeObjectURL(u));shareUrls=[]});return}
   const l=logs.find(x=>x.id===b.dataset.shareto);if(!l)return;const sub=b.dataset.sharesub||"";
   const num=woNum(l.wo);if(!num){toast("That work order has no number");return}
   const files=shareFiles.map(x=>x.file),ids=shareIds;shareFiles=[];shareIds=[];
@@ -5504,7 +5514,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.20-111";
+const APP_VERSION="2026.10.20-112";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
