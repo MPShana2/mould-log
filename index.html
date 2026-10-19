@@ -3333,8 +3333,10 @@ async function ensureFolder(num,label,sub){
   return (await findSubFolder(num,f.id,sub))||(await createSubFolder(num,f.id,sub));
 }
 const dkey=t=>t.sub?t.num+"/"+t.sub:t.num;
-async function dUpload(folderId,blob,name,type){
+async function dUpload(folderId,blob,name,type,taken){
   const meta={name,parents:[folderId],mimeType:type};
+  // a photo's "created" date in Drive is when it was taken (Drive reads the photo's own date later, which can take a while)
+  if(taken){const d=new Date(taken);if(!isNaN(d)&&d<Date.now()+864e5)meta.createdTime=d.toISOString()}
   const fields="fields=id,name,mimeType,size,webViewLink,thumbnailLink,modifiedTime,createdTime,videoMediaMetadata(durationMillis)&supportsAllDrives=true";
   if(blob.size<=5*1024*1024){
     const b="mouldlog"+Math.random().toString(36).slice(2);
@@ -3449,24 +3451,46 @@ async function qPut(item){try{await qTx("readwrite",s=>s.put(item))}catch(e){mem
 async function qDel(id){try{await qTx("readwrite",s=>s.delete(id))}catch(e){}memQ=memQ.filter(x=>x.id!==id)}
 async function refreshQueue(){queueCache=(await qAll()).sort((a,b)=>String(a.addedAt).localeCompare(String(b.addedAt)));renderAttViews()}
 
+// ---- Photo metadata: a shrunk photo keeps the original's EXIF block (date taken, camera, location) ----
+// The canvas copy loses it, so it's copied back in; the rotation is already applied to the pixels, so Orientation becomes 1.
+function exifRead(buf){const d=new DataView(buf);if(d.byteLength<4||d.getUint16(0)!==0xFFD8)return null;let o=2;
+  while(o+4<=d.byteLength){const mk=d.getUint16(o);if((mk&0xFF00)!==0xFF00)return null;if(mk===0xFFDA||mk===0xFFD9)return null;const len=d.getUint16(o+2);
+    if(mk===0xFFE1&&o+10<=d.byteLength&&d.getUint32(o+4)===0x45786966&&d.getUint16(o+8)===0){
+      const seg=new Uint8Array(buf.slice(o,o+2+len)),v=new DataView(seg.buffer),t=10;let date="";
+      try{const le=v.getUint16(t)===0x4949,u16=x=>v.getUint16(x,le),u32=x=>v.getUint32(x,le);
+        const str=(e)=>{const n=u32(e+4),off=n>4?t+u32(e+8):e+8;let r="";for(let i=0;i<n-1&&off+i<seg.length;i++)r+=String.fromCharCode(seg[off+i]);return r};
+        const walk=(ifd,fn)=>{const n=u16(t+ifd);for(let i=0;i<n;i++){const e=t+ifd+2+i*12;if(e+12>seg.length)break;fn(u16(e),e)}};
+        let sub=0,dt="";walk(u32(t+4),(tag,e)=>{if(tag===0x0112)v.setUint16(e+8,1,le);if(tag===0x8769)sub=u32(e+8);if(tag===0x0132)dt=str(e)});
+        if(sub)walk(sub,(tag,e)=>{if(tag===0x9003)date=str(e)});date=date||dt}catch(e){}
+      const m=String(date).match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+      return {seg,taken:m&&m[1]>"1990"?`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`:""}}
+    o+=2+len}
+  return null}
+// put an EXIF block into a canvas JPEG (replacing its plain JFIF header)
+async function exifPut(blob,seg){const b=new Uint8Array(await blob.arrayBuffer());if(b[0]!==0xFF||b[1]!==0xD8)return blob;let o=2;
+  if(b[2]===0xFF&&b[3]===0xE0)o=4+((b[4]<<8)|b[5]);
+  return new Blob([b.slice(0,2),seg,b.slice(o)],{type:"image/jpeg"})}
 async function shrinkImage(file){
-  const bmp=await createImageBitmap(file);
+  const bmp=await createImageBitmap(file,{imageOrientation:"from-image"});
   const max=2560, k=Math.min(1,max/Math.max(bmp.width,bmp.height));
   const cv=document.createElement("canvas");cv.width=Math.round(bmp.width*k);cv.height=Math.round(bmp.height*k);
   cv.getContext("2d").drawImage(bmp,0,0,cv.width,cv.height);
-  return await new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error("encode")),"image/jpeg",0.86));
+  const out=await new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error("encode")),"image/jpeg",0.86));
+  let ex=null;try{ex=exifRead(await file.slice(0,262144).arrayBuffer())}catch(e){}
+  return {blob:ex?await exifPut(out,ex.seg):out,taken:ex?ex.taken:""};
 }
 async function prepFile(file,fromCamera,num){
   let type=file.type||TYPE_BY_EXT[extOf(file.name)]||"application/octet-stream";
   if(type.startsWith("image/")&&type!=="image/gif"){
     const small=["image/jpeg","image/png","image/webp"].includes(type)&&file.size<=2.5e6;
     if(!small){
-      try{const b=await shrinkImage(file);const base=(fromCamera||!file.name)?`${num===INBOX_NUM?"":num+"_"}photo_${stamp()}`:file.name.replace(/\.[^.]+$/,"");return {blob:b,type:"image/jpeg",name:base+".jpg"}}
+      try{const r=await shrinkImage(file);const base=(fromCamera||!file.name)?`${num===INBOX_NUM?"":num+"_"}photo_${stamp()}`:file.name.replace(/\.[^.]+$/,"");return {blob:r.blob,type:"image/jpeg",name:base+".jpg",taken:r.taken}}
       catch(e){/* keep the original if the browser can't read it */}
     }
   }
   const name=(fromCamera||!file.name)?`${num===INBOX_NUM?"":num+"_"}photo_${stamp()}.${extOf(file.name)||"jpg"}`:file.name;
-  return {blob:file,type,name};
+  let taken="";if(type==="image/jpeg"){try{const ex=exifRead(await file.slice(0,262144).arrayBuffer());taken=ex?ex.taken:""}catch(e){}}
+  return {blob:file,type,name,taken};
 }
 async function enqueue(files,t,fromCamera){
   if(!files.length)return;
@@ -3484,7 +3508,7 @@ async function enqueue(files,t,fromCamera){
       const p=await prepFile(f,fromCamera,t.num);
       if(taken.has(norm(p.name))){dupes.push(p.name);accepted.push(p.name);continue}
       taken.add(norm(p.name));accepted.push(p.name);
-      await qPut({id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),num:t.num,label:t.label,sub:t.sub||"",name:p.name,type:p.type,blob:p.blob,size:p.blob.size,addedAt:new Date().toISOString(),err:""});
+      await qPut({id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),num:t.num,label:t.label,sub:t.sub||"",name:p.name,type:p.type,blob:p.blob,size:p.blob.size,taken:p.taken||"",addedAt:new Date().toISOString(),err:""});
       // start uploading the first ones while the rest are being prepared
       if(files.length>1){await refreshQueue();processQueue()}
     }
@@ -3510,7 +3534,7 @@ async function processQueue(){
         // Last check against Drive itself (another device may have uploaded it meanwhile)
         const ex=await dList(`'${dq(folder.id)}' in parents and name='${dq(it.name)}' and trashed=false`);
         if((ex.files||[]).length){qDone[qKey(it)]=(qDone[qKey(it)]||0)+1;await qDel(it.id);delete driveState[it.num];if(it.sub)delete driveState[it.num+"/"+it.sub];toast(`${it.name} is already in Drive, so it was skipped`);await refreshQueue();continue}
-        await dUpload(folder.id,it.blob,it.name,it.type);
+        await dUpload(folder.id,it.blob,it.name,it.type,it.taken);
         await qDel(it.id);
         delete driveState[it.num];if(it.sub)delete driveState[it.num+"/"+it.sub];
         qDone[qKey(it)]=(qDone[qKey(it)]||0)+1;it.ok=true;
@@ -5475,7 +5499,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.19-108";
+const APP_VERSION="2026.10.19-109";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
