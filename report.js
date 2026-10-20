@@ -113,7 +113,6 @@ function rptLines(text){return String(text??"").replace(/\r/g,"").replace(/\s+$/
   const m=s.match(/^(\s*)(?:([•●◦▪\-*])|(\d+[.)]))\s+(.*)$/);
   if(m)return {lvl:Math.min(3,Math.floor(m[1].replace(/\t/g,"    ").length/2)),mark:m[3]||"•",text:m[4]};
   return {lvl:0,mark:"",text:s.trim()}})}
-const rptCkRows=st=>{const rows=[];CHECKLIST.forEach(sec=>{rows.push({sec:sec.sec});sec.items.forEach(it=>{if(it.sub){rows.push({t:it.t,group:true});it.sub.forEach(k=>rows.push({t:k.t,st:st[k.id],lvl:1}))}else rows.push({t:it.t,st:st[it.id],counter:it.counter})})});return rows};
 
 // ---- PDF ----
 // Helvetica widths (1/1000 em) for WinAnsi codes 32-255

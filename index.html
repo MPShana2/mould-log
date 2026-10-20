@@ -1784,7 +1784,8 @@ const JOBTYPES=["Preventive","Service","Repair","Clean","Inspection","Insert cha
 let db=null, moulds=[], logs=[], loaded={m:false,l:false}, current=null, confirmDel=null;
 
 function today(){const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)}
-function fmtDate(s){if(!s)return"—";const d=new Date(s+"T00:00:00");return isNaN(d)?s:d.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
+const fmtDateMemo=new Map();
+function fmtDate(s){if(!s)return"—";let v=fmtDateMemo.get(s);if(v!==undefined)return v;const d=new Date(s+"T00:00:00");v=isNaN(d)?s:d.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});if(fmtDateMemo.size>5000)fmtDateMemo.clear();fmtDateMemo.set(s,v);return v}
 function fmtNum(n){return (n===null||n===undefined||n==="")?"—":Number(n).toLocaleString()}
 function slug(s){return s.trim().replace(/[^A-Za-z0-9_\-.~:@+]/g,"_").slice(0,120)||"mould"}
 // Three kinds: moulds, general jobs and client work. General jobs and client work have no shot count or part,
@@ -1833,42 +1834,6 @@ function leafRow(x){
     `<button type="button" class="na" data-na="${x.id}" aria-pressed="false" aria-label="Not applicable">N/A</button></div>`;
 }
 // One checklist widget; the job form has two (the main job's and the selected mould tab's)
-function makeChecklist(list,prog,getSt,shotsInput){
-  const q=sel=>list.querySelector(sel);
-  list.innerHTML=CHECKLIST.map((s,si)=>`<div class="cksec"><div class="cksechead"><span>${esc(s.sec)}</span><button type="button" class="linkish" data-ckall="${si}">Mark all done</button></div>`+
-    s.items.map(it=>it.sub?`<div class="ckgroup"><label class="ckparent"><input type="checkbox" data-ckparent="${it.id}"><span>${esc(it.t)}</span><span class="ckn" data-ckn="${it.id}"></span></label><div class="ckkids">${it.sub.map(leafRow).join("")}</div></div>`:leafRow(it)).join("")+`</div>`).join("");
-  function sync(){
-    const st=getSt();
-    CK_ALL.forEach(x=>{
-      const v=st[x.id],cb=q(`[data-ckid="${x.id}"]`),na=q(`[data-na="${x.id}"]`),row=q(`[data-row="${x.id}"]`);
-      cb.checked=v==="done";cb.disabled=v==="na";na.setAttribute("aria-pressed",v==="na"?"true":"false");row.classList.toggle("isna",v==="na");row.classList.toggle("isdone",v==="done");
-    });
-    CHECKLIST.forEach(s=>s.items.forEach(it=>{if(!it.sub)return;
-      const kids=it.sub.filter(k=>st[k.id]!=="na"),done=kids.filter(k=>st[k.id]==="done").length;
-      const p=q(`[data-ckparent="${it.id}"]`);p.checked=kids.length>0&&done===kids.length;p.indeterminate=done>0&&done<kids.length;p.disabled=!kids.length;
-      q(`[data-ckn="${it.id}"]`).textContent=kids.length?`${done}/${kids.length}`:"N/A";
-    }));
-    const c=ckCounts(st);prog.textContent=ckSummary(st);prog.classList.toggle("done",c.d>=c.total&&c.total>0);
-  }
-  list.addEventListener("change",e=>{
-    const t=e.target,st=getSt();
-    if(t.dataset.ckid){if(t.checked)st[t.dataset.ckid]="done";else delete st[t.dataset.ckid];sync()}
-    else if(t.dataset.ckparent){const it=CHECKLIST.flatMap(s=>s.items).find(i=>i.id===t.dataset.ckparent);
-      it.sub.forEach(k=>{if(st[k.id]==="na")return;if(t.checked)st[k.id]="done";else delete st[k.id]});sync()}
-  });
-  list.addEventListener("click",e=>{
-    const st=getSt();
-    const n=e.target.closest("[data-na]");
-    if(n){const id=n.dataset.na;if(st[id]==="na")delete st[id];else st[id]="na";sync();markDirty(250);return}
-    const a=e.target.closest("[data-ckall]");
-    if(a){ckLeaves(CHECKLIST[+a.dataset.ckall]).forEach(x=>{if(st[x.id]!=="na")st[x.id]="done"});sync();markDirty(250)}
-  });
-  // Counter reading and Shot count are the same number
-  const counter=q(".ckcount");
-  list.addEventListener("input",e=>{if(e.target===counter)shotsInput.value=counter.value});
-  shotsInput.addEventListener("input",()=>{counter.value=shotsInput.value});
-  return {sync,setCounter:v=>{counter.value=v??""}};
-}
 
 // ---- Pasting lists (Google Docs, Word, web pages) into text boxes ----
 // Text boxes can't hold list formatting, so pasted lists become "• " lines (numbered lists keep their numbers, sub-points are indented)
@@ -2025,7 +1990,7 @@ function clRender(key,focus){
   el.innerHTML=open.map(clRow).join("")+
     `<div class="cl-add"><span class="cl-plus" aria-hidden="true">+</span><textarea class="cl-new" rows="1" placeholder="List item" aria-label="Add list item"></textarea></div>`+
     (done.length?`<button type="button" class="cl-donetoggle" aria-expanded="${!!inst.showDone}">${inst.showDone?"▾":"▸"} ${done.length} ticked item${done.length===1?"":"s"}</button>`+(inst.showDone?`<div class="cl-donelist">${done.map(clRow).join("")}</div>`:""):"");
-  el.querySelectorAll("textarea").forEach(grow);
+  growMany(el.querySelectorAll("textarea"));
   if(focus){
     const t=focus.id==="new"?el.querySelector(".cl-new"):el.querySelector(`.cl-row[data-id="${CSS.escape(focus.id)}"] .cl-text`);
     if(t){t.focus();const p=focus.pos==null?t.value.length:focus.pos;try{t.setSelectionRange(p,p)}catch(e){}}
@@ -2034,7 +1999,7 @@ function clRender(key,focus){
 function clMount(key,items,save){
   const inst=clInst[key]||(clInst[key]={showDone:false});
   // keep what's on screen if a change is still waiting to be saved
-  if(!inst.pending)inst.items=(items||[]).map(i=>({...i}));
+  if(!inst.pending){inst.items=(items||[]).map(i=>({...i}));inst.base=JSON.parse(JSON.stringify(items||[]))}
   inst.save=save;clRender(key);
 }
 function clChanged(inst){inst.pending=true;inst.save(inst.items);if(typeof dueChanged==="function")dueChanged()}
@@ -2296,6 +2261,9 @@ function tdSaveLater(key,fn){
   const run=async()=>{delete tdTimers[key];try{await fn()}catch(err){toast("Couldn't save: "+(err.message||err.code))}if(clInst[key])clInst[key].pending=false};
   tdTimers[key]={fn:run,t:setTimeout(run,600)};
 }
+// a to-do list saved from here keeps items another device added, ticked or removed meanwhile
+function tdMerged(key,items,server){const inst=clInst[key],local=cleanItems(items),out=inst&&inst.base?cleanItems(mergeById(cleanItems(inst.base),local,cleanItems(server||[]))):local;
+  if(inst)inst.base=JSON.parse(JSON.stringify(local));return out}
 function tdFlush(){for(const k of Object.keys(tdTimers)){clearTimeout(tdTimers[k].t);tdTimers[k].fn()}}
 function updateTodoCount(){
   const n=todoLists.reduce((a,L)=>a+(L.items||[]).filter(i=>!i.done).length,0)+logs.reduce((a,l)=>a+(l.todos||[]).filter(i=>!i.done).length,0);
@@ -2316,7 +2284,7 @@ function renderTodo(force){
   const lists=tdOrdered();
   $("#todolists").innerHTML=lists.length?lists.map(L=>`<div class="tdcard" data-id="${esc(L.id)}"><div class="tdtop">${lists.length>1?gripBtn("td","Drag to move this list"):""}<input class="tdtitle" data-title="${esc(L.id)}" value="${esc(L.title||"")}" placeholder="Title" aria-label="List title"><button type="button" class="tdmenu" data-dellist="${esc(L.id)}">Delete</button></div><div class="cl" data-cl="list:${esc(L.id)}"></div></div>`).join("")
     :`<div class="empty small">No lists yet. Tap “+ New list” to start one.</div>`;
-  lists.forEach(L=>clMount("list:"+L.id,L.items||[],items=>tdSaveLater("list:"+L.id,()=>db.collection("todolists").doc(L.id).update({items:cleanItems(items),updatedAt:new Date().toISOString()}))));
+  lists.forEach(L=>clMount("list:"+L.id,L.items||[],items=>tdSaveLater("list:"+L.id,()=>db.collection("todolists").doc(L.id).update({items:tdMerged("list:"+L.id,items,(todoLists.find(x=>x.id===L.id)||{}).items),updatedAt:new Date().toISOString()}))));
   const wos=logs.filter(l=>(l.todos||[]).length).sort((a,b)=>woSortNum(b)-woSortNum(a)||String(b.wo||"").localeCompare(String(a.wo||""),undefined,{numeric:true}));
   const active=wos.filter(l=>l.todos.some(i=>!i.done)),done=wos.filter(l=>!l.todos.some(i=>!i.done));
   const card=l=>{const st=l.status||"Complete";return `<div class="tdcard"><div class="tdtop"><button type="button" class="tdwo" data-tdopen="${esc(l.id)}" aria-label="Open ${esc(l.wo||"job")}"><span class="wotag">${esc(l.wo||"—")}</span>${esc(jobTool(l))}</button><span class="stpill ${stClass(st)}">${esc(st)}</span></div><div class="cl" data-cl="wo:${esc(l.id)}"></div></div>`};
@@ -2325,7 +2293,7 @@ function renderTodo(force){
   $("#tododone").hidden=!done.length;
   $("#tododonesum").textContent=`Work orders with everything ticked · ${done.length}`;
   $("#tododonelist").innerHTML=done.map(card).join("");
-  wos.forEach(l=>clMount("wo:"+l.id,l.todos,items=>tdSaveLater("wo:"+l.id,async()=>{await db.collection("logs").doc(l.id).update({todos:cleanItems(items),updatedAt:new Date().toISOString()});scheduleBackup(l.id)})));
+  wos.forEach(l=>clMount("wo:"+l.id,l.todos,items=>tdSaveLater("wo:"+l.id,async()=>{await db.collection("logs").doc(l.id).update({todos:tdMerged("wo:"+l.id,items,(logs.find(x=>x.id===l.id)||{}).todos),updatedAt:new Date().toISOString()});scheduleBackup(l.id)})));
   if(todoFocusTitle){const t=document.querySelector(`[data-title="${CSS.escape(todoFocusTitle)}"]`);todoFocusTitle=null;if(t)t.focus()}
   renderToday();
 }
@@ -2362,7 +2330,8 @@ $("#newlist").onclick=async()=>{
 
 // Text boxes that grow to fit their content
 function grow(el){if(!el.offsetParent)return;el.style.height="auto";el.style.height=(el.scrollHeight+2)+"px"}
-function growAll(){document.querySelectorAll("textarea.autogrow").forEach(grow)}
+function growMany(list){const els=[...list].filter(el=>el.offsetParent);els.forEach(el=>el.style.height="auto");const hs=els.map(el=>el.scrollHeight);els.forEach((el,i)=>el.style.height=(hs[i]+2)+"px")}
+function growAll(){growMany(document.querySelectorAll("textarea.autogrow"))}
 document.querySelectorAll("textarea.autogrow").forEach(el=>el.addEventListener("input",()=>grow(el)));
 window.addEventListener("resize",growAll);
 // Setting status to Complete fills Date completed if it's empty
@@ -2718,8 +2687,11 @@ document.querySelector("nav.tabs").addEventListener("click",e=>{
   const go=()=>tabGo(b.dataset.tab);if(!$("#moresheet").hidden)closeMore().then(go);else go();
 });
 
+// Jobs per mould, newest first: built once each time the work orders change (not once per mould)
+let mlIdx=new Map(),mlIdxOf=null;
+function logsFor(mid){if(mlIdxOf!==logs){mlIdx=new Map();for(const l of logs)for(const id of allIds(l)){let a=mlIdx.get(id);if(!a)mlIdx.set(id,a=[]);a.push(l)}mlIdxOf=logs}return mlIdx.get(mid)||[]}
 function summary(m){
-  const ml=logs.filter(l=>hasMould(l,m.id));
+  const ml=logsFor(m.id);
   const last=ml[0];
   const shots=ml.reduce((a,l)=>Math.max(a,Number(pmVal(l,m.id).shots)||0),0);
   const open=ml.filter(l=>l.status&&!isDone(subMeta(l,m.id).status)).length;
@@ -3044,11 +3016,6 @@ async function openMouldFromWo(mid){
   openMould(mid);
   if(id){histFrom={logId:id,sub,subNo,wo,rt};setHistBack()}
 }
-async function histBack(){
-  const h=histFrom;histFrom=null;setHistBack();
-  if(h&&logs.some(l=>l.id===h.logId)){await startEdit(h.logId,h.sub||undefined);returnTab=h.rt||"open";return true}
-  return false;
-}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-mhist]");if(!b||!b.closest("#logform"))return;e.preventDefault();openMouldFromWo(b.dataset.mhist)});
 $("#b-title").addEventListener("click",()=>{if(boxActive)openMouldFromWo(boxActive)});
 // ---- Edit mould / general job details ----
@@ -3136,7 +3103,7 @@ segBind("#e-kind");$("#e-kind").addEventListener("click",()=>setTimeout(editKind
 let mdelArmed=false;
 function resetMouldDel(){
   const m=moulds.find(x=>x.id===current);if(!m)return;const kind=kindName(m);
-  const n=logs.filter(l=>hasMould(l,m.id)).length;mdelArmed=false;
+  const n=logsFor(m.id).length;mdelArmed=false;
   const b=$("#mdel-btn");b.textContent="Delete this "+kind;b.classList.remove("armed");b.disabled=false;
   $("#mdel-msg").textContent=n?`${n} work order${n===1?" uses":"s use"} this ${kind}. If you delete it, ${n===1?"that work order is":"those work orders are"} kept and still ${n===1?"appears":"appear"} on the Dashboard and All jobs under the name “${mlabel(m)}”, but ${n===1?"isn't":"aren't"} in this history any more.`
     :`No work orders use this ${kind}.`;
@@ -3179,7 +3146,7 @@ function renderHist(){
    `${m.company?`<div><span>Company</span><b>${esc(m.company)}</b></div>`:""}<div><span>Cavities</span><b>${esc(m.cavities||"—")}</b></div><div><span>Material</span><b>${esc(m.material||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div>
    <div><span>Latest shots</span><b>${fmtNum(s.shots)}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>${(m.dateStamps||[]).length?`<div class="wide"><span>Date stamps</span><b class="dsfacts">${m.dateStamps.map(dsChip).join("")}</b></div>`:""}`}</div>`;
   $("#histhead").insertAdjacentHTML("beforeend",mpHtml(m));
-  const ml=logs.filter(l=>hasMould(l,m.id));
+  const ml=logsFor(m.id).slice();
   const lastUpd=l=>{const u=updClean(pmVal(l,m.id).updates);if(!u.length)return "";const x=u[u.length-1];return `<div class="lastupd"><b>Update ${esc(fmtDate(x.date))}</b> ${esc(x.text.length>110?x.text.slice(0,110)+"…":x.text)}${u.length>1?` <span>(${u.length} updates)</span>`:""}</div>`};
   const alsoOn=l=>{const o=jobIds(l).map((id,i)=>[id,jobNames(l)[i]]).filter(([id])=>id!==m.id&&id!==leadOf(l,m.id)).map(x=>x[1]);return o.length?`<div class="alsoon">Also on: ${esc(o.join(", "))}</div>`:""};
   $("#timeline").innerHTML=ml.length?ml.map(l=>{const sm=subMeta(l,m.id);return `<div class="entry e-${stClass(sm.status).slice(3)}">
@@ -3355,6 +3322,11 @@ async function startEdit(id,subId){
   if(!(currentView()==="log"&&editingId===id))navPrePush();
   await flushSave();
   editingId=id;dirty=false;origWo=l.wo||"";invLedger[id]=l.invUsed||{};if(woTab!=="details")setWoTab("details");
+  fillForm(l);
+  show("log");growAll();renderFormDrive();formMarkBase(l);
+}
+// Fill the form from a work order (on opening it, or when another device has changed it)
+function fillForm(l){
   resetPM();
   formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",partsList:l.partsList,procs:setProcs(l).map(x=>procSnap(x,x.st)),updates:updClean(l.updates),hrz:hrzClean(l.hrz)};
   for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",partsList:v.partsList,procs:setProcs(v).map(x=>procSnap(x,x.st)),updates:updClean(v.updates),hrz:hrzClean(v.hrz)}}
@@ -3368,8 +3340,45 @@ async function startEdit(id,subId){
   segSet("#f-status",l.status||"Complete");
   fProcs=(formPM[l.mouldId].procs||[]).map(x=>procSnap(x,x.st));wpPicker=null;renderWoProcs("f");updOpen=null;fUpds=updClean(formPM[l.mouldId].updates);renderUpd("f");
   updateEditBar();setSaveState("saved","All changes saved");
-  show("log");growAll();renderFormDrive();
 }
+// ---- Two devices on one work order: each save writes only what changed here, and lists (updates, to-dos)
+// are merged item by item with what's in the database, so nothing another device added is overwritten ----
+let formBase=null,formBaseDoc="",formShown=null,formStale=false;
+const sameJ=(a,b)=>JSON.stringify(a??null)===JSON.stringify(b??null);
+// key order doesn't matter (the database may return fields in another order than they were written)
+const stableJ=v=>Array.isArray(v)?"["+v.map(stableJ).join(",")+"]":v&&typeof v==="object"?"{"+Object.keys(v).filter(k=>v[k]!==undefined).sort().map(k=>JSON.stringify(k)+":"+stableJ(v[k])).join(",")+"}":JSON.stringify(v??null);
+const docKey=l=>{if(!l)return "";const {id,updatedAt,invUsed,createdAt,...rest}=l;return stableJ(rest)};
+// what the work order looks like once a save (with "perMould.x.updates" style paths) is applied
+function applyPatch(doc,patch){const d=JSON.parse(JSON.stringify(doc||{}));for(const [k,v] of Object.entries(patch)){const ps=k.split(".");let o=d;for(const q of ps.slice(0,-1)){if(!o[q]||typeof o[q]!=="object")o[q]={};o=o[q]}o[ps[ps.length-1]]=v===undefined?undefined:JSON.parse(JSON.stringify(v??null))}return d}
+function formMarkBase(l){formShown=JSON.parse(JSON.stringify(l||{}));formBaseDoc=docKey(formShown);formStale=false;try{const b=buildEntry();formBase=b.error?null:JSON.parse(JSON.stringify(b.entry))}catch(e){formBase=null}}
+// a list changed here and maybe elsewhere: start from the database's list, apply this device's edits, deletions and additions
+function mergeById(base,local,remote){base=base||[];local=local||[];remote=remote||[];
+  if(sameJ(remote,base))return local; // nothing changed elsewhere: this device's list (and order) as is
+  const key=x=>x&&(x.id||JSON.stringify([x.date,x.text])),B=new Map(base.map(x=>[key(x),x])),L=new Map(local.map(x=>[key(x),x])),out=[],seen=new Set();
+  for(const r of remote){const k=key(r);seen.add(k);if(B.has(k)&&!L.has(k))continue;out.push(L.has(k)&&!sameJ(L.get(k),B.get(k))?L.get(k):r)}
+  // added here: after the nearest item before it that's still there
+  local.forEach((x,i)=>{const k=key(x);if(seen.has(k)||B.has(k))return;let at=-1;for(let j=i-1;j>=0&&at<0;j--)at=out.findIndex(y=>key(y)===key(local[j]));out.splice(at+1,0,x);seen.add(k)});
+  return out}
+const MERGE_LISTS=new Set(["updates","todos"]);
+function entryPatch(base,local,server,noMerge){const out={};server=server||{};const mergeById2=(a,b,c)=>noMerge?b:mergeById(a,b,c);
+  for(const k of Object.keys(local)){if(k==="invUsed")continue; // written separately, only when parts change
+    const a=base[k],b=local[k];if(sameJ(a,b))continue;
+    if(MERGE_LISTS.has(k)){out[k]=mergeById2(a,b,server[k]);continue}
+    if((k==="perMould"||k==="subs")&&b&&typeof b==="object"&&a&&typeof a==="object"&&Object.keys(a).every(id=>id in b)){
+      for(const id of Object.keys(b)){const x=a[id],y=b[id];if(sameJ(x,y))continue;
+        if(k==="perMould"&&x&&y&&typeof y==="object"){for(const f of Object.keys(y)){if(sameJ(x[f],y[f]))continue;
+            out[`perMould.${id}.${f}`]=MERGE_LISTS.has(f)?mergeById2(x[f],y[f],((server.perMould||{})[id]||{})[f]):y[f]}}
+        else out[`${k}.${id}`]=y}
+      continue}
+    out[k]=b}
+  return out}
+// another device changed the job that's open here: show it (unless you're in the middle of something; then after)
+function formRemoteCheck(){if(!editingId||$("#v-log").hidden)return;const l=logs.find(x=>x.id===editingId);if(!l)return;
+  const k=docKey(l);if(k===formBaseDoc)return;
+  const a=document.activeElement,typing=a&&$("#logform").contains(a)&&a.matches("input,textarea,select");
+  if(dirty||saving||updOpen||subPage||typing||(clInst.form&&clInst.form.pending)||(typeof dict!=="undefined"&&dict)||!$("#lb").hidden){formStale=true;return}
+  const y=window.scrollY,tab=woTab;fillForm(l);formMarkBase(l);growAll();renderFormDrive();if(tab!==woTab)setWoTab(tab);window.scrollTo(0,y)}
+$("#logform").addEventListener("focusout",()=>setTimeout(()=>{if(formStale)formRemoteCheck()},400));
 function endEdit(){
   if(editingId)lastWoId=editingId;
   editingId=null;origWo=null;if(woTab!=="details")setWoTab("details");
@@ -3459,9 +3468,15 @@ async function autosave(){
       const now=new Date().toISOString();
       const used=invUsedOf(b.entry),prevUsed=editingId?(invLedger[editingId]||((logs.find(x=>x.id===editingId)||{}).invUsed)||{}):{};
       b.entry.invUsed=used;
-      if(editingId){await db.collection("logs").doc(editingId).update({...b.entry,updatedAt:now});invLedger[editingId]=used;invApply(prevUsed,used);
+      if(editingId){const server=logs.find(x=>x.id===editingId);
+        const patch=formBase&&server?entryPatch(formBase,b.entry,server):{...b.entry};
+        if(!sameJ(used,prevUsed))patch.invUsed=used;
+        // what the form now shows (this device's edits on top of what it loaded): another device's change is anything else
+        if(formBase&&formShown){formShown=applyPatch(formShown,entryPatch(formBase,b.entry,server,true));formBaseDoc=docKey(formShown)}
+        if(Object.keys(patch).length)await db.collection("logs").doc(editingId).update({...patch,updatedAt:now});
+        formBase=JSON.parse(JSON.stringify(b.entry));invLedger[editingId]=used;invApply(prevUsed,used);
         if(origWo&&normWo(origWo)!==normWo(b.entry.wo)){const from=origWo;origWo=b.entry.wo;await woNumberChanged(editingId,from,b.entry.wo)}}
-      else{const ref=await db.collection("logs").add({...b.entry,createdAt:now});editingId=ref.id;invLedger[ref.id]=used;invApply({},used);updateEditBar()}
+      else{const ref=await db.collection("logs").add({...b.entry,createdAt:now});editingId=ref.id;invLedger[ref.id]=used;invApply({},used);updateEditBar();formBase=JSON.parse(JSON.stringify(b.entry));formShown=JSON.parse(JSON.stringify(b.entry));formBaseDoc=docKey(formShown)}
       if(!dirty)setSaveState("saved",savedText());
       if(!woRenames[editingId])scheduleBackup(editingId);
       updateEditBar();
@@ -3473,6 +3488,7 @@ async function autosave(){
   })();
   await saving;saving=null;busySave=false;
   if(saveAgain||dirty){saveAgain=false;if(dirty)return autosave()}
+  if(formStale)setTimeout(formRemoteCheck,300);
 }
 function updCommitOpen(){if(!updOpen)return;const p=updOpen.p,L=updWithDraft(p);
   if(p==="f")fUpds=L;else bUpds=L;updOpen=null;renderUpd(p)}
@@ -3506,8 +3522,8 @@ function rollUpStatus(){
 $("#f-wo").addEventListener("input",()=>{if(!$("#mbox").hidden)renderPM()});
 $("#f-wo").addEventListener("input",updateEditBar);
 // Leaving: save straight away
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flushSave()});
-window.addEventListener("pagehide",()=>{flushSave()});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"){flushSave();tdFlush()}});
+window.addEventListener("pagehide",()=>{flushSave();tdFlush()});
 
 async function finishEditing(){
   const ok=await flushSave();
@@ -4975,7 +4991,6 @@ const hrzMouldOf=p=>p==="f"?mainFor:boxFor;
 function hrzPrev(mid){if(!mid)return null;
   const prev=logs.filter(l=>l.id!==editingId&&jobIds(l).includes(mid)).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   for(const l of prev){const v=hrzClean(pmVal(l,mid).hrz);if(hrzHasData(v))return {v,wo:l.wo,date:l.date}}return null}
-const hrzNum=s=>{const x=parseFloat(String(s).replace(",","."));return isFinite(x)?x:null};
 function renderHrz(p,force){
   const el=$(p==="f"?"#f-hrz":"#b-hrz");if(!el)return;const v=hrzList(p),mid=hrzMouldOf(p);
   if(!mid||mid===FORCE){el.innerHTML="";el.dataset.sig="";return}
@@ -5743,23 +5758,6 @@ function workOrderMarkdown(l){
   return md+`\n---\n_Backed up automatically by GT Hub on ${new Date().toLocaleString()}._\n`;
 }
 function mdUpd(list,h){const u=updClean(list);return u.length?`\n${h} Updates\n\n`+u.map(x=>`- **${fmtDate(x.date)}** – ${x.text.replace(/\n+/g," ")}${(x.files||[]).length?` _(photos: ${x.files.join(", ")})_`:""}`).join("\n")+"\n":""}
-function mdChecklist(ckl,shots,h="###"){
-  let md="";
-  const st=(ckl&&ckl.state)||{};
-  if(!Object.keys(st).length)md+="_Not started_\n";
-  else{
-    md+=`**${ckSummary(st)}**\n`;
-    const mark=id=>st[id]==="done"?"[x]":"[ ]";const na=id=>st[id]==="na"?" _(N/A)_":"";
-    CHECKLIST.forEach(sec=>{
-      md+=`\n${h} ${sec.sec}\n\n`;
-      sec.items.forEach(it=>{
-        if(it.sub){md+=`- **${it.t}**\n`+it.sub.map(k=>`  - ${mark(k.id)} ${k.t}${na(k.id)}`).join("\n")+"\n"}
-        else md+=`- ${mark(it.id)} ${it.t}${na(it.id)}${it.counter&&shots!=null&&shots!==""?` (reading: ${fmtNum(shots)})`:""}\n`;
-      });
-    });
-  }
-  return md;
-}
 const backupFileIds={}; // work order number -> Drive file id of its backup
 async function writeBackup(l){
   const num=woNum(l.wo);if(!num)return;
@@ -6054,7 +6052,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.20-118";
+const APP_VERSION="2026.10.20-119";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -6088,7 +6086,7 @@ function dataError(err){
 function startData(){
   stopData();
   unsubs.push(db.collection("moulds").onSnapshot(s=>{moulds=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>mlabel(a).localeCompare(mlabel(b),undefined,{numeric:true,sensitivity:"base"}));loaded.m=true;renderAll();renderImportHint()},e=>{loaded.m=true;renderAll();dataError(e)}));
-  unsubs.push(db.collection("logs").onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint()},e=>dataError(e)));
+  unsubs.push(db.collection("logs").onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint();formRemoteCheck()},e=>dataError(e)));
   unsubs.push(db.collection("procedures").onSnapshot(s=>{procedures=s.docs.map(d=>({id:d.id,...d.data()}));renderProcLists();renderProc();renderList();ensureServiceProc()},e=>dataError(e)));
   unsubs.push(db.collection("hours").onSnapshot(s=>{hoursList=s.docs.map(d=>({id:d.id,...d.data()}));renderHours();renderFormHours()},e=>dataError(e)));
   unsubs.push(db.collection("inventory").onSnapshot(s=>{inventory=s.docs.map(d=>({id:d.id,...d.data()}));loaded.inv=true;renderInv();plStockRefresh();renderInvBadge();if(!$("#v-hist").hidden)renderHistParts();if(!$("#invsheet").hidden&&ivEdit)ivUsed()},e=>dataError(e)));
