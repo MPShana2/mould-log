@@ -780,6 +780,26 @@ details.ck>summary span:first-child{flex:1}
 .cl-plus{width:26px;text-align:center;color:var(--muted);font-size:20px;line-height:37px;flex:none}
 .cl-donetoggle{border:0;border-top:1px solid var(--line);background:none;font:inherit;font-size:13px;font-weight:600;color:var(--muted);padding:10px 2px 6px;margin-top:6px;text-align:left;cursor:pointer}
 .cl-form{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 8px}
+/* Hot runner dictation */
+.hrzmic{display:inline-flex;align-items:center;gap:6px;margin-left:auto;margin-right:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--accent);background:var(--surface);color:var(--fg);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.hrzmic svg{color:var(--accent)}
+.hrzmic.on{background:var(--bad);border-color:var(--bad);color:#fff}.hrzmic.on svg{color:#fff}
+.hrzc.dict input{outline:3px solid var(--accent);outline-offset:1px;background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.dictbar{position:fixed;z-index:40;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 74px);display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;align-items:center;padding:12px 14px;border-radius:16px;background:#111;color:#fff;box-shadow:0 12px 34px rgba(0,0,0,.35);border-top:3px solid var(--accent)}
+.dictbar[hidden]{display:none}
+.dictdot{width:14px;height:14px;border-radius:50%;background:var(--bad);box-shadow:0 0 0 0 rgba(255,80,70,.6);animation:dictpulse 1.4s ease-out infinite}
+@keyframes dictpulse{0%{box-shadow:0 0 0 0 rgba(255,80,70,.55)}100%{box-shadow:0 0 0 12px rgba(255,80,70,0)}}
+.dictmain{display:flex;flex-direction:column;min-width:0}
+.dictmain b{font-size:19px;font-family:var(--mono)}
+.dictmain small{font-size:13.5px;color:#cfcfcf;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dictmain small.interim{color:#8f8f8f}
+.dictbtns{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.dictbtn{display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border-radius:999px;border:1px solid #444;background:#1d1d1d;color:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.dictbtn[aria-pressed="false"]{color:#9a9a9a}.dictbtn[aria-pressed="false"] svg{opacity:.5}
+.dictstop{margin-left:auto;background:var(--accent);color:#111;border-color:var(--accent);font-weight:700;padding:8px 18px}
+.dicthelp{grid-column:1/-1;font-size:12px;color:#9a9a9a;line-height:1.4}
+html.dicting .updfab,html.dicting #qfab{display:none!important}
+html.dicting #logform{padding-bottom:180px}
+@media (min-width:1000px){.dictbar{left:calc(var(--sidew,220px) + 24px);right:24px;bottom:20px;max-width:760px;margin-inline:auto}}
 /* ---- Due dates: one chip style everywhere (red overdue, amber today, ink this week, grey later) ---- */
 .due{display:inline-flex;align-items:center;gap:5px;font:600 12.5px/1 var(--body);padding:4px 9px 4px 7px;border-radius:999px;white-space:nowrap;color:var(--muted);background:var(--sunk);border:1px solid transparent}
 .due svg{flex:none;opacity:.85}
@@ -1694,6 +1714,12 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
   <div id="ugrid" class="ugridw"></div>
   <div class="attbtns" style="margin:0"><button type="button" class="btn" id="u-add" disabled>Add photos</button><button type="button" class="btn ghost" id="u-cancel">Cancel</button></div>
 </div></div>
+<div class="dictbar" id="dictbar" hidden role="status" aria-live="polite">
+  <span class="dictdot" aria-hidden="true"></span>
+  <div class="dictmain"><b id="dictcell">Zone 1 heater</b><small id="dictheard">Say a reading…</small></div>
+  <div class="dictbtns"><button type="button" class="dictbtn" id="dictrb" aria-pressed="true" title="Read each value back"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h3l4-3.5v11L6 12H3z"/><path d="M13 7.5a3.5 3.5 0 0 1 0 5M15.5 5a7 7 0 0 1 0 10"/></svg><span>Read back</span></button><button type="button" class="dictbtn" id="dictord">Down the column</button><button type="button" class="btn dictstop" id="dictstop">Stop</button></div>
+  <div class="dicthelp">Say a reading · “OL” · “skip” · “back” · “undo” · “zone 5” · “heater” / “T C” · “flag” · “stop”</div>
+</div>
 <div class="duepop" id="duepop" hidden role="dialog" aria-label="Due date"></div>
 <div class="gate" id="gate">
   <div class="gate-card">
@@ -2645,6 +2671,7 @@ function show(view){
   if(view!=="share"&&!$("#v-share").hidden&&shareFiles.length)leaveShare();
   if(view!=="log"&&subPage){stashPM();subPage=null;$("#logform").classList.remove("subpage")}
   if(view==="todo")view="open"; // To-do lives on the Dashboard now
+  if(view!=="log"&&typeof dictStop==="function")dictStop();
   $("#qfab").hidden=view!=="open";$("#cdfab").hidden=view!=="calday";
   ["log",...TABS,"hist",...PAGES].forEach(v=>$("#v-"+v).hidden=v!==view);
   closeMenu();
@@ -4961,11 +4988,12 @@ function renderHrz(p,force){
       return `<input class="hrzl mono" autocapitalize="characters" autocomplete="off" enterkeyhint="next" data-hrz="${p}|${i}|l" value="${esc(val)}" placeholder="${esc(sug||"Label")}" aria-label="Zone ${i+1} label">`},
     cell=(i,c)=>{const val=v.z[i][c],ol=!!v.z[i][c+"o"],last=pv&&pv.v.z[i]?hrzShow(pv.v.z[i],c):"";
     return `<td><div class="hrzc${ol?" ol":""}"><input class="mono" inputmode="decimal" enterkeyhint="${c==="t"&&i===v.n-1?"done":"next"}" autocomplete="off" data-hrz="${p}|${i}|${c}" value="${esc(val)}" placeholder="${esc(last||"Ω")}" aria-label="Zone ${i+1} ${c==="h"?"heater":"thermocouple"} ohms"><button type="button" class="hrzol" data-hrzol="${p}|${i}|${c}" aria-pressed="${ol}" title="Open circuit">OL</button></div></td>`};
-  el.innerHTML=`<details class="panel ck hrzbox" data-hrzd="${p}"${hrzOpen[p]?" open":""}><summary><span>Hot runner readings</span><span class="ckprog hrzsum">${esc(hrzSummary(v))}</span></summary><div class="hrzhead"><span class="hrztitle">Zones</span>
+  el.innerHTML=`<details class="panel ck hrzbox" data-hrzd="${p}"${hrzOpen[p]?" open":""}><summary><span>Hot runner readings</span><span class="ckprog hrzsum">${esc(hrzSummary(v))}</span></summary><div class="hrzhead"><span class="hrztitle">Zones</span>${SpeechRec?`<button type="button" class="hrzmic${dict&&dict.p===p?" on":""}" data-hrzmic="${p}" aria-pressed="${!!(dict&&dict.p===p)}" title="Say the readings instead of typing them"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="7" y="2.5" width="6" height="10" rx="3"/><path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5"/></svg>Dictate</button>`:""}
       <span class="hrzn"><button type="button" data-hrzstep="${p}|-1" aria-label="One less zone">−</button><input class="mono" type="number" inputmode="numeric" min="1" max="64" value="${v.n}" data-hrzn="${p}" aria-label="Number of zones"><button type="button" data-hrzstep="${p}|1" aria-label="One more zone">+</button><span>zones</span></span></div>
     <table class="hrzt"><thead><tr><th>Zone</th><th>Heater Ω</th><th>T/C Ω</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr class="${r.f?"flag":""}"><th><button type="button" class="hrzz" data-hrzflag="${p}|${i}" aria-pressed="${r.f}" title="Flag this zone">Z${i+1}</button>${lab(i)}</th>${cell(i,"h")}${cell(i,"t")}</tr>`).join("")}</tbody></table>
     <div class="hrzfoot">${pv?`<span>Grey numbers: last readings, #${esc(pv.wo)}${pv.date?" · "+esc(fmtDate(pv.date)):""}.</span> `:""}<span class="hrzkey"><i class="k-dev"></i> flagged (tap a zone number)</span> <span class="hrzkey"><i class="k-ol"></i> open circuit</span>
       <button type="button" class="linkish" data-hrzdel="${p}">Remove table</button></div></details>`;
+  if(dict&&dict.p===p){const vv=hrzList(p);if(!vv)dictStop();else{if(dict.i>=vv.n)dict.i=vv.n-1;dictMark()}}
 }
 function hrzRefresh(p){const el=$(p==="f"?"#f-hrz":"#b-hrz"),v=hrzList(p);if(!el||!v)return;
   const sm=el.querySelector(".hrzsum");if(sm)sm.textContent=hrzSummary(v);
@@ -4987,6 +5015,144 @@ function hrzNext(t){const[p,i,c]=t.dataset.hrz.split("|");
   if(c==="l"&&!t.value.trim()&&t.placeholder&&t.placeholder!=="Label"){t.value=t.placeholder;t.dispatchEvent(new Event("input",{bubbles:true}))}
   const nx=$(`[data-hrz="${p}|${+i+1}|${c}"]`)||(c==="l"?$(`[data-hrz="${p}|0|h"]`):c==="h"?$(`[data-hrz="${p}|0|t"]`):null);
   if(nx){nx.focus({preventScroll:true});nx.scrollIntoView({block:"nearest"});try{nx.select()}catch(e){}return true}t.blur();return false}
+// ---- Hot runner dictation: say the readings instead of typing them (hands stay on the meter) ----
+// Uses the browser's speech recognition (Chrome on Android needs a connection for it). Each number said goes into the
+// current cell and moves on in the same order as the keyboard's Next; each value is read back. Commands: "OL", "skip",
+// "back", "undo", "clear", "zone 5", "heater", "T C", "flag", "stop".
+const SpeechRec=window.SpeechRecognition||window.webkitSpeechRecognition;
+let dict=null;
+const dictPref=(()=>{let o={};try{o=JSON.parse(localStorage.getItem("gt_dict")||"{}")||{}}catch(e){}return {readBack:o.readBack!==false,order:o.order==="row"?"row":"col"}})();
+const dictSavePref=()=>{try{localStorage.setItem("gt_dict",JSON.stringify(dictPref))}catch(e){}};
+const NUMW={zero:0,oh:0,nought:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+const NUMW_DEC={...NUMW,o:0,to:2,too:2,for:4,fore:4,ate:8,won:1}; // after "point", sound-alikes are digits
+// what was said → a list of actions: {a:"val",v} {a:"ol"} {a:"skip"} {a:"back"} {a:"undo"} {a:"clear"} {a:"zone",n} {a:"col",c} {a:"flag"} {a:"stop"}
+function dictParse(text){
+  const s=" "+String(text||"").toLowerCase().replace(/[Ωω]/g," ").replace(/(\d),(\d{3})(?!\d)/g,"$1$2").replace(/(\d),(\d)/g,"$1.$2").replace(/(\d)\s*\.\s*(\d)/g,"$1.$2")+" ";
+  const t=s.replace(/\s(t\s*\/\s*c|t\.?\s?c\.?|tee\s?cee|thermo\s?couples?|thermo)(?=\s)/g," tc ")
+    .replace(/\s(o\.?\s?l\.?|open(\s+circuit)?|over\s?load(ed)?|over\s?limit|infinite|infinity)(?=\s)/g," ol ")
+    .replace(/\s(heaters?|heat)(?=\s)/g," heater ").replace(/\s(zones?)(?=\s)/g," zone ")
+    .replace(/[^a-z0-9. ]+/g," ");
+  const tk=t.split(/\s+/).filter(Boolean),out=[];let k=0;
+  function readNum(){let val=null,last="",dec=null;
+    while(k<tk.length){const w=tk[k];
+      if(/^\d+\.\d+$/.test(w)){if(val!==null)break;k++;return w}
+      if(/^\d+$/.test(w)){if(val!==null&&last!=="h")break;val=(val||0)+ +w;last="d";k++;continue}
+      if(w==="point"||w==="dot"||w==="."){if(val===null)val=0;k++;dec="";
+        while(k<tk.length){const x=tk[k];
+          if(/^\d+$/.test(x)){dec+=x;k++;continue}
+          if(x in NUMW_DEC&&NUMW_DEC[x]<20){dec+=String(NUMW_DEC[x]);k++;continue}
+          if(x in NUMW){dec+=String(NUMW[x]/10);k++;if(k<tk.length&&tk[k] in NUMW&&NUMW[tk[k]]>0&&NUMW[tk[k]]<10){dec+=NUMW[tk[k]];k++}continue}
+          break}
+        break}
+      if(w in NUMW){const n=NUMW[w];if(n<20){if(last==="o"||last==="d"||(last==="t"&&n>=10))break;val=(val||0)+n;last="o"}
+        else{if(last==="o"||last==="t"||last==="d")break;val=(val||0)+n;last="t"}k++;continue}
+      if(w==="hundred"||w==="thousand"){if(val===null||last==="h")break;val*=w==="hundred"?100:1000;last="h";k++;continue}
+      if(w==="and"&&last==="h"){k++;continue}
+      break}
+    return val===null?null:String(val)+(dec?"."+dec:"")}
+  while(k<tk.length){const w=tk[k];
+    if(w==="zone"){k++;const n=readNum();if(n!=null&&/^\d+$/.test(n))out.push({a:"zone",n:+n});continue}
+    if(w==="heater"){out.push({a:"col",c:"h"});k++;continue}
+    if(w==="tc"){out.push({a:"col",c:"t"});k++;continue}
+    if(w==="ol"){out.push({a:"ol"});k++;continue}
+    if(["skip","next","pass"].includes(w)){out.push({a:"skip"});k++;continue}
+    if(["back","previous"].includes(w)){out.push({a:"back"});k++;continue}
+    if(w==="undo"){out.push({a:"undo"});k++;continue}
+    if(["clear","delete","blank","empty"].includes(w)){out.push({a:"clear"});k++;continue}
+    if(w==="flag"||w==="flagged"){out.push({a:"flag"});k++;continue}
+    if(["stop","finish","finished","done","cancel"].includes(w)){out.push({a:"stop"});k++;continue}
+    const n=readNum();if(n!=null){out.push({a:"val",v:n});continue}
+    k++} // a word that isn't used ("ohms", "the", …)
+  return out}
+const dictCellEl=()=>dict&&$(`[data-hrz="${dict.p}|${dict.i}|${dict.c}"]`);
+function dictOrder(){const v=hrzList(dict.p),o=[];if(!v)return o;
+  if(dictPref.order==="row")for(let i=0;i<v.n;i++)o.push([i,"h"],[i,"t"]);
+  else{for(let i=0;i<v.n;i++)o.push([i,"h"]);for(let i=0;i<v.n;i++)o.push([i,"t"])}return o}
+function dictMove(d){const o=dictOrder(),j=o.findIndex(x=>x[0]===dict.i&&x[1]===dict.c)+d;if(j<0)return false;if(j>=o.length){dict.end=true;return false}[dict.i,dict.c]=o[j];return true}
+const dictZone=i=>{const v=hrzList(dict.p),l=v&&v.z[i]&&v.z[i].l;return l?l:`Zone ${i+1}`};
+const dictName=(i,c)=>`${dictZone(i)} ${c==="h"?"heater":"T/C"}`;
+const dictSpoken=(i,c)=>`${dictZone(i)} ${c==="h"?"heater":"thermocouple"}`;
+function dictMark(){document.querySelectorAll(".hrzc.dict").forEach(x=>x.classList.remove("dict"));if(!dict)return;
+  const el=dictCellEl();if(el){el.parentElement.classList.add("dict");const r=el.getBoundingClientRect();if(r.top<90||r.bottom>innerHeight-170)el.scrollIntoView({block:"center",behavior:reduceMotion()?"auto":"smooth"})}
+  $("#dictcell").textContent=dict.end?"All zones done":dictName(dict.i,dict.c);
+  $("#dictrb").setAttribute("aria-pressed",String(dictPref.readBack));$("#dictord").textContent=dictPref.order==="row"?"Zone by zone":"Down the column"}
+function dictSetVal(i,c,val,ol){const v=hrzList(dict.p);if(!v||!v.z[i])return;const r=v.z[i];
+  const prev={i,c,v:r[c],o:!!r[c+"o"]};r[c+"o"]=!!ol;r[c]=ol?r[c]:val;
+  const el=$(`[data-hrz="${dict.p}|${i}|${c}"]`);if(el&&!ol){el.value=val;el.dispatchEvent(new Event("input",{bubbles:true}))}
+  hrzRefresh(dict.p);markDirty(400);return prev}
+function dictRun(acts){if(!dict)return;const v=hrzList(dict.p);if(!v)return;const say=[];
+  const fills=acts.some(x=>x.a==="val"||x.a==="ol"); // "zone 3 T C 2.8": just read back the value
+  for(const x of acts){if(!dict)return;
+    if(x.a==="stop"){dictStop("Dictation stopped");return}
+    if(x.a==="zone"){if(x.n>=1&&x.n<=v.n){dict.i=x.n-1;dict.end=false;if(!fills)say.push(dictSpoken(dict.i,dict.c))}else say.push(`There are only ${v.n} zones`);continue}
+    if(x.a==="col"){dict.c=x.c;dict.end=false;if(!fills)say.push(dictSpoken(dict.i,dict.c));continue}
+    if(dict.end&&["val","ol","skip","clear","flag"].includes(x.a)){say.push("All zones are done. Say a zone number to go back.");continue}
+    if(x.a==="val"||x.a==="ol"){const prev=dictSetVal(dict.i,dict.c,x.v,x.a==="ol");if(prev)dict.hist.push(prev);
+      say.push(`${dictSpoken(dict.i,dict.c).replace(/^Zone /,"")}, ${x.a==="ol"?"open circuit":x.v}`);dictMove(1);continue}
+    if(x.a==="skip"){dictMove(1);say.push(dict.end?"That was the last one":dictSpoken(dict.i,dict.c));continue}
+    if(x.a==="back"){if(dict.end)dict.end=false;else dictMove(-1);say.push(dictSpoken(dict.i,dict.c));continue}
+    if(x.a==="undo"){const h=dict.hist.pop();if(!h){say.push("Nothing to undo");continue}
+      dictSetVal(h.i,h.c,h.v||"",h.o);if(!h.o&&!h.v){const el=$(`[data-hrz="${dict.p}|${h.i}|${h.c}"]`);if(el){el.value="";el.dispatchEvent(new Event("input",{bubbles:true}))}}
+      dict.i=h.i;dict.c=h.c;dict.end=false;say.push("Undone. "+dictSpoken(h.i,h.c));continue}
+    if(x.a==="clear"){const prev=dictSetVal(dict.i,dict.c,"",false);if(prev)dict.hist.push(prev);say.push("Cleared");continue}
+    if(x.a==="flag"){v.z[dict.i].f=!v.z[dict.i].f;hrzRefresh(dict.p);markDirty(400);say.push(`${dictZone(dict.i)} ${v.z[dict.i].f?"flagged":"unflagged"}`);continue}}
+  dictMark();
+  if(dict.end){dictSay((say.length?say.join(". ")+". ":"")+"That's every zone. Dictation stopped.",()=>dictStop());return}
+  dictSay(say.join(". "))}
+// read back (recognition pauses so it doesn't hear itself); with read-back off, a short tick instead
+let dictAudio=null;
+function dictTick(){try{navigator.vibrate&&navigator.vibrate(25)}catch(e){}
+  try{dictAudio=dictAudio||new (window.AudioContext||window.webkitAudioContext)();const o=dictAudio.createOscillator(),g=dictAudio.createGain();o.frequency.value=1046;g.gain.setValueAtTime(.12,dictAudio.currentTime);g.gain.exponentialRampToValueAtTime(.001,dictAudio.currentTime+.09);o.connect(g).connect(dictAudio.destination);o.start();o.stop(dictAudio.currentTime+.1)}catch(e){}}
+function dictSay(text,then){if(!dict||!text){if(then)then();return}
+  if(!dictPref.readBack||!window.speechSynthesis){dictTick();if(then)then();else dictListen();return}
+  dict.speaking=true;if(dict.rec){try{dict.rec.abort()}catch(e){}}
+  const u=new SpeechSynthesisUtterance(text);u.lang=dict.lang;u.rate=1.1;
+  let done=false;const fin=()=>{if(done)return;done=true;if(dict){dict.speaking=false;if(then)then();else dictListen()}};
+  u.onend=fin;u.onerror=fin;setTimeout(fin,Math.min(9000,1200+text.length*90));
+  try{speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){fin()}}
+function dictHeard(t,interim){const h=$("#dictheard");if(h){h.textContent=t?`“${t.trim()}”`:"Say a reading…";h.classList.toggle("interim",!!interim)}}
+function dictListen(){if(!dict||!dict.on||dict.speaking||dict.rec)return;
+  // a browser that keeps stopping straight away (blocked, no network): give up rather than loop
+  const now=Date.now();dict.starts=dict.starts.filter(x=>now-x<12000);dict.starts.push(now);
+  if(dict.starts.length>10&&!dict.gotAny){dictStop("Dictation keeps stopping. Check the microphone permission and your connection.");return}
+  const r=new SpeechRec();r.lang=dict.lang;r.continuous=true;r.interimResults=true;r.maxAlternatives=4;
+  r.onresult=e=>{for(let x=e.resultIndex;x<e.results.length;x++){const res=e.results[x];dict&&(dict.gotAny=true);
+    if(!res.isFinal){dictHeard(res[0].transcript,true);continue}
+    let acts=[],txt=res[0].transcript;for(let a=0;a<res.length;a++){const pa=dictParse(res[a].transcript);if(pa.length){acts=pa;txt=res[a].transcript;break}}
+    dictHeard(txt,false);if(acts.length)dictRun(acts)}};
+  r.onerror=e=>{const er=e&&e.error;
+    if(er==="not-allowed"||er==="service-not-allowed")dictStop("Microphone access is blocked. Allow it for GT Hub in the browser's site settings.");
+    else if(er==="network")dictStop("Dictation needs an internet connection.");
+    else if(er==="audio-capture")dictStop("No microphone was found.")};
+  r.onend=()=>{if(dict&&dict.rec===r)dict.rec=null;if(dict&&dict.on&&!dict.speaking)setTimeout(dictListen,200)};
+  dict.rec=r;try{r.start()}catch(e){dict.rec=null}}
+async function dictStart(p){
+  if(!SpeechRec){toast("Voice input isn't available in this browser. Try Chrome.");return}
+  if(dict)dictStop();
+  if(!hrzList(p)){const add=$(`[data-hrzadd="${p}"]`);if(add)add.click();if(!hrzList(p))return}
+  hrzOpen[p]=true;const d=document.querySelector(`[data-hrzd="${p}"]`);if(d)d.open=true;
+  // start where the cursor is, else at the first empty cell
+  const a=document.activeElement,v=hrzList(p);dict={p,i:0,c:"h",on:true,hist:[],starts:[],lang:navigator.language||"en-AU",end:false};
+  if(a&&a.dataset&&a.dataset.hrz&&a.dataset.hrz.startsWith(p+"|")&&!a.dataset.hrz.endsWith("|l")){const[,i,c]=a.dataset.hrz.split("|");dict.i=+i;dict.c=c}
+  else{const o=dictOrder(),e=o.find(([i,c])=>!v.z[i][c]&&!v.z[i][c+"o"]);if(e)[dict.i,dict.c]=e}
+  if(a&&a.blur)a.blur(); // no keyboard
+  $("#dictbar").hidden=false;document.documentElement.classList.add("dicting");
+  document.querySelectorAll(`[data-hrzmic="${p}"]`).forEach(b=>{b.classList.add("on");b.setAttribute("aria-pressed","true")});
+  try{if(navigator.wakeLock)dict.wake=await navigator.wakeLock.request("screen")}catch(e){}
+  dictHeard("");dictMark();dictSay(`Listening. ${dictSpoken(dict.i,dict.c)}`)}
+function dictStop(msg){if(!dict)return;const d=dict;dict=null;d.on=false;
+  try{d.rec&&d.rec.abort()}catch(e){}try{window.speechSynthesis&&speechSynthesis.cancel()}catch(e){}try{d.wake&&d.wake.release()}catch(e){}
+  $("#dictbar").hidden=true;document.documentElement.classList.remove("dicting");dictMark();
+  document.querySelectorAll("[data-hrzmic]").forEach(b=>{b.classList.remove("on");b.setAttribute("aria-pressed","false")});
+  if(msg)toast(msg)}
+$("#logform").addEventListener("click",e=>{const b=e.target.closest("[data-hrzmic]");if(!b)return;e.preventDefault();if(dict&&dict.p===b.dataset.hrzmic)dictStop();else dictStart(b.dataset.hrzmic)});
+$("#dictstop").onclick=()=>dictStop();
+$("#dictrb").onclick=()=>{dictPref.readBack=!dictPref.readBack;dictSavePref();dictMark()};
+$("#dictord").onclick=()=>{dictPref.order=dictPref.order==="row"?"col":"row";dictSavePref();dictMark();if(dict)dictSay(dictPref.order==="row"?"Zone by zone":"Down the column")};
+// tapping a cell while dictating moves the cursor there (without the keyboard)
+document.addEventListener("pointerdown",e=>{if(!dict)return;const inp=e.target.closest&&e.target.closest("[data-hrz]");if(!inp||!inp.dataset.hrz.startsWith(dict.p+"|")||inp.dataset.hrz.endsWith("|l"))return;
+  e.preventDefault();const[,i,c]=inp.dataset.hrz.split("|");dict.i=+i;dict.c=c;dict.end=false;dictMark()},true);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&dict)dictStop()});
 // Phone keyboards' Go / Next key can submit the form instead of sending Enter: treat that as "next cell" too
 document.addEventListener("submit",e=>{const a=document.activeElement;if(a&&a.dataset&&a.dataset.hrz&&e.target.id==="logform"){e.preventDefault();e.stopImmediatePropagation();hrzNext(a)}},true);
 $("#logform").addEventListener("click",e=>{const t=e.target;
@@ -5881,7 +6047,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.20-116";
+const APP_VERSION="2026.10.20-117";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
