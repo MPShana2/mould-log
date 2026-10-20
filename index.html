@@ -2145,10 +2145,10 @@ function clSorted(box,ids,moved){const key=box.dataset.cl,inst=clInst[key];if(!i
 // your own lists keep the order you drag them into (stored as "order" on each list)
 async function tdSorted(ids,moved){
   if(!moved||!db){if(todoStale)renderTodo();return}
-  const b=db.batch();let n=0;
-  ids.forEach((id,i)=>{const L=todoLists.find(x=>x.id===id);if(L&&L.order!==i){L.order=i;b.update(db.collection("todolists").doc(id),{order:i});n++}});
+  // each list that moved gets its new place (the app's database connection saves documents one at a time)
+  const ch=[];ids.forEach((id,i)=>{const L=todoLists.find(x=>x.id===id);if(L&&L.order!==i){L.order=i;ch.push([id,i])}});
   renderTodo(true);
-  if(n)try{await b.commit()}catch(err){toast("Couldn't save the order: "+(err.message||err.code))}}
+  try{await Promise.all(ch.map(([id,i])=>db.collection("todolists").doc(id).update({order:i})))}catch(err){toast("Couldn't save the order: "+(err.message||err.code))}}
 // keyboard: focus a grip and use the arrow keys
 document.addEventListener("keydown",e=>{const g=e.target.closest&&e.target.closest(".grip");if(!g||sortDrag)return;
   const dir={ArrowUp:-1,ArrowLeft:-1,ArrowDown:1,ArrowRight:1}[e.key];if(!dir)return;const p=sortParts(g);if(!p)return;e.preventDefault();
@@ -5881,7 +5881,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.20-115";
+const APP_VERSION="2026.10.20-116";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
