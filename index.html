@@ -5163,7 +5163,7 @@ function dictTick(){try{navigator.vibrate&&navigator.vibrate(25)}catch(e){}
   try{dictAudio=dictAudio||new (window.AudioContext||window.webkitAudioContext)();const o=dictAudio.createOscillator(),g=dictAudio.createGain();o.frequency.value=1046;g.gain.setValueAtTime(.12,dictAudio.currentTime);g.gain.exponentialRampToValueAtTime(.001,dictAudio.currentTime+.09);o.connect(g).connect(dictAudio.destination);o.start();o.stop(dictAudio.currentTime+.1)}catch(e){}}
 function dictSay(text,then){if(!dict||!text){if(then)then();return}
   if(!dictPref.readBack||!window.speechSynthesis){dictTick();if(then)then();else dictListen();return}
-  dict.speaking=true;if(dict.rec){try{dict.rec.abort()}catch(e){}}
+  dict.speaking=true;if(dict.rec){const r=dict.rec;dict.rec=null;try{r.abort()}catch(e){}}
   const u=new SpeechSynthesisUtterance(text);u.lang=dict.lang;u.rate=1.1;
   let done=false;const fin=()=>{if(done)return;done=true;if(dict){dict.speaking=false;if(then)then();else dictListen()}};
   u.onend=fin;u.onerror=fin;setTimeout(fin,Math.min(9000,1200+text.length*90));
@@ -5173,16 +5173,23 @@ function dictListen(){if(!dict||!dict.on||dict.speaking||dict.rec)return;
   // a browser that keeps stopping straight away (blocked, no network): give up rather than loop
   const now=Date.now();dict.starts=dict.starts.filter(x=>now-x<12000);dict.starts.push(now);
   if(dict.starts.length>10&&!dict.gotAny){dictStop("Dictation keeps stopping. Check the microphone permission and your connection.");return}
-  const r=new SpeechRec();r.lang=dict.lang;r.continuous=true;r.interimResults=true;r.maxAlternatives=4;
-  r.onresult=e=>{for(let x=e.resultIndex;x<e.results.length;x++){const res=e.results[x];dict&&(dict.gotAny=true);
-    if(!res.isFinal){dictHeard(res[0].transcript,true);continue}
-    let acts=[],txt=res[0].transcript;for(let a=0;a<res.length;a++){const pa=dictParse(res[a].transcript);if(pa.length){acts=pa;txt=res[a].transcript;break}}
-    dictHeard(txt,false);if(acts.length)dictRun(acts)}};
+  // One phrase per listening session (then it restarts): Chrome on Android repeats earlier results in continuous
+  // mode, and re-sends the last one when a session is stopped, which entered each reading twice.
+  const r=new SpeechRec();r.lang=dict.lang;r.continuous=false;r.interimResults=true;r.maxAlternatives=4;r.handled=new Set();
+  r.onresult=e=>{if(!dict||dict.rec!==r)return; // a session that's been stopped (e.g. for the read-back): ignore what it sends
+    for(let x=0;x<e.results.length;x++){const res=e.results[x];dict.gotAny=true;
+      if(!res.isFinal){if(!r.handled.has(x))dictHeard(res[0].transcript,true);continue}
+      if(r.handled.has(x))continue;r.handled.add(x); // each result once, whatever index Android says to start from
+      let acts=[],txt=res[0].transcript;for(let a=0;a<res.length;a++){const pa=dictParse(res[a].transcript);if(pa.length){acts=pa;txt=res[a].transcript;break}}
+      // the same words again within a moment is a repeat, not a second reading (a real one comes after moving the probes)
+      const now=Date.now(),same=dict.lastTxt===String(txt).trim().toLowerCase()&&now-dict.lastAt<900;
+      dict.lastTxt=String(txt).trim().toLowerCase();dict.lastAt=now;if(same)continue;
+      dictHeard(txt,false);if(acts.length)dictRun(acts)}};
   r.onerror=e=>{const er=e&&e.error;
     if(er==="not-allowed"||er==="service-not-allowed")dictStop("Microphone access is blocked. Allow it for GT Hub in the browser's site settings.");
     else if(er==="network")dictStop("Dictation needs an internet connection.");
     else if(er==="audio-capture")dictStop("No microphone was found.")};
-  r.onend=()=>{if(dict&&dict.rec===r)dict.rec=null;if(dict&&dict.on&&!dict.speaking)setTimeout(dictListen,200)};
+  r.onend=()=>{if(!dict)return;const mine=dict.rec===r;if(mine)dict.rec=null;if(mine&&dict.on&&!dict.speaking)setTimeout(dictListen,150)};
   dict.rec=r;try{r.start()}catch(e){dict.rec=null}}
 async function dictStart(p){
   if(!SpeechRec){toast("Voice input isn't available in this browser. Try Chrome.");return}
@@ -6092,7 +6099,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.21-120";
+const APP_VERSION="2026.10.21-121";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
