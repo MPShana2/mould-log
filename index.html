@@ -3262,10 +3262,12 @@ function renderOpen(){
 const shortDate=s=>{const d=new Date(s+"T12:00:00");return isNaN(d)?"":d.toLocaleDateString(undefined,{day:"numeric",month:"short",...(d.getFullYear()!==new Date().getFullYear()?{year:"numeric"}:{})})};
 function dashTable(groups){groups=groups.filter(g=>g[1].length);const multi=groups.length>1;let gi=0;
   return '<div class="wotable dashtable"><div class="worow2 head"><span>Job no.</span><span>Tool</span><span class="dsk">Description</span><span class="dsk">Due</span><span>Status</span></div>'+
-    groups.map(([title,list])=>(multi?`<div class="wogrp">${esc(title)}<span>${list.length}</span></div>`:"")+list.map(l=>{const st=l.status||"Complete",subs=subJobs(l),band=(gi++)%2?" alt":"";
-      const own=subs.length?jobIds(l).map((id,i)=>subs.some(x=>x.id===id)?null:jobNames(l)[i]).filter(Boolean):[];
-      const tool=subs.length?(own.length?own.join(", "):`${subs.length} moulds`):jobTool(l);
-      const due=validDay(l.due)?l.due:"",meta=[l.type,l.date?"since "+shortDate(l.date):""].filter(Boolean).join(" · ");
+    groups.map(([title,list])=>(multi?`<div class="wogrp">${esc(title)}<span>${list.length}</span></div>`:"")+list.map(l=>{const st=l.status||"Complete",allSubs=subJobs(l),band=(gi++)%2?" alt":"";
+      // finished sub-jobs are left off the Dashboard (All jobs still lists them)
+      const subs=allSubs.filter(x=>!isDone(x.status)),nDone=allSubs.length-subs.length;
+      const own=allSubs.length?jobIds(l).map((id,i)=>allSubs.some(x=>x.id===id)?null:jobNames(l)[i]).filter(Boolean):[];
+      const tool=allSubs.length?(own.length?own.join(", "):`${allSubs.length} moulds`):jobTool(l);
+      const due=validDay(l.due)?l.due:"",meta=[l.type,l.date?"since "+shortDate(l.date):"",nDone?`${nDone} of ${allSubs.length} sub-jobs done`:""].filter(Boolean).join(" · ");
       return `<button type="button" class="worow2${band}${subs.length?" parent":""}" data-open="${esc(l.id)}" aria-label="Edit ${esc(l.wo||"job")}${due?", due "+esc(dueLabel(due)):""}"><span class="wo">${esc(l.wo||"—")}${isTempWo(l.wo)?`<span class="temptag">Temp</span>`:""}</span><span class="tool"><span class="tn">${esc(tool)}</span>${l.orderNo?`<span class="ordtag">Order ${esc(l.orderNo)}</span>`:""}<small class="tm">${esc(meta)}</small>${due?`<span class="mob">${dueChip(due)}</span>`:""}</span><span class="dsk dsc">${esc(l.description||l.faults||l.notes||"")}</span><span class="dsk duec">${due?dueChip(due):""}</span><span class="stpill ${stClass(st)}">${esc(st)}</span></button>`+
         subs.map((x,i)=>`<button type="button" class="worow2 sub${band}${i===subs.length-1?" last":""}" data-open="${esc(l.id)}" data-sub="${esc(x.id)}" aria-label="Edit ${esc((l.wo||"")+"-"+x.no)}"><span class="wo"><span class="subtree" aria-hidden="true"></span>${esc((l.wo||"")+"-"+x.no)}</span><span class="tool"><span class="tn">${esc(x.name)}</span>${x.type&&x.type!==l.type?`<small class="tm">${esc(x.type)}</small>`:""}</span><span class="dsk dsc">${esc(x.description||"")}</span><span class="dsk duec"></span><span class="stpill ${stClass(x.status)}">${esc(x.status)}</span></button>`).join("")}).join("")).join("")+'</div>'}
 // All jobs: every work order, newest number first
@@ -6134,7 +6136,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.22-124";
+const APP_VERSION="2026.10.22-125";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
