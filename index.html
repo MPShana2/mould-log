@@ -1988,15 +1988,17 @@ document.addEventListener("paste",e=>{
 const clInst={};
 const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const cleanItems=items=>(items||[]).filter(i=>String(i.text||"").trim()||i.done).map(i=>({id:i.id||newId(),text:String(i.text||"").replace(/\s+$/,""),done:!!i.done,...(validDay(i.due)?{due:i.due}:{})}));
-function clRow(i){return `<div class="cl-row${i.done?" done":""}" data-id="${esc(i.id)}">${i.done?"":gripBtn("cl","Drag to reorder this item")}<input type="checkbox" class="cl-cb"${i.done?" checked":""} aria-label="Done"><div class="cl-body"><textarea class="cl-text" rows="1" aria-label="List item">${esc(i.text)}</textarea>${validDay(i.due)?`<button type="button" class="due ${i.done?"later":dueCls(i.due)} cl-due" data-cldue="1" aria-label="Due ${esc(dueLabel(i.due))}. Change the date">${DUE_ICON}${esc(dueLabel(i.due))}</button>`:""}</div>${i.done||validDay(i.due)?"":`<button type="button" class="cl-dset" data-cldue="1" aria-label="Add a due date" title="Due date">${DUE_ICON}</button>`}<button type="button" class="cl-del" aria-label="Delete item">×</button></div>`}
+function clRow(i,fin){return `<div class="cl-row${i.done?" done":""}" data-id="${esc(i.id)}">${i.done?"":gripBtn("cl","Drag to reorder this item")}<input type="checkbox" class="cl-cb"${i.done?" checked":""} aria-label="Done"><div class="cl-body"><textarea class="cl-text" rows="1" aria-label="List item">${esc(i.text)}</textarea>${validDay(i.due)?`<button type="button" class="due ${i.done||fin?"later":dueCls(i.due)} cl-due" data-cldue="1" aria-label="Due ${esc(dueLabel(i.due))}. Change the date">${DUE_ICON}${esc(dueLabel(i.due))}</button>`:""}</div>${i.done||validDay(i.due)?"":`<button type="button" class="cl-dset" data-cldue="1" aria-label="Add a due date" title="Due date">${DUE_ICON}</button>`}<button type="button" class="cl-del" aria-label="Delete item">×</button></div>`}
 function clRender(key,focus){
   const inst=clInst[key];if(!inst)return;
   const el=document.querySelector(`.cl[data-cl="${CSS.escape(key)}"]`);if(!el)return;
   if(sortDrag&&sortDrag.box===el){inst.redraw=true;return} // not while an item is being dragged; redrawn on drop
   const open=inst.items.filter(i=>!i.done),done=inst.items.filter(i=>i.done);
-  el.innerHTML=open.map(clRow).join("")+
+  // finished work order (the one open in the form, or a work order's list on the Dashboard): dates without the overdue colour
+  const fin=key==="form"?isDone(segVal("#f-status")):key.startsWith("wo:")?(l=>!!l&&!woIsOpen(l))(logs.find(x=>x.id===key.slice(3))):false,row=i=>clRow(i,fin);
+  el.innerHTML=open.map(row).join("")+
     `<div class="cl-add"><span class="cl-plus" aria-hidden="true">+</span><textarea class="cl-new" rows="1" placeholder="List item" aria-label="Add list item"></textarea></div>`+
-    (done.length?`<button type="button" class="cl-donetoggle" aria-expanded="${!!inst.showDone}">${inst.showDone?"▾":"▸"} ${done.length} ticked item${done.length===1?"":"s"}</button>`+(inst.showDone?`<div class="cl-donelist">${done.map(clRow).join("")}</div>`:""):"");
+    (done.length?`<button type="button" class="cl-donetoggle" aria-expanded="${!!inst.showDone}">${inst.showDone?"▾":"▸"} ${done.length} ticked item${done.length===1?"":"s"}</button>`+(inst.showDone?`<div class="cl-donelist">${done.map(row).join("")}</div>`:""):"");
   growMany(el.querySelectorAll("textarea"));
   if(focus){
     const t=focus.id==="new"?el.querySelector(".cl-new"):el.querySelector(`.cl-row[data-id="${CSS.escape(focus.id)}"] .cl-text`);
@@ -2342,7 +2344,7 @@ function growAll(){growMany(document.querySelectorAll("textarea.autogrow"))}
 document.querySelectorAll("textarea.autogrow").forEach(el=>el.addEventListener("input",()=>grow(el)));
 window.addEventListener("resize",growAll);
 // Setting status to Complete fills Date completed if it's empty
-$("#f-status").addEventListener("click",e=>{const b=e.target.closest("button");if(b&&isDone(b.dataset.v)&&!$("#f-done").value)$("#f-done").value=today();setTimeout(fDueHint,0)});
+$("#f-status").addEventListener("click",e=>{const b=e.target.closest("button");if(b&&isDone(b.dataset.v)&&!$("#f-done").value)$("#f-done").value=today();setTimeout(()=>{fDueHint();if(clInst.form&&!$("#logform").querySelector(".cl[data-cl=form]").contains(document.activeElement))clRender("form")},0)});
 const STATUSES=["Pending","In progress","On hold","Complete","Cancelled"];
 // Complete and Cancelled both close a job (off Open jobs); Cancelled = stopped before the work was finished
 const isDone=st=>st==="Complete"||st==="Cancelled";
@@ -3307,7 +3309,7 @@ function renderAll(){
 }
 
 let editingId=null, origWo=null;
-function segSet(id,v){const bs=[...$(id).querySelectorAll("button")];const hit=bs.find(b=>b.dataset.v===v)||bs[0];bs.forEach(b=>b.setAttribute("aria-pressed",b===hit?"true":"false"));if(id==="#f-status"&&typeof fDueHint==="function")fDueHint()} // a finished job keeps its due date but drops the due/overdue tag
+function segSet(id,v){const bs=[...$(id).querySelectorAll("button")];const hit=bs.find(b=>b.dataset.v===v)||bs[0];bs.forEach(b=>b.setAttribute("aria-pressed",b===hit?"true":"false"));if(id==="#f-status"&&typeof fDueHint==="function"){fDueHint();if(clInst.form)clRender("form")}} // a finished job keeps its due date but drops the due/overdue tag
 let formTodos=[];
 function mountFormTodos(){if(clInst.form)clInst.form.pending=false;clMount("form",formTodos,items=>{formTodos=items;clInst.form.pending=false;markDirty(600)})}
 mountFormTodos();
@@ -6132,7 +6134,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.22-123";
+const APP_VERSION="2026.10.22-124";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
