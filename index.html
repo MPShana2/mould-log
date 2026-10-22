@@ -694,6 +694,8 @@ details.ck>summary span:first-child{flex:1}
 .ibphotos h3{margin:0 0 4px;font-size:16px}
 .qbox #q-photos:empty{display:none}
 .ugridw{overflow:auto;max-height:min(62dvh,560px)}
+.womerge{margin-top:8px;padding:12px 14px;border:1px solid var(--accent);border-left:5px solid var(--accent);border-radius:10px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));display:flex;flex-direction:column;gap:4px}
+.womerge[hidden]{display:none}.womerge .small{line-height:1.45}
 .ugrid .thumb.uhave{opacity:.55;cursor:default}
 #uplist .sharerow .wo{font-size:13px;white-space:nowrap}#uplist .upnew .wo{font-size:20px;color:var(--accent);text-align:center}
 .ugrid .thumb{position:relative}
@@ -1196,6 +1198,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
           <button class="btn ghost" id="wotemp" type="button" title="Use a temporary number until the job gets a real one">Temp no.</button>
         </div>
         <div class="hint" id="wohint">Filled in automatically. Type over it to use your own number.</div>
+        <div class="womerge" id="f-womerge" hidden></div>
         <div class="woren" id="f-woren" hidden></div>
         <div class="ordfield"><label class="label" for="f-order">Client order no.</label><input id="f-order" maxlength="80" autocomplete="off" placeholder="Optional, for external contract work"></div>
         <div class="hrline" id="f-hrs" hidden></div>
@@ -3228,6 +3231,121 @@ $("#wotemp").onclick=()=>{$("#f-wo").value=nextTempWO();woHint();$("#f-wo").disp
 function woHint(){const t=isTempWo($("#f-wo").value),h=$("#wohint");h.classList.toggle("temp",t);
   h.innerHTML=t?"<b>Temporary number.</b> Tap <b>Next no.</b> (or type the real number) when the job's confirmed. Its photos and hours move across with it.":"Filled in automatically. Type over it to use your own number, or tap Temp no. to hold it on a temporary one."}
 $("#f-wo").addEventListener("input",woHint);
+// ---- A temporary job becomes a sub-job of a real work order: type its number ("2552-3", or just "2552") ----
+// The app asks first. Then the job's mould joins that work order as a sub-job with everything on it (details,
+// updates, to-dos, parts, hot runner readings, procedures, logged hours, photos), and the temporary job goes.
+const PM_FIELDS=["shots","faults","work","notes","parts","partsList","procs","updates","hrz"];
+const WM_MSG="Confirm below to add it to the work order";
+// this job's own number (as saved), to go back to
+const wmOwnNo=()=>{const T=editingId&&logs.find(x=>x.id===editingId);return (T&&T.wo)||origWo||nextTempWO()};
+// what was typed → {L (the work order), no (sub-job number asked for, or null)}, when this job can join it
+function woMergeTarget(val){ // any job (usually a temporary one) given another work order's number; you confirm first
+  const m=String(val||"").trim().toUpperCase().match(/^#?\s*(\d+)(?:\s*[-\/]\s*(\d+))?$/);if(!m)return null;
+  const L=logs.find(l=>l.id!==editingId&&!isTempWo(l.wo)&&normWo(l.wo)===normWo(m[1]));return L?{L,no:m[2]?+m[2]:null}:null}
+// the sub-job numbers a work order already has, by mould (as shown: 2552-1, 2552-2, …)
+function subNos(L){const o={};for(const id of tabIdsFor(L.mouldId,L.extraMouldIds)){const n=subMeta(L,id).no;if(n)o[id]=n}return o}
+// how the merge would go, for the prompt and for doing it
+function woMergePlan(T,L,want){
+  const tIds=T?jobIds(T):[$("#f-mould").value,...extraIds].filter(Boolean),onL=new Set(allIds(L)),nos=subNos(L);
+  const willTab=tabIdsFor(L.mouldId,[...(L.extraMouldIds||[]),...tIds.filter(x=>!onL.has(x))]);
+  // a work order with just one mould gets sub-job numbers when the second arrives: the first is -1
+  let max=Math.max(0,...Object.values(nos));for(const id of willTab)if(onL.has(id)&&!nos[id])nos[id]=++max;
+  const used=new Set(Object.values(nos)),out=[];
+  for(const x of tIds){if(onL.has(x)){const lead=leadOf(L,x);out.push({x,lead,no:nos[lead]||null,existing:true});continue}
+    let no=want&&!used.has(want)&&out.every(o=>o.no!==want)?want:null;if(!no){no=Math.max(0,...used,...out.map(o=>o.no||0))+1}
+    used.add(no);out.push({x,lead:x,no,existing:false})}
+  return {list:out,nos,wantTaken:!!(want&&out[0]&&!out[0].existing&&out[0].no!==want)}}
+function renderWoMerge(){const el=$("#f-womerge");if(!el)return;const t=woMergeTarget($("#f-wo").value);
+  if(!t){if(!el.hidden){el.hidden=true;el.innerHTML="";updateEditBar();if(editingId&&dirty)markDirty(300)}return}
+  setSaveState("pending",WM_MSG);updateEditBar();
+  const T=editingId?logs.find(x=>x.id===editingId):null,plan=woMergePlan(T,t.L,t.no),first=plan.list[0];
+  const what=!first?"":first.existing?`${esc(mName(first.x))} is already on #${esc(t.L.wo)}${first.no?` (${esc(t.L.wo)}-${first.no})`:""}, so this job's updates and details are added to it.`
+    :`It becomes sub-job <b>${esc(t.L.wo)}-${first.no}</b>${plan.wantTaken?` (${esc(t.L.wo)}-${t.no} is already ${esc(mName(Object.keys(plan.nos).find(k=>plan.nos[k]===t.no)))})`:""}.`;
+  el.hidden=false;el.innerHTML=`<div><b>#${esc(t.L.wo)} already exists</b> · ${esc(jobTool(t.L))}</div>
+    <div class="small">Add this job to it? ${what} Its updates, to-dos, parts, readings, hours and photos move across, and ${editingId?`#${esc(wmOwnNo())}`:"this job"} is removed.</div>
+    <div class="attbtns" style="margin:4px 0 0"><button type="button" class="btn" data-womerge="1">Add to #${esc(t.L.wo)}</button><button type="button" class="btn ghost" data-womergeno="1">Cancel</button></div>`}
+$("#f-wo").addEventListener("input",renderWoMerge);
+document.addEventListener("click",e=>{if(e.target.closest("[data-womergeno]")){$("#f-wo").value=wmOwnNo();renderWoMerge();woHint();updateEditBar();markDirty(200);return}
+  const b=e.target.closest("[data-womerge]");if(b)woMergeGo(b)});
+// combine one mould's fields from two jobs (when the mould is on both)
+function pmMerge(a,b){a=a||{};b=b||{};const txt=(x,y)=>{x=String(x||"").trim();y=String(y||"").trim();return !x?y:!y||x===y?x:x+"\n\n"+y};
+  const pl=cleanParts([...(a.partsList||partsFromText(a.parts)||[]),...(b.partsList||partsFromText(b.parts)||[])]);
+  const sh=Math.max(Number(a.shots)||0,Number(b.shots)||0);
+  const procs=[...(a.procs||[])];for(const p of (b.procs||[]))if(!procs.some(q=>q.id===p.id))procs.push(p);
+  return {shots:sh||a.shots||b.shots||null,faults:txt(a.faults,b.faults),work:txt(a.work,b.work),notes:txt(a.notes,b.notes),partsList:pl,parts:partsText(pl),procs,
+    updates:updClean([...(a.updates||[]),...(b.updates||[])]),hrz:hrzHasData(hrzClean(a.hrz))?a.hrz:b.hrz||a.hrz||null}}
+const pmOf=(l,id)=>{const v=pmVal(l,id),o={};for(const f of PM_FIELDS)if(v[f]!==undefined)o[f]=v[f];return o};
+// Drive: move a folder's contents into another, renaming clashes ("photo (2).jpg"); returns {old name: new name}
+async function moveInto(fromId,toId,ren={}){const taken=new Set((await dChildren(toId)).map(x=>String(x.name).toLowerCase()));
+  for(const f of await dChildren(fromId)){
+    if(/ Work order\.md$/.test(f.name)){await dPatch(f.id,"",{trashed:true});continue} // the temporary job's backup: replaced by the work order's
+    if(f.mimeType===FOLDER_MT){const same=(await dChildren(toId)).find(x=>x.mimeType===FOLDER_MT&&x.name===f.name);if(same){await moveInto(f.id,same.id,ren);await dPatch(f.id,"",{trashed:true});continue}}
+    const nn=f.mimeType===FOLDER_MT?f.name:freeName(f.name,taken);taken.add(nn.toLowerCase());if(nn!==f.name)ren[f.name]=nn;
+    await dPatch(f.id,`&addParents=${encodeURIComponent(toId)}&removeParents=${encodeURIComponent(fromId)}`,nn!==f.name?{name:nn}:{})}
+  return ren}
+async function woMergeGo(btn){const t=woMergeTarget($("#f-wo").value);if(!t||!db)return;
+  const {L}=t,want=t.no;btn.disabled=true;btn.textContent="Adding…";
+  try{
+    // 1. this job, saved as it is (under its temporary number; a new job gets one now)
+    $("#f-wo").value=wmOwnNo();renderWoMerge();woHint();markDirty(0);
+    if(!(await flushSave())||!editingId)throw {message:"Save this job first (it needs a mould and a start date)"};
+    await new Promise(r=>setTimeout(r,80));
+    const T=logs.find(x=>x.id===editingId);if(!T)throw {message:"Couldn't find this job"};
+    const Lnow=logs.find(x=>x.id===L.id)||L,plan=woMergePlan(T,Lnow,want),tNum=woNum(T.wo),lNum=woNum(Lnow.wo);
+    const tIds=jobIds(T),tTabs=tabIdsFor(T.mouldId,T.extraMouldIds);
+    // 2. photos: the temporary job's Drive folder into the work order's folder for each tool
+    const renames={}; // per mould: {old name: new name}
+    if(driveRoot){const tf=await (async()=>{try{return await findWoFolder(tNum)}catch(e){if(e&&(e.code==="offline"||e.code==="needs_token"||e.code==="needs_scope"))throw {message:"Moving its photos needs a connection to Google Drive. Connect and try again."};throw e}})();
+      if(tf){for(const p of plan.list){const dest=await ensureFolder(lNum,jobTool(Lnow),subName(p.lead)),src=tTabs.includes(p.x)?await findSubFolder(tNum,tf.id,subName(p.x)):null;
+          renames[p.x]={};if(src){await moveInto(src.id,dest.id,renames[p.x]);await dPatch(src.id,"",{trashed:true})}}
+        // whatever's left at the top of the temporary folder belongs to its main mould
+        const mainP=plan.list.find(p=>p.x===T.mouldId)||plan.list[0];
+        if(mainP){const dest=await ensureFolder(lNum,jobTool(Lnow),subName(mainP.lead));await moveInto(tf.id,dest.id,renames[mainP.x]||(renames[mainP.x]={}))}
+        if(!(await dChildren(tf.id)).length)await dPatch(tf.id,"",{trashed:true});
+        forgetWoDrive(tNum);forgetWoDrive(lNum)}}
+    // photos still waiting to upload go to the new place too
+    for(const it of queueCache.filter(q=>q.num===tNum)){const x=it.sub?(tIds.find(id=>subName(id)===it.sub)||T.mouldId):T.mouldId,p=plan.list.find(q=>q.x===x)||plan.list[0];
+      it.num=lNum;it.label=jobTool(Lnow);it.sub=subName(p.lead);await qPut(it)}
+    // 3. the work order: each of the job's moulds becomes (or joins) a sub-job
+    const rn=(x,set)=>{const r=renames[x];if(!r||!Object.keys(r).length)return set;return {...set,updates:(set.updates||[]).map(u=>u.files?{...u,files:u.files.map(n=>r[n]||n)}:u)}};
+    const N={extraMouldIds:[...(Lnow.extraMouldIds||[])],extraMouldNames:[...(Lnow.extraMouldNames||[])],perMould:JSON.parse(JSON.stringify(Lnow.perMould||{})),
+      subs:JSON.parse(JSON.stringify(Lnow.subs||{})),joined:JSON.parse(JSON.stringify(Lnow.joined||{})),todos:[...(Lnow.todos||[])]};
+    const top={};for(const f of PM_FIELDS)top[f]=Lnow[f];
+    for(const [id,no] of Object.entries(plan.nos)){const sm=subMeta(Lnow,id);N.subs[id]={...(N.subs[id]||{}),no,status:sm.status,date:sm.date,dateCompleted:sm.dateCompleted,type:sm.type,description:sm.description}}
+    for(const p of plan.list){const sm=tTabs.includes(p.x)?subMeta(T,p.x):{status:T.status,date:T.date,dateCompleted:T.dateCompleted,type:T.type,description:""};
+      let set=rn(p.x,pmOf(T,p.x));
+      // the job's own description and work order notes go with its main mould
+      if(p.x===T.mouldId){if(!sm.description&&T.description&&!p.existing)sm.description=T.description;
+        const more=[p.existing?T.description:"",T.woNotes,T.orderNo&&Lnow.orderNo&&T.orderNo!==Lnow.orderNo?"Order no. "+T.orderNo:""].filter(Boolean).join("\n\n");
+        if(more)set.notes=[set.notes,more].filter(Boolean).join("\n\n")}
+      if(p.existing){if(p.lead===Lnow.mouldId){const m=pmMerge(top,set);Object.assign(top,m)}else N.perMould[p.lead]=pmMerge(N.perMould[p.lead],set);
+        if(p.no&&N.subs[p.lead]&&isDone(N.subs[p.lead].status)&&!isDone(sm.status))N.subs[p.lead]={...N.subs[p.lead],status:sm.status,dateCompleted:""};continue}
+      N.extraMouldIds.push(p.x);N.extraMouldNames.push(mName(p.x));N.perMould[p.x]=set;
+      N.subs[p.x]={no:p.no,status:sm.status||"In progress",date:sm.date||T.date||"",dateCompleted:sm.dateCompleted||"",type:sm.type||T.type||"",description:sm.description||(p.x===T.mouldId?T.description||"":"")}}
+    // tools joined to a sub-job on the temporary job stay joined to it
+    for(const [lead,mem] of Object.entries(T.joined||{})){const p=plan.list.find(q=>q.x===lead);if(!p)continue;const cur=new Set(N.joined[p.lead]||[]);for(const x of mem)if(!allIds(Lnow).includes(x))cur.add(x);N.joined[p.lead]=[...cur]}
+    for(const it of (T.todos||[]))if(!N.todos.some(x=>x.id===it.id))N.todos.push(it);
+    const patch={...top,...N,updatedAt:new Date().toISOString()};
+    if(!validDay(Lnow.due)&&validDay(T.due)&&woIsOpen(T))patch.due=T.due;
+    if(!Lnow.orderNo&&T.orderNo)patch.orderNo=T.orderNo;
+    // a finished work order with a job still going is open again
+    if(isDone(Lnow.status)&&plan.list.some(p=>!isDone((N.subs[p.lead]||{}).status||T.status))){patch.status="In progress";patch.dateCompleted=""}
+    // parts already taken from stock stay taken, counted once (now on the work order)
+    const inv={...(Lnow.invUsed||{})};for(const [k,v] of Object.entries(T.invUsed||{}))inv[k]=(inv[k]||0)+v;patch.invUsed=inv;invLedger[Lnow.id]=inv;delete invLedger[T.id];
+    for(const k of Object.keys(patch))if(patch[k]===undefined)delete patch[k];
+    await db.collection("logs").doc(Lnow.id).update(patch);
+    // 4. logged hours follow the job
+    for(const h of hoursList.filter(h=>h.logId===T.id||(!h.logId&&normWo(h.wo)===normWo(T.wo)))){const x=h.mouldId&&tIds.includes(h.mouldId)?h.mouldId:T.mouldId,p=plan.list.find(q=>q.x===x)||plan.list[0];
+      try{await db.collection("hours").doc(h.id).update({wo:Lnow.wo,sub:p.no||null,logId:Lnow.id,mouldId:p.lead,updatedAt:new Date().toISOString()})}catch(e){}}
+    // 5. the temporary job goes (its stock stays counted on the work order, so nothing is put back)
+    const tId=T.id;delete woRenames[tId];saveWoRenames();delete backupPending[tId];saveBackupPending();
+    editingId=null;dirty=false;formBase=null;
+    await db.collection("logs").doc(tId).delete();
+    scheduleBackup(Lnow.id);
+    const first=plan.list.find(p=>p.x===T.mouldId)||plan.list[0];
+    toast(first.existing?`Added to #${Lnow.wo}${first.no?"-"+first.no:""}`:`Added to #${Lnow.wo} as sub-job ${Lnow.wo}-${first.no}`);
+    navReplace=true;await new Promise(r=>setTimeout(r,80));await startEdit(Lnow.id,first.no?first.lead:undefined)}
+  catch(err){btn.disabled=false;btn.textContent="Try again";toast("Couldn't add it: "+((err&&err.message)||err))}}
 
 // Shared table for Open jobs and All jobs
 const woSortNum=l=>{if(isTempWo(l.wo))return 1e12+(+String(l.wo).match(/\d+/)[0]);const n=parseInt(woNum(l.wo),10);return isNaN(n)?-1:n};
@@ -3326,6 +3444,7 @@ function clearForm(){
   renderFormDrive();
   dirty=false;clearTimeout(saveTimer);
   growAll();
+  renderWoMerge();
 }
 async function startEdit(id,subId){
   if(subId)setTimeout(()=>{if(editingId===id)openSub(subId)},30);
@@ -3334,7 +3453,7 @@ async function startEdit(id,subId){
   if(!(currentView()==="log"&&editingId===id))navPrePush();
   await flushSave();
   editingId=id;dirty=false;origWo=l.wo||"";invLedger[id]=l.invUsed||{};if(woTab!=="details")setWoTab("details");
-  fillForm(l);
+  fillForm(l);renderWoMerge();
   show("log");growAll();renderFormDrive();formMarkBase(l);
 }
 // Fill the form from a work order (on opening it, or when another device has changed it)
@@ -3413,7 +3532,7 @@ $("#woprev").onclick=()=>woGo(-1);$("#wonextbtn").onclick=()=>woGo(1);
 document.addEventListener("keydown",e=>{if(!e.altKey||$("#v-log").hidden||!editingId||subPage||!$("#lb").hidden)return;
   if(e.key==="ArrowLeft"){e.preventDefault();woGo(-1)}else if(e.key==="ArrowRight"){e.preventDefault();woGo(1)}});
 function updateEditBar(){
-  const wo=$("#f-wo").value.trim();
+  const wo=!$("#f-womerge").hidden&&typeof wmOwnNo==="function"?wmOwnNo():$("#f-wo").value.trim(); // asking "Add to #2552?": still this job
   const subNo=subPage?`${wo||"#"}-${formSubNo[subPage]}`:"";
   $("#edittitle").textContent=subPage?(editingId?"Editing ":"New sub-job ")+subNo:(editingId?("Editing "+(wo||"job")):"New job");
   $("#canceledit").hidden=!editingId&&!subPage;$("#exportrpt").hidden=!editingId;$("#canceledit").textContent=subPage?"Back":"Done";
@@ -3439,6 +3558,7 @@ function buildEntry(){
   const mouldId=$("#f-mould").value;
   if(!mouldId)return {error:mq().value.trim()?"pick a mould or job from the list":"choose a mould or general job"};
   const wo=$("#f-wo").value.trim().toUpperCase();if(!wo)return {error:"enter a work order number"};
+  {const mt=woMergeTarget(wo);if(mt)return {error:WM_MSG,merge:true}}
   {const dupe=logs.find(x=>x.id!==editingId&&normWo(x.wo)===normWo(wo));
    if(dupe&&!(editingId&&normWo(origWo)===normWo(wo)))return {error:`work order ${wo} is already used by ${jobTool(dupe)}`}}
   if(!$("#f-date").value)return {error:"enter a start date"};
@@ -3453,6 +3573,8 @@ function buildEntry(){
 }
 function markDirty(delay){
   if(!db)return;
+  // while "Add to #2552?" is showing nothing saves, and the message stays put (a changing message moves the button as you tap it)
+  if(!$("#f-womerge").hidden){dirty=true;clearTimeout(saveTimer);setSaveState("pending",WM_MSG);return}
   dirty=true;setSaveState("pending","Unsaved changes…");
   clearTimeout(saveTimer);saveTimer=setTimeout(autosave,delay??900);
 }
@@ -3473,7 +3595,7 @@ async function autosave(){
   if(!dirty||!db)return;
   if(uploading){saveTimer=setTimeout(autosave,700);setSaveState("saving","Waiting for attachments to upload…");return}
   const b=buildEntry();
-  if(b.error){setSaveState("problem","Not saved yet: "+b.error);return}
+  if(b.error){setSaveState(b.merge?"pending":"problem",b.merge?WM_MSG:"Not saved yet: "+b.error);return}
   dirty=false;setSaveState("saving","Saving…");busySave=true;
   saving=(async()=>{
     try{
@@ -6136,7 +6258,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.22-125";
+const APP_VERSION="2026.10.23-127";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
