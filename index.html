@@ -694,6 +694,10 @@ details.ck>summary span:first-child{flex:1}
 .ibphotos h3{margin:0 0 4px;font-size:16px}
 .qbox #q-photos:empty{display:none}
 .ugridw{overflow:auto;max-height:min(62dvh,560px)}
+.updselbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 12px;margin-bottom:8px;border-radius:10px;background:var(--steel);color:var(--bg);position:sticky;top:calc(var(--hdrh,64px) + 52px);z-index:3}
+.updselbar .btn.ghost{background:transparent;color:var(--bg);border-color:color-mix(in srgb,var(--bg) 40%,transparent)}
+.updpick{display:flex;align-items:center;margin-right:8px}.updpick input{width:22px;height:22px;accent-color:#8a5a00}
+.upditem.picked{outline:2px solid var(--accent);outline-offset:-2px}
 .womerge{margin-top:8px;padding:12px 14px;border:1px solid var(--accent);border-left:5px solid var(--accent);border-radius:10px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));display:flex;flex-direction:column;gap:4px}
 .womerge[hidden]{display:none}.womerge .small{line-height:1.45}
 .ugrid .thumb.uhave{opacity:.55;cursor:default}
@@ -3453,7 +3457,7 @@ async function startEdit(id,subId){
   if(!(currentView()==="log"&&editingId===id))navPrePush();
   await flushSave();
   editingId=id;dirty=false;origWo=l.wo||"";invLedger[id]=l.invUsed||{};if(woTab!=="details")setWoTab("details");
-  fillForm(l);renderWoMerge();
+  updSel=null;fillForm(l);renderWoMerge();
   show("log");growAll();renderFormDrive();formMarkBase(l);
 }
 // Fill the form from a work order (on opening it, or when another device has changed it)
@@ -4619,7 +4623,8 @@ function renderUpd(p){
   const el=$(p==="f"?"#f-upd":"#b-upd");if(!el)return;
   if(!el.querySelector(".updlistw"))el.innerHTML=`<div class="updcomp"></div><div class="updlistw"></div>`;
   const open=updOpen&&updOpen.p===p?updOpen:null,list=updNewest(updList(p));
-  el.querySelector(".updlistw").innerHTML=list.length?`<div class="updlist">${list.map(u=>open&&open.id===u.id?"":`<div class="upditem"><div class="updhead"><span class="upddate">${esc(fmtDate(u.date))}</span><span class="updacts"><button type="button" class="linkish" data-updedit="${p}|${esc(u.id)}">Edit</button> · <button type="button" class="linkish" data-upddel="${p}|${esc(u.id)}">Delete</button></span></div>${u.text?`<div class="updtext">${esc(u.text)}</div>`:""}${updThumbs(p,u.files,false)}</div>`).join("")}</div>`:"";
+  const selOn=updSel&&updSel.p===p&&!open;if(updSel&&updSel.p===p)updSel.ids.forEach(id=>{if(!list.some(u=>u.id===id))updSel.ids.delete(id)});
+  el.querySelector(".updlistw").innerHTML=list.length?(selOn?updSelBar(p):"")+`<div class="updlist">${list.map(u=>open&&open.id===u.id?"":`<div class="upditem${selOn&&updSel.ids.has(u.id)?" picked":""}"><div class="updhead">${selOn?`<label class="updpick"><input type="checkbox" data-updpick="${p}|${esc(u.id)}"${updSel.ids.has(u.id)?" checked":""} aria-label="Select this update"></label>`:""}<span class="upddate">${esc(fmtDate(u.date))}</span><span class="updacts">${selOn?"":`<button type="button" class="linkish" data-updedit="${p}|${esc(u.id)}">Edit</button> · <button type="button" class="linkish" data-updmv="${p}|${esc(u.id)}">Move</button> · <button type="button" class="linkish" data-upddel="${p}|${esc(u.id)}">Delete</button>`}</span></div>${u.text?`<div class="updtext">${esc(u.text)}</div>`:""}${updThumbs(p,u.files,false)}</div>`).join("")}</div>`:"";
   const comp=el.querySelector(".updcomp");
   if(!open){comp.innerHTML=`<button type="button" class="addmould" data-updadd="${p}">+ Add an update</button>`;return}
   if(comp.dataset.for!==open.draft){ // build the box once; later refreshes only redraw its photos
@@ -4700,6 +4705,57 @@ $("#upsheet").addEventListener("click",e=>{if(e.target===$("#upsheet")){closeUpd
   const u=updList(p).find(x=>x.id===id);if(!u)return;
   u.files=[...new Set([...(u.files||[]),...names])];renderUpd(p);markDirty(250);
   toast(`Added ${names.length} photo${names.length===1?"":"s"} to the ${fmtDate(u.date)} update`)});
+// ---- Move updates to another work order (or sub-job): tap Move on one, tick any others, then Move to… ----
+// Their photos go with them into that job's Drive folder (copied instead when an update staying here shows them too).
+let updSel=null; // {p, ids:Set}
+const updSrcId=p=>p==="f"?mainFor:boxFor;
+function updSelBar(p){if(!updSel||updSel.p!==p)return "";const n=updSel.ids.size;
+  return `<div class="updselbar"><span><b>${n}</b> update${n===1?"":"s"} selected</span><span class="attbtns" style="margin:0"><button type="button" class="btn" data-updmove="${p}"${n?"":" disabled"}>Move to…</button><button type="button" class="btn ghost" data-updselx="${p}">Cancel</button></span></div>`}
+document.addEventListener("click",e=>{const t=e.target;
+  const m=t.closest("[data-updmv]");if(m){const[p,id]=m.dataset.updmv.split("|");if(updSel&&updSel.p===p){if(updSel.ids.has(id))updSel.ids.delete(id);else updSel.ids.add(id)}else updSel={p,ids:new Set([id])};renderUpd(p);return}
+  const x=t.closest("[data-updselx]");if(x){updSel=null;renderUpd(x.dataset.updselx);return}
+  const go=t.closest("[data-updmove]");if(go&&updSel&&updSel.ids.size){const p=go.dataset.updmove,n=updSel.ids.size;openAssign({moveUpd:{p,ids:[...updSel.ids]},label:`${n} update${n===1?"":"s"}`})}});
+document.addEventListener("change",e=>{const c=e.target.closest&&e.target.closest("[data-updpick]");if(!c)return;const[p,id]=c.dataset.updpick.split("|");if(!updSel||updSel.p!==p)return;
+  if(c.checked)updSel.ids.add(id);else updSel.ids.delete(id);renderUpd(p)});
+async function moveUpdates(mv,logId,asub){
+  const L=logs.find(x=>x.id===logId);if(!L||!db)return;
+  const {p}=mv,srcId=updSrcId(p);if(!srcId||srcId===FORCE)return;
+  stashPM();const src=formPM[srcId]||{},all=updClean(src.updates),moving=all.filter(u=>mv.ids.includes(u.id)),keep=all.filter(u=>!mv.ids.includes(u.id));
+  if(!moving.length)return;
+  const lead=leadOf(L,asub||L.mouldId),same=L.id===editingId;
+  if(same&&leadOf(L,srcId)===lead){toast("They're already on this one");return}
+  const srcT=updTarget(p),dstT={num:woNum(L.wo),label:jobTool(L),sub:tabIdsFor(L.mouldId,L.extraMouldIds).includes(lead)?subName(lead):""};
+  const label=dstT.sub?subLabel(L,lead):L.wo,n=moving.length;
+  toast(`Moving ${n} update${n===1?"":"s"} to #${label}…`);
+  try{
+    // 1. photos: into the other job's folder (renamed if the name's taken); shared with an update staying here: copied
+    const names=[...new Set(moving.flatMap(u=>u.files||[]))],stay=new Set(keep.flatMap(u=>u.files||[])),ren={};
+    if(names.length&&srcT&&dkey(srcT)!==dkey(dstT)){
+      const inQ=new Set(queueCache.filter(q=>q.num===srcT.num&&(q.sub||"")===(srcT.sub||"")).map(q=>q.name));
+      if(!driveRoot)throw {message:"Set your Drive Work Orders folder first"};
+      if(names.some(nm=>!inQ.has(nm))&&(!hasToken()||!navigator.onLine))throw {message:"Moving their photos needs a connection to Google Drive. Connect and try again."};
+      const from=srcT.sub?await (async()=>{const w=await findWoFolder(srcT.num);return w&&await findSubFolder(srcT.num,w.id,srcT.sub)})():await findWoFolder(srcT.num);
+      const to=await ensureFolder(dstT.num,dstT.label,dstT.sub),taken=new Set((await dChildren(to.id)).map(f=>String(f.name).toLowerCase()));
+      queueCache.filter(q=>q.num===dstT.num&&(q.sub||"")===(dstT.sub||"")).forEach(q=>taken.add(String(q.name).toLowerCase()));
+      const have=from?await dChildren(from.id):[];
+      for(const nm of names){const nn=freeName(nm,taken);taken.add(nn.toLowerCase());if(nn!==nm)ren[nm]=nn;
+        const q=queueCache.find(x=>x.num===srcT.num&&(x.sub||"")===(srcT.sub||"")&&x.name===nm);
+        if(q&&!stay.has(nm)){q.num=dstT.num;q.label=dstT.label;q.sub=dstT.sub;q.name=nn;q.err="";await qPut(q);continue} // still uploading: it goes straight there
+        const f=have.find(x=>x.name===nm);if(!f)continue;
+        if(stay.has(nm))await driveFetch(DAPI+"files/"+encodeURIComponent(f.id)+"/copy?supportsAllDrives=true&fields=id,name",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:nn,parents:[to.id]})});
+        else await dPatch(f.id,`&addParents=${encodeURIComponent(to.id)}&removeParents=${encodeURIComponent(from.id)}`,nn!==nm?{name:nn}:{})}
+      forgetWoDrive(srcT.num);forgetWoDrive(dstT.num);await refreshQueue();processQueue()}
+    const moved=moving.map(u=>u.files&&Object.keys(ren).length?{...u,files:u.files.map(nm=>ren[nm]||nm)}:u);
+    // 2. the updates themselves
+    if(same){formPM[srcId].updates=keep;const d=formPM[lead]||(formPM[lead]={});d.updates=updClean([...(d.updates||[]),...moved])}
+    else{const cur=lead===L.mouldId?L.updates:((L.perMould||{})[lead]||{}).updates;
+      await db.collection("logs").doc(L.id).update({[lead===L.mouldId?"updates":`perMould.${lead}.updates`]:updClean([...(cur||[]),...moved]),updatedAt:new Date().toISOString()});
+      scheduleBackup(L.id);formPM[srcId].updates=keep}
+    updSel=null;
+    // the form shows the change (and saves this job)
+    if(mainFor&&mainFor!==FORCE)writeSet("f",mainFor);if(boxFor&&boxFor!==FORCE)writeSet("b",boxFor);renderUpd("f");renderUpd("b");markDirty(150);
+    toast(`Moved ${n} update${n===1?"":"s"} to #${label}${Object.keys(ren).length?` (${Object.keys(ren).length} photo${Object.keys(ren).length===1?"":"s"} renamed)`:""}`)}
+  catch(err){toast("Couldn't move them: "+((err&&err.message)||err))}}
 function updRefreshPhotos(){if($("#v-log").hidden)return;["f","b"].forEach(p=>{const el=$(p==="f"?"#f-upd":"#b-upd");if(el&&el.querySelector(".updlistw"))renderUpd(p)})}
 // Photos picked from an update's buttons upload to the work order's folder and are linked to the update
 function updAttach(p,names){if(!updOpen||updOpen.p!==p||!names.length)return;updOpen.files=[...new Set([...(updOpen.files||[]),...names])];renderUpd(p);markDirty(250)}
@@ -5004,7 +5060,9 @@ $("#qsheet").addEventListener("click",e=>{if(e.target===$("#qsheet"))$("#q-cance
 function openAssign(what){
   if(Array.isArray(what)){const ids=what.filter(id=>inbox.some(x=>x.id===id));if(!ids.length)return;ibAssign={notes:ids};
     const n0=inbox.find(x=>x.id===ids[0]);$("#asub").textContent=ids.length===1?(String(n0.text||"").slice(0,80)||`${(n0.files||[]).length} photo(s)`):`${ids.length} updates`}
+  else if(what.moveUpd){ibAssign={moveUpd:what.moveUpd};$("#asub").textContent=what.label+" (with their photos)"}
   else{ibAssign={files:what.files};$("#asub").textContent=what.files.length===1?what.files[0].name:`${what.files.length} photos & files`}
+  $("#atitle").textContent=ibAssign.moveUpd?"Move to a work order":"Assign to a work order";
   $("#a-q").value="";renderAssignList();$("#asheet").hidden=false;document.documentElement.classList.add("lbopen");
   if(!IS_MOBILE)setTimeout(()=>$("#a-q").focus(),30)}
 function closeAssign(){$("#asheet").hidden=true;ibAssign=null;document.documentElement.classList.remove("lbopen")}
@@ -5059,6 +5117,7 @@ async function inboxFilesByName(names){
 $("#alist").addEventListener("click",e=>{const b=e.target.closest("[data-ato]");if(!b||!ibAssign)return;assignTo(b.dataset.ato,b.dataset.asub||"")});
 async function assignTo(logId,asub){
   const l=logs.find(x=>x.id===logId);if(!l||!ibAssign)return;const mid=asub||l.mouldId;const what=ibAssign;closeAssign();
+  if(what.moveUpd)return moveUpdates(what.moveUpd,logId,asub);
   const b={dataset:{asub}};
   const num=woNum(l.wo),t={num,label:jobTool(l),sub:tabIdsFor(l.mouldId,l.extraMouldIds).includes(mid)?subName(mid):""};
   const label=b.dataset.asub?subLabel(l,b.dataset.asub):l.wo;
@@ -6258,7 +6317,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.23-127";
+const APP_VERSION="2026.10.23-128";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
