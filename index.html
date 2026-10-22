@@ -2592,8 +2592,12 @@ function swipePager(o){let s=null;
   document.addEventListener("touchstart",e=>{s=null;if(e.touches.length!==1||overlay()||!o.on())return;
     const t=e.touches[0];if(t.clientX<28||t.clientX>window.innerWidth-28)return; // the screen edges belong to the phone's back gesture
     if(blocked(e.target)||scrollsX(e.target))return;
-    s={x:t.clientX,y:t.clientY,t:Date.now(),lock:0,dx:0,el:o.el()}},{passive:true});
-  document.addEventListener("touchmove",e=>{if(!s)return;const t=e.touches[0],dx=t.clientX-s.x,dy=t.clientY-s.y;
+    s={x:t.clientX,y:t.clientY,t:Date.now(),lock:0,dx:0,el:o.el(),text:!!e.target.closest("input,textarea,[contenteditable]")}},{passive:true});
+  // on a text box: holding (a long press to pick a word) or moving a selection is editing, not a swipe
+  const selecting=()=>{const a=document.activeElement,g=window.getSelection&&window.getSelection();return (g&&!g.isCollapsed&&String(g).length>0)||(a&&a.matches&&a.matches("input,textarea")&&a.selectionStart!==a.selectionEnd)};
+  document.addEventListener("touchmove",e=>{if(!s)return;
+    if(s.text&&!s.lock&&(Date.now()-s.t>280||selecting())){s=null;return}
+    const t=e.touches[0],dx=t.clientX-s.x,dy=t.clientY-s.y;
     if(!s.lock){if(Math.abs(dx)<12&&Math.abs(dy)<12)return;if(Math.abs(dx)>Math.abs(dy)*1.4){s.lock=1;s.x=t.clientX-Math.sign(dx)*2;s.el.style.willChange="transform"}else{s=null;return}}
     const ddx=t.clientX-s.x,d=o.can(ddx<0?1:-1)?ddx:ddx*.22;s.dx=ddx;
     s.el.style.transition="none";s.el.style.transform=`translate3d(${d}px,0,0)`;s.el.style.opacity=String(1-Math.min(.4,Math.abs(d)/window.innerWidth*.6))},{passive:true});
@@ -6317,7 +6321,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.23-128";
+const APP_VERSION="2026.10.23-129";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
