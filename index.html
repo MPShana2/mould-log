@@ -1146,6 +1146,8 @@ img{max-width:100%}
 a.btn{text-decoration:none;display:inline-flex;align-items:center}
 .qlist{display:flex;flex-direction:column;gap:6px;margin:4px 0 6px}
 .qbar{position:relative;overflow:hidden;display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 12px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:4px 0 6px}
+.bgask{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;font-size:13.5px;color:var(--muted);padding:2px 2px 8px}
+.bgask .btn{padding:6px 12px;min-height:0}
 .qbar .ico{font-weight:800;color:var(--accent);text-align:center}
 .qbar .ico.spin{animation:qbob 1.1s ease-in-out infinite}
 @keyframes qbob{50%{transform:translateY(-3px)}}
@@ -1499,6 +1501,11 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <button class="btn ghost" id="acct-drive" type="button">Connect Google Drive</button>
         <button class="btn ghost" id="acct-signout" type="button">Sign out</button>
       </div>
+    </div>
+    <div class="panel stackcol" id="bgup" hidden>
+      <span class="label" style="margin:0">Uploads in the background</span>
+      <p class="hint" style="margin:0;font-size:13.5px">If you leave GT Hub while photos are uploading, Chrome keeps going for a few minutes, and tries again when the signal comes back. A big batch on a weak signal may still need GT Hub opened to finish. <span id="bgup-st"></span></p>
+      <div><button class="btn ghost" id="bgup-btn" type="button">Turn on notifications</button></div>
     </div>
     <div class="panel stackcol">
       <span class="label" style="margin:0">Shared or public computer?</span>
@@ -3720,6 +3727,10 @@ $("#mouldform").addEventListener("submit",async e=>{
 // (named like "#2549 - Biax 215 Pod Gen 2"). New uploads wait in an on-device queue until they reach Drive.
 let pickTarget=null, uploading=0, driveRoot=null, currentUser=null;
 const IS_MOBILE=/Android|iPhone|iPad/i.test(navigator.userAgent);
+// Background uploads (see "Background uploads" further down): Chrome on Android only
+const BG_UP=/Android/i.test(navigator.userAgent)&&"serviceWorker" in navigator&&"SyncManager" in window&&!!(navigator.locks&&navigator.locks.request);
+const BG_TAG="gt-upload";
+let upHand=null,qBgBusy=false,qBgMiss=0,qBgT=null;
 let camPending=null, camReturn=null;
 const entryTab={};
 const FOLDER_MT="application/vnd.google-apps.folder";
@@ -3747,7 +3758,7 @@ let gToken=null,gExp=0,tokenClient=null,tokenWaiters=[];
 let driveOk=true;
 try{const t=JSON.parse(localStorage.getItem("ml_tok")||"null");if(t&&t.drive!==false)localStorage.setItem("ml_drive_ever","1");if(t&&t.exp>Date.now()+60000){gToken=t.token;gExp=t.exp;driveOk=t.drive!==false}}catch(e){}
 function hasToken(){return !!gToken&&gExp>Date.now()+60000&&driveOk}
-function dropToken(){gToken=null;gExp=0;try{localStorage.removeItem("ml_tok")}catch(e){}}
+function dropToken(){gToken=null;gExp=0;try{localStorage.removeItem("ml_tok")}catch(e){}if(typeof bgAuth==="function")bgAuth()}
 function ensureTokenClient(){
   if(tokenClient)return tokenClient;
   if(!(window.google&&google.accounts&&google.accounts.oauth2))throw {code:"gis_not_loaded",message:"Google sign-in hasn't loaded yet. Check your connection and try again."};
@@ -3795,11 +3806,13 @@ function requestToken(prompt){
 // 45 s by default, longer for uploads (opts.timeout). A timeout counts as "offline" so it's tried again later.
 async function driveFetch(url,opts={}){
   if(!hasToken())throw {code:"needs_token"};
-  const {timeout=45000,raw,...o}=opts,ac=new AbortController(),tm=setTimeout(()=>ac.abort(),timeout);
+  const {timeout=45000,raw,q,...o}=opts,ac=new AbortController(),tm=setTimeout(()=>ac.abort(),timeout);
+  // an upload stops when the app goes into the background and hands the list over (see Background uploads)
+  const hand=q&&upHand,onHand=()=>ac.abort();if(hand){if(hand.signal.aborted)throw {code:"handoff"};hand.signal.addEventListener("abort",onHand)}
   let res;
   try{res=await fetch(url,{...o,signal:ac.signal,headers:{...(o.headers||{}),Authorization:"Bearer "+gToken}})}
-  catch(e){throw ac.signal.aborted?{code:"offline",stalled:true,message:"The connection stalled"}:{code:"offline",message:"Can't reach Google Drive. Check your connection."}}
-  finally{clearTimeout(tm)}
+  catch(e){if(hand&&hand.signal.aborted)throw {code:"handoff"};throw ac.signal.aborted?{code:"offline",stalled:true,message:"The connection stalled"}:{code:"offline",message:"Can't reach Google Drive. Check your connection."}}
+  finally{clearTimeout(tm);if(hand)hand.signal.removeEventListener("abort",onHand)}
   if(raw)return res;
   if(res.status===401){dropToken();renderAccount();throw {code:"needs_token"}}
   let msg="",reason="";if(!res.ok){try{const j=(await res.clone().json()).error||{};msg=j.message||"";reason=((j.errors||[])[0]||{}).reason||""}catch(e){}}
@@ -3854,23 +3867,23 @@ async function dUpload(folderId,blob,name,type,taken,it){
   // a photo's "created" date in Drive is when it was taken (Drive reads the photo's own date later, which can take a while)
   if(taken){const d=new Date(taken);if(!isNaN(d)&&d<Date.now()+864e5)meta.createdTime=d.toISOString()}
   const fields="fields=id,name,mimeType,size,webViewLink,thumbnailLink,modifiedTime,createdTime,videoMediaMetadata(durationMillis)&supportsAllDrives=true";
-  if(blob.size<=5*1024*1024){
+  if(blob.size<=5*1024*1024&&!(it&&it.loc)){
     const b="mouldlog"+Math.random().toString(36).slice(2);
     const body=new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: ${type}\r\n\r\n`,blob,`\r\n--${b}--`]);
-    return (await driveFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&"+fields,{method:"POST",headers:{"Content-Type":`multipart/related; boundary=${b}`},body,timeout:upTimeout(blob.size)})).json();
+    return (await driveFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&"+fields,{method:"POST",headers:{"Content-Type":`multipart/related; boundary=${b}`},body,q:1,timeout:upTimeout(blob.size)})).json();
   }
   // big files: a resumable upload in pieces; the session is kept on the queue item so a dropped signal (or closing the app)
   // carries on from the last piece Google has, instead of starting again
-  let loc=it&&it.loc;
-  if(!loc){const init=await driveFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&"+fields,{method:"POST",headers:{"Content-Type":"application/json; charset=UTF-8","X-Upload-Content-Type":type,"X-Upload-Content-Length":String(blob.size)},body:JSON.stringify(meta)});
+  let loc=it&&it.loc;const resumed=!!loc;
+  if(!loc){const init=await driveFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&"+fields,{method:"POST",headers:{"Content-Type":"application/json; charset=UTF-8","X-Upload-Content-Type":type,"X-Upload-Content-Length":String(blob.size)},body:JSON.stringify(meta),q:1});
     loc=init.headers.get("Location");if(!loc)throw {code:"drive_error",message:"Google Drive didn't accept the upload"};if(it){it.loc=loc;it.locAt=Date.now();await qPut(it)}}
   const total=blob.size,CH=4*1024*1024;
   // where Google is up to (a session left from before: ask)
-  let at=0;if(it&&it.loc&&it.sent){const r=await driveFetch(loc,{method:"PUT",headers:{"Content-Range":`bytes */${total}`},raw:true});
+  let at=0;if(resumed){const r=await driveFetch(loc,{method:"PUT",headers:{"Content-Range":`bytes */${total}`},raw:true,q:1});
     if(r.ok)return r.json();if(r.status===404||r.status===410){it.loc=null;it.sent=0;await qPut(it);throw {code:"retry",message:"Upload session expired, starting again"}}
     const rg=r.headers.get("Range");at=rg?+rg.split("-")[1]+1:0}
   while(at<total){const end=Math.min(total,at+CH);
-    const r=await driveFetch(loc,{method:"PUT",headers:{"Content-Range":`bytes ${at}-${end-1}/${total}`},body:blob.slice(at,end),raw:true,timeout:upTimeout(end-at)});
+    const r=await driveFetch(loc,{method:"PUT",headers:{"Content-Range":`bytes ${at}-${end-1}/${total}`},body:blob.slice(at,end),raw:true,q:1,timeout:upTimeout(end-at)});
     if(r.ok)return r.json();
     if(r.status===308){const rg=r.headers.get("Range");at=rg?+rg.split("-")[1]+1:0;if(it){it.sent=at;await qPut(it)}if(onUpProgress)onUpProgress(at,total);continue}
     if(r.status===404||r.status===410){if(it){it.loc=null;it.sent=0;await qPut(it)}throw {code:"retry",message:"Upload session expired, starting again"}}
@@ -4059,15 +4072,28 @@ async function enqueue(files,t,fromCamera){
 let qWaitUntil=0,qWaitWhy="",qWaitT=null;
 function qWait(ms,why){qWaitUntil=Date.now()+ms;qWaitWhy=why;clearTimeout(qWaitT);qWaitT=setTimeout(()=>{qWaitUntil=0;qWaitWhy="";processQueue()},ms);renderAttViews()}
 async function processQueue(){
-  if(qRunning||Date.now()<qWaitUntil)return;qRunning=true;
+  if(qRunning||Date.now()<qWaitUntil||bgAway())return;
+  // with background uploads, the app and the background uploader take turns (never both at once)
+  if(BG_UP){qRunning=true;let ran=false;
+    try{await navigator.locks.request(BG_TAG,{ifAvailable:true},async l=>{if(!l)return;ran=true;qBgMiss=0;if(qBgBusy){qBgBusy=false;renderAttViews()}await bgCollect();qRunning=false;await runQueue()})}
+    catch(e){if(!ran){ran=true;qRunning=false;await runQueue()}}
+    // the background uploader is finishing a piece: it lets go within a few seconds of the app coming back
+    if(!ran){qRunning=false;if(++qBgMiss>1&&!qBgBusy){qBgBusy=true;renderAttViews()}clearTimeout(qBgT);qBgT=setTimeout(processQueue,qBgMiss>1?1500:200)}
+    return}
+  return runQueue();
+}
+async function runQueue(){
+  if(qRunning)return;qRunning=true;upHand=new AbortController();
   try{
     const items=await qAll();
     for(const it of items){
-      if(!driveRoot||!hasToken()||!navigator.onLine)break;
+      if(!driveRoot||!hasToken()||!navigator.onLine||bgAway())break;
       if(it.err&&!it.retry)continue;
       qNow=it.id;renderAttViews();
       try{
         const folder=await ensureFolder(it.num,it.label,it.sub);
+        // stopped mid-way when the app last went into the background: let a one-piece upload land before checking for it
+        if(!it.loc&&it.hand&&Date.now()-it.hand<10000)await new Promise(r=>setTimeout(r,10000-(Date.now()-it.hand)));
         // Last check against Drive itself (another device may have uploaded it meanwhile)
         const ex=await dList(`'${dq(folder.id)}' in parents and name='${dq(it.name)}' and trashed=false`);
         if((ex.files||[]).length){qDone[qKey(it)]=(qDone[qKey(it)]||0)+1;await qDel(it.id);delete driveState[it.num];if(it.sub)delete driveState[it.num+"/"+it.sub];toast(`${it.name} is already in Drive, so it was skipped`);await refreshQueue();continue}
@@ -4077,6 +4103,8 @@ async function processQueue(){
         qDone[qKey(it)]=(qDone[qKey(it)]||0)+1;it.ok=true;
       }catch(err){
         if(err&&err.code==="needs_token")break;
+        // handed over mid-upload: a one-piece upload may still land in Drive, so the background uploader checks again before sending it
+        if(err&&err.code==="handoff"){if(!it.loc){it.hand=Date.now();await qPut(it)}break}
         // signal dropped or stalled: try again shortly (and straight away when the phone says it's back online)
         if(err&&err.code==="offline"){qWait(15000,err.stalled?"Connection stalled":"Connection dropped");break}
         // Google busy or a hiccup: try again with a growing wait, up to 6 times, before calling it an error
@@ -4089,9 +4117,74 @@ async function processQueue(){
         if(n)toast(n>1?`Uploaded ${n} files to ${destName(it)}`:`Uploaded ${it.ok?it.name:"1 file"} to ${destName(it)}`)}}
       await refreshQueue();
     }
-  }finally{qRunning=false;qNow=null;await refreshQueue();
-    if(driveRoot&&hasToken()&&navigator.onLine&&Date.now()>=qWaitUntil&&queueCache.some(x=>!x.err))setTimeout(processQueue,0)}
+  }finally{qRunning=false;qNow=null;upHand=null;await refreshQueue();
+    if(driveRoot&&hasToken()&&navigator.onLine&&Date.now()>=qWaitUntil&&!bgAway()&&queueCache.some(x=>!x.err))setTimeout(processQueue,0)}
 }
+// ---- Background uploads (Chrome on Android) ----
+// A minimised web app is paused by Android after a short while, so when GT Hub goes into the background with
+// uploads still waiting, it hands the list to the service worker (sw.js), which carries on for a few minutes and
+// again whenever Chrome wakes it (e.g. when the signal comes back). Back on screen, the app takes over again.
+// The worker needs the Drive pass and the Work Orders folder, so they're kept in a small store it can read.
+const bgAway=()=>BG_UP&&document.visibilityState==="hidden";
+let bgDbP=null;
+function bgDb(){return bgDbP||(bgDbP=new Promise((res,rej)=>{try{const r=indexedDB.open("mouldlog-bg",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>{const d=r.result;d.onversionchange=()=>{d.close();bgDbP=null};res(d)};r.onerror=()=>rej(r.error)}catch(e){rej(e)}}))}
+function bgKv(mode,fn){return bgDb().then(d=>new Promise((res,rej)=>{const t=d.transaction("kv",mode),r=fn(t.objectStore("kv"));t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error)})).catch(()=>null)}
+const bgGet=k=>bgKv("readonly",s=>s.get(k)),bgSet=(k,v)=>bgKv("readwrite",s=>s.put(v,k)),bgDel=k=>bgKv("readwrite",s=>s.delete(k));
+function bgAuth(){if(!BG_UP)return;
+  return hasToken()&&driveRoot&&currentUser?bgSet("auth",{token:gToken,exp:gExp,root:driveRoot.id}):bgDel("auth")}
+async function bgHandOff(){
+  if(!BG_UP||!queueCache.some(x=>!x.err))return;
+  await bgAuth();
+  if(upHand)upHand.abort();   // stop this upload; the background uploader picks it up from the last piece
+  try{const r=await navigator.serviceWorker.ready;
+    if(r.active)r.active.postMessage({type:"bg-upload"});
+    await r.sync.register(BG_TAG)}catch(e){}
+}
+// Back on screen: carry on here, say what went up meanwhile and show it in the galleries
+async function bgBack(){
+  if(!BG_UP)return;
+  try{const r=await navigator.serviceWorker.getRegistration();if(r)(await r.getNotifications({tag:"gt-upload"})).forEach(n=>n.close())}catch(e){}
+  await refreshQueue();processQueue();
+  // (read once the background uploader has let go, so nothing it finishes is missed)
+  navigator.locks.request(BG_TAG,()=>bgCollect()).catch(()=>{});
+}
+async function bgCollect(){
+  if(!BG_UP)return;
+  const done=await bgGet("done");if(!done)return;await bgDel("done");
+  await refreshQueue();
+  const all=Object.entries(done);
+  if(all.length){
+    all.forEach(([k,x])=>{delete driveState[x.num];if(x.sub)delete driveState[x.num+"/"+x.sub]});
+    const waiting=all.filter(([k])=>queueCache.some(q=>qKey(q)===k&&!q.err)),fin=all.filter(([k])=>!waiting.some(w=>w[0]===k));
+    waiting.forEach(([k,x])=>qDone[k]=(qDone[k]||0)+x.n);
+    const n=fin.reduce((a,[,x])=>a+x.n,0);
+    if(n)toast(`Uploaded ${n} ${n===1?"file":"files"} to ${fin.length===1?fin[0][1].dest:fin.length+" places"} while GT Hub was in the background`);
+    renderAttViews()}
+}
+if(BG_UP){
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")bgHandOff();else bgBack()});
+}
+// Notifications when background uploads finish (or need the app opened)
+const bgNoteState=()=>!("Notification" in window)?"none":Notification.permission;
+async function bgNoteOn(){
+  try{const p=await Notification.requestPermission();
+    if(p==="granted"){await bgSet("notify",true);toast("You'll get a notification when background uploads finish")}
+    else if(p==="denied")toast("Notifications are blocked for GT Hub. Allow them in Chrome's site settings.")}catch(e){}
+  try{localStorage.setItem("ml_bgnote","1")}catch(e){}
+  renderAttViews();renderBgPanel();
+}
+async function renderBgPanel(){const el=$("#bgup");if(!el)return;
+  el.hidden=!BG_UP;if(!BG_UP)return;
+  const st=bgNoteState(),on=st==="granted"&&(await bgGet("notify"))!==false;
+  $("#bgup-st").textContent=st==="denied"?"Notifications are blocked for GT Hub in Chrome's site settings.":on?"You'll get a notification when they finish, or if GT Hub needs opening to finish them.":"Turn on notifications to hear when they finish, or if GT Hub needs opening to finish them.";
+  const b=$("#bgup-btn");b.hidden=st==="denied"||st==="none";b.textContent=on?"Turn off notifications":"Turn on notifications";b.dataset.on=on?"1":""}
+document.addEventListener("click",async e=>{
+  if(e.target.closest("[data-bgnote]")){e.preventDefault();bgNoteOn();return}
+  if(e.target.closest("[data-bgnotex]")){e.preventDefault();try{localStorage.setItem("ml_bgnote","1")}catch(x){}renderAttViews();return}
+  const b=e.target.closest("#bgup-btn");if(!b)return;
+  if(b.dataset.on){await bgSet("notify",false);renderBgPanel()}else if(bgNoteState()==="granted"){await bgSet("notify",true);renderBgPanel()}else bgNoteOn()});
+// the upload bar offers it once, while something is uploading
+const bgNoteAsk=()=>{if(!BG_UP||bgNoteState()!=="default")return false;try{return localStorage.getItem("ml_bgnote")!=="1"}catch(e){return false}};
 window.addEventListener("online",()=>{qWaitUntil=0;qWaitWhy="";clearTimeout(qWaitT);renderAll();processQueue();processBackups()});
 window.addEventListener("offline",()=>renderAll());
 setInterval(()=>{if(queueCache.length)processQueue()},60000);
@@ -4207,12 +4300,13 @@ function drivePanelFor(t){
   const btns=`<div class="attbtns" data-drop="1" ${da}><label class="btn ghost" for="pick-photo" ${da} role="button" tabindex="0">Take photo</label>${camApp}${gp}<label class="btn ghost" for="pick-file" ${da} role="button" tabindex="0">Attach file</label>${IS_MOBILE?"":`<span class="drophint">or drop files here</span>`}</div>`+
     (camReturn&&camReturn.num===t.num?`<div class="cambanner"><span>Add the photos you just took to <b>#${esc(t.num)}</b>?</span><span class="attbtns" style="margin:0"><label class="btn" for="pick-gallery" ${da} role="button" tabindex="0">Choose photos</label><button type="button" class="btn ghost" data-camdismiss="1">Not now</button></span></div>`:"");
   const pend=queueCache.filter(q=>q.num===t.num&&(q.sub||"")===(t.sub||""));
-  const waitWhy=!navigator.onLine?"Waiting for internet":!hasToken()?"Waiting for Google Drive connection":qWaitUntil>Date.now()?`${qWaitWhy} · trying again in ${Math.max(1,Math.round((qWaitUntil-Date.now())/1000))} s`:"Uploading…";
+  const waitWhy=!navigator.onLine?"Waiting for internet":!hasToken()?"Waiting for Google Drive connection":qBgBusy?"Finishing in the background…":qWaitUntil>Date.now()?`${qWaitWhy} · trying again in ${Math.max(1,Math.round((qWaitUntil-Date.now())/1000))} s`:"Uploading…";
   const go=pend.filter(q=>!q.err),bad=pend.filter(q=>q.err),key=t.num+"|"+(t.sub||"");
   const pr=qPrep[key],rem=pr?Math.max(0,pr.n-pr.done):0; // photos still being made ready
   const done=(qDone[key]||0)+(go.length||rem?bad.length:0),total=done+go.length+rem,cur=go.find(q=>q.id===qNow)||go[0];
   const upping=!!cur&&cur.id===qNow;
-  const bar=go.length||rem?`<div class="qbar" role="status"><span class="ico${upping||!cur?" spin":""}" aria-hidden="true">↑</span><span class="dn"><span class="qn">${cur?esc(cur.name):`Getting ${total===1?"the photo":"photos"} ready…`}</span><span class="dm">${upping?(total>1?`Uploading ${done+1} of ${total}`:"Uploading…"):!cur?(total>1?`${done} of ${total} uploaded`:"Just a moment"):(waitWhy==="Uploading…"?(rem?"Getting the rest ready…":total>1?`${go.length} waiting to upload`:"Waiting to upload"):waitWhy+(go.length>1?` · ${go.length} files`:""))}</span></span>${total>1?`<span class="qc">${done}/${total}</span>`:""}<span class="qprog" aria-hidden="true"><i style="width:${total?Math.round(100*done/total):0}%"></i></span></div>`:"";
+  const bar=go.length||rem?`<div class="qbar" role="status"><span class="ico${upping||!cur?" spin":""}" aria-hidden="true">↑</span><span class="dn"><span class="qn">${cur?esc(cur.name):`Getting ${total===1?"the photo":"photos"} ready…`}</span><span class="dm">${upping?(total>1?`Uploading ${done+1} of ${total}`:"Uploading…"):!cur?(total>1?`${done} of ${total} uploaded`:"Just a moment"):(waitWhy==="Uploading…"?(rem?"Getting the rest ready…":total>1?`${go.length} waiting to upload`:"Waiting to upload"):waitWhy+(go.length>1?` · ${go.length} files`:""))}</span></span>${total>1?`<span class="qc">${done}/${total}</span>`:""}<span class="qprog" aria-hidden="true"><i style="width:${total?Math.round(100*done/total):0}%"></i></span></div>`+
+    (bgNoteAsk()?`<div class="bgask"><span>Uploads keep going for a few minutes if you leave GT Hub. Get a notification when they finish?</span><span class="attbtns" style="margin:0"><button type="button" class="btn ghost" data-bgnote="1">Turn on</button><button type="button" class="linkish" data-bgnotex="1">No thanks</button></span></div>`:""):"";
   const errs=bad.length?`<details class="qerrs" data-k="${esc(key)}"${qErrOpen.has(key)?" open":""}><summary><span class="ico">!</span><span>${bad.length===1?esc(bad[0].name)+" couldn't upload":bad.length+" files couldn't upload"}</span><span class="qerrbtns"><button type="button" class="linkish" data-qretryall="${esc(key)}">Retry</button> · <button type="button" class="linkish" data-qdelall="${esc(key)}">Remove</button></span></summary>${bad.map(q=>`<div class="qerrrow"><span class="dn">${esc(q.name)}<span class="dm">${esc(q.err)}</span></span><span><button type="button" class="linkish" data-qretry="${esc(q.id)}">Retry</button> · <button type="button" class="linkish" data-qdel="${esc(q.id)}">Remove</button></span></div>`).join("")}</details>`:"";
   const pendHTML=bar+errs;
   return `<div class="drive-drop">`+btns+pendHTML+`<div class="drive">${driveBody(t)}</div></div>`;
@@ -6321,7 +6415,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.23-129";
+const APP_VERSION="2026.10.23-130";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -6371,6 +6465,7 @@ function renderAccount(){
   const el=$("#acct");if(!el)return;
   el.innerHTML=(currentUser?`Signed in as <b>${esc(currentUser.email||"")}</b>. Google Drive: ${hasToken()?"<b>connected</b>":"not connected"}. ${navigator.onLine?"Online":"Offline: changes are kept on this device and sync when you reconnect"}.`:"Not signed in.")+`<br>App version ${APP_VERSION} · ${window.innerWidth}px wide (${window.innerWidth>=1000?"desktop":"phone"} layout)`;
   $("#acct-drive").hidden=hasToken();
+  renderBgPanel();
 }
 function renderImportHint(){
   const h=$("#import-hint");if(!h)return;
@@ -6396,8 +6491,9 @@ $("#acct-wipe").onclick=async()=>{
   try{if(authApi)await authApi.signOut()}catch(e){}
   try{if(authApi&&authApi.wipe)await authApi.wipe()}catch(e){}   // closes and deletes the offline copy of the data
   try{if(qDbP){(await qDbP).close()}}catch(e){}
+  try{if(bgDbP){(await bgDbP).close()}}catch(e){}
   // every database, saved setting and cached file this site keeps in this browser
-  try{const dbs=indexedDB.databases?await indexedDB.databases():[{name:"mouldlog-uploads"},{name:"mouldlog-share"},{name:"firebaseLocalStorageDb"}];
+  try{const dbs=indexedDB.databases?await indexedDB.databases():[{name:"mouldlog-uploads"},{name:"mouldlog-share"},{name:"mouldlog-bg"},{name:"firebaseLocalStorageDb"}];
     await Promise.all(dbs.filter(d=>d&&d.name).map(d=>new Promise(r=>{const q=indexedDB.deleteDatabase(d.name);q.onsuccess=q.onerror=q.onblocked=()=>r()})))}catch(e){}
   try{localStorage.clear();sessionStorage.clear()}catch(e){}
   try{if(window.caches){for(const k of await caches.keys())await caches.delete(k)}}catch(e){}
