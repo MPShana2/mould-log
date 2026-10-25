@@ -343,6 +343,14 @@ textarea.autogrow{resize:none;overflow:hidden}
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .upddate{color:#b36f00}}
 .updacts{font-size:12px;color:var(--muted);white-space:nowrap}.updacts .linkish{font-size:12px;color:var(--muted)}
 .updtext{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px}
+.updhrz{margin-top:8px}
+details.updhrz>summary{padding:10px 12px;font-size:14px}
+.hrzro td{font-family:var(--mono);font-size:14px;padding:6px 8px}
+.hrzro td.olv{color:var(--bad);font-weight:700}
+.hrzro tbody th{padding:6px 8px}
+.hrzro .hrzlab{color:var(--muted);font-size:12px;margin-left:6px}
+.hrzro .hrzfl{color:var(--accent)}
+.updhrzin{margin:0}
 .updnew{display:flex;flex-direction:column;gap:8px;border:1px dashed var(--line);border-radius:var(--r);padding:10px}
 .updrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .updrow .updd{width:auto;max-width:180px}
@@ -3175,7 +3183,7 @@ function renderHist(){
    <div><span>Latest shots</span><b>${fmtNum(s.shots)}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>${(m.dateStamps||[]).length?`<div class="wide"><span>Date stamps</span><b class="dsfacts">${m.dateStamps.map(dsChip).join("")}</b></div>`:""}`}</div>`;
   $("#histhead").insertAdjacentHTML("beforeend",mpHtml(m));
   const ml=logsFor(m.id).slice();
-  const lastUpd=l=>{const u=updClean(pmVal(l,m.id).updates);if(!u.length)return "";const x=u[u.length-1];return `<div class="lastupd"><b>Update ${esc(fmtDate(x.date))}</b> ${esc(x.text.length>110?x.text.slice(0,110)+"…":x.text)}${u.length>1?` <span>(${u.length} updates)</span>`:""}</div>`};
+  const lastUpd=l=>{const u=updClean(pmVal(l,m.id).updates);if(!u.length)return "";const x=u[u.length-1],tx=x.text||(x.hrz?"Hot runner readings: "+hrzSummary(x.hrz):"");return `<div class="lastupd"><b>Update ${esc(fmtDate(x.date))}</b> ${esc(tx.length>110?tx.slice(0,110)+"…":tx)}${u.length>1?` <span>(${u.length} updates)</span>`:""}</div>`};
   const alsoOn=l=>{const o=jobIds(l).map((id,i)=>[id,jobNames(l)[i]]).filter(([id])=>id!==m.id&&id!==leadOf(l,m.id)).map(x=>x[1]);return o.length?`<div class="alsoon">Also on: ${esc(o.join(", "))}</div>`:""};
   $("#timeline").innerHTML=ml.length?ml.map(l=>{const sm=subMeta(l,m.id);return `<div class="entry e-${stClass(sm.status).slice(3)}">
      <div class="ehead">
@@ -4684,24 +4692,30 @@ document.addEventListener("click",async e=>{if(!e.target.closest("[data-psvc]"))
   try{await addServiceProc();toast("Service checklist added. It can now be added to any mould's work order.")}catch(err){toast("Couldn't add it: "+(err.message||err.code))}});
 
 // ---------- Updates (what happened after the work: back in production, a fault came back…) ----------
-// A dated log per mould on the work order, newest first. Stored like the other fields: updates:[{id,date,text}]
+// A dated log per mould on the work order, newest first. Stored like the other fields: updates:[{id,date,text,files,hrz}]
+// (hrz: hot runner readings taken that day, same shape as the work order's own table)
 let fUpds=[],bUpds=[],updOpen=null; // updOpen: {p, id} while adding (id null) or editing an update
 const updList=p=>p==="f"?fUpds:bUpds;
-const updClean0=list=>(list||[]).filter(u=>u&&(String(u.text||"").trim()||(u.files||[]).length)).map(u=>({id:u.id||("u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),date:u.date||today(),text:String(u.text||"").trim(),...((u.files||[]).length?{files:[...new Set(u.files)]}:{})})).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-// One update per date: a later one on the same day is added under the earlier text (a blank line between), photos combined
+const updHrz=u=>{const v=u&&hrzClean(u.hrz);return hrzHasData(v)?v:null};
+const updClean0=list=>(list||[]).filter(u=>u&&(String(u.text||"").trim()||(u.files||[]).length||updHrz(u))).map(u=>{const hz=updHrz(u);return {id:u.id||("u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),date:u.date||today(),text:String(u.text||"").trim(),...((u.files||[]).length?{files:[...new Set(u.files)]}:{}),...(hz?{hrz:hz}:{})}}).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+// One update per date: a later one on the same day is added under the earlier text (a blank line between), photos combined.
+// Two sets of hot runner readings on one day stay as two updates (a reading is never merged away).
 const updClean=list=>{const out=[],byDate={};
   for(const u of updClean0(list)){const m=byDate[u.date];
     if(!m){const c={...u};byDate[u.date]=c;out.push(c);continue}
+    if(m.hrz&&u.hrz){out.push({...u});continue}
+    if(u.hrz)m.hrz=u.hrz;
     if(u.text)m.text=m.text?m.text+"\n\n"+u.text:u.text;
     if((u.files||[]).length)m.files=[...new Set([...(m.files||[]),...u.files])]}
   return out};
-const updSameDay=(L,date,exceptId)=>updClean0(L).some(u=>u.date===date&&u.id!==exceptId);
+const updSameDay=(L,date,exceptId,hrz)=>updClean0(L).some(u=>u.date===date&&u.id!==exceptId&&!(hrz&&u.hrz));
+const updNewId=()=>"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 const updNewest=list=>updClean(list).slice().reverse();
 function updWithDraft(p){
   const L=updList(p).map(u=>({...u}));if(!updOpen||updOpen.p!==p)return L;
   const box=$(p==="f"?"#f-upd":"#b-upd"),ta=box&&box.querySelector(".updt");if(!ta)return L;
-  const text=ta.value.trim(),date=box.querySelector(".updd").value||today(),files=updOpen.files||[];if(!text&&!files.length)return L;
-  if(updOpen.id){const u=L.find(x=>x.id===updOpen.id);if(u){u.text=text;u.date=date;u.files=files}}else L.push({id:updOpen.draft,date,text,files});
+  const text=ta.value.trim(),date=box.querySelector(".updd").value||today(),files=updOpen.files||[],hrz=hrzHasData(updOpen.hrz)?hrzClean(updOpen.hrz):null;if(!text&&!files.length&&!hrz)return L;
+  if(updOpen.id){const u=L.find(x=>x.id===updOpen.id);if(u){u.text=text;u.date=date;u.files=files;u.hrz=hrz}}else L.push({id:updOpen.draft,date,text,files,hrz});
   return L;
 }
 // The Drive folder an update's photos go in (the work order's, or the sub-job's mould folder)
@@ -4716,15 +4730,21 @@ function updThumbs(p,names,removable){
     const img=(f&&f.thumbnailLink?`<img src="${esc(thumbUrl(f,240))}" referrerpolicy="no-referrer" alt="" draggable="false">`:`<span class="ext">${up?"↑":/\.(mp4|mov|m4v|3gp|webm|mkv)$/i.test(n)||isVideo(f)?"VIDEO":"IMG"}</span>`)+vidBadge(f);
     return `<span class="updph"><button type="button" class="thumb" ${f?`data-updview="${esc(key)}|${esc(n)}|${esc(names.join("\u0001"))}"`:"disabled"} title="${esc(n)}${up?" (uploading)":""}">${img}</button>${removable?`<button type="button" class="updphx" data-updphx="${p}|${esc(n)}" aria-label="Remove ${esc(n)} from this update">×</button>`:""}</span>`}).join("")}</div>`;
 }
+// An update's hot runner readings: folded to a one-line summary, open for the table (stays open across redraws)
+const updHrzOpen=new Set();
+function updHrzView(p,u){const v=u&&u.hrz;if(!hrzHasData(v))return "";const k=p+"|"+u.id;
+  return `<details class="panel ck hrzbox updhrz" data-updhrz="${esc(k)}"${updHrzOpen.has(k)?" open":""}><summary><span>Hot runner readings</span><span class="ckprog">${esc(hrzSummary(v))}</span></summary>`+
+    `<table class="hrzt hrzro"><thead><tr><th>Zone</th><th>Heater Ω</th><th>T/C Ω</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr class="${r.f?"flag":""}"><th>Z${i+1}${r.l?`<span class="hrzlab">${esc(r.l)}</span>`:""}${r.f?` <span class="hrzfl" title="Flagged">⚑</span>`:""}</th>${["h","t"].map(c=>`<td class="${r[c+"o"]?"olv":""}">${esc(hrzShow(r,c)||"–")}</td>`).join("")}</tr>`).join("")}</tbody></table></details>`}
+document.addEventListener("toggle",e=>{const d=e.target;if(d.dataset&&d.dataset.updhrz){if(d.open)updHrzOpen.add(d.dataset.updhrz);else updHrzOpen.delete(d.dataset.updhrz)}},true);
 function renderUpd(p){
   setTimeout(()=>{if(typeof updFabShow==="function")updFabShow()},0);
   const el=$(p==="f"?"#f-upd":"#b-upd");if(!el)return;
   if(!el.querySelector(".updlistw"))el.innerHTML=`<div class="updcomp"></div><div class="updlistw"></div>`;
   const open=updOpen&&updOpen.p===p?updOpen:null,list=updNewest(updList(p));
   const selOn=updSel&&updSel.p===p&&!open;if(updSel&&updSel.p===p)updSel.ids.forEach(id=>{if(!list.some(u=>u.id===id))updSel.ids.delete(id)});
-  el.querySelector(".updlistw").innerHTML=list.length?(selOn?updSelBar(p):"")+`<div class="updlist">${list.map(u=>open&&open.id===u.id?"":`<div class="upditem${selOn&&updSel.ids.has(u.id)?" picked":""}"><div class="updhead">${selOn?`<label class="updpick"><input type="checkbox" data-updpick="${p}|${esc(u.id)}"${updSel.ids.has(u.id)?" checked":""} aria-label="Select this update"></label>`:""}<span class="upddate">${esc(fmtDate(u.date))}</span><span class="updacts">${selOn?"":`<button type="button" class="linkish" data-updedit="${p}|${esc(u.id)}">Edit</button> · <button type="button" class="linkish" data-updmv="${p}|${esc(u.id)}">Move</button> · <button type="button" class="linkish" data-upddel="${p}|${esc(u.id)}">Delete</button>`}</span></div>${u.text?`<div class="updtext">${esc(u.text)}</div>`:""}${updThumbs(p,u.files,false)}</div>`).join("")}</div>`:"";
+  el.querySelector(".updlistw").innerHTML=list.length?(selOn?updSelBar(p):"")+`<div class="updlist">${list.map(u=>open&&open.id===u.id?"":`<div class="upditem${selOn&&updSel.ids.has(u.id)?" picked":""}"><div class="updhead">${selOn?`<label class="updpick"><input type="checkbox" data-updpick="${p}|${esc(u.id)}"${updSel.ids.has(u.id)?" checked":""} aria-label="Select this update"></label>`:""}<span class="upddate">${esc(fmtDate(u.date))}</span><span class="updacts">${selOn?"":`<button type="button" class="linkish" data-updedit="${p}|${esc(u.id)}">Edit</button> · <button type="button" class="linkish" data-updmv="${p}|${esc(u.id)}">Move</button> · <button type="button" class="linkish" data-upddel="${p}|${esc(u.id)}">Delete</button>`}</span></div>${u.text?`<div class="updtext">${esc(u.text)}</div>`:""}${updHrzView(p,u)}${updThumbs(p,u.files,false)}</div>`).join("")}</div>`:"";
   const comp=el.querySelector(".updcomp");
-  if(!open){comp.innerHTML=`<button type="button" class="addmould" data-updadd="${p}">+ Add an update</button>`;return}
+  if(!open){if(dict&&dict.p==="u"+p)dictStop();comp.dataset.for="";comp.innerHTML=`<button type="button" class="addmould" data-updadd="${p}">+ Add an update</button>`;return}
   if(comp.dataset.for!==open.draft){ // build the box once; later refreshes only redraw its photos
     comp.dataset.for=open.draft;
     const ed=open.id?updList(p).find(u=>u.id===open.id):null,st=p==="f"?segVal("#f-status"):segVal("#b-status"),t=updTarget(p);
@@ -4733,9 +4753,11 @@ function renderUpd(p){
       <div class="updrow"><input type="date" class="updd" value="${esc(ed?ed.date:today())}" aria-label="Date of the update"><span class="updmerge small" hidden></span>
       ${!ed&&isDone(st)?`<label class="updreopen"><input type="checkbox" class="updro"> Reopen ${p==="b"?"this sub-job":"the work order"}</label>`:""}</div>
       <textarea class="autogrow updt" rows="2" placeholder="What's been found or done? e.g. Pulled the B-side, ejector pin on cav 3 cracked, replacement ordered">${esc(ed?ed.text:"")}</textarea>
+      <div class="hrz updhrzin" id="u${p}-hrz"></div>
       <div class="updnewph"></div>
       ${t?`<div class="attbtns" style="margin:0"><label class="btn ghost" for="pick-photo" ${da} role="button" tabindex="0">Take photo</label><label class="btn ghost" for="pick-gallery" ${da} role="button" tabindex="0">Add photos</label>${driveRoot?`<button type="button" class="btn ghost" data-updjob="${p}">From this job</button><button type="button" class="btn ghost" data-updunas="${p}">From Unassigned</button>`:""}</div>`:`<div class="small">Fill in the mould and work order no. to add photos to updates.</div>`}
       <div class="attbtns" style="margin:0"><button type="button" class="btn" data-updsave="${p}">${ed?"Save update":"Add update"}</button><button type="button" class="btn ghost" data-updcancel="${p}">Cancel</button></div></div>`;
+    hrzOpen["u"+p]=!ed;renderHrz("u"+p,true);
     const ta=comp.querySelector(".updt");setTimeout(()=>{grow(ta);ta.focus()},0);
   }
   comp.querySelector(".updnewph").innerHTML=updThumbs(p,open.files,true);
@@ -4798,7 +4820,7 @@ $("#upsheet").addEventListener("click",e=>{if(e.target===$("#upsheet")){closeUpd
   const b=e.target.closest("[data-uppick]");if(!b||!upPick)return;const {p,names}=upPick,id=b.dataset.uppick;closeUpdPick();if(typeof selEnd==="function")selEnd();
   const go=()=>{const box=$(p==="f"?"#f-upd":"#b-upd");if(box)box.scrollIntoView({block:"center",behavior:reduceMotion()?"auto":"smooth"})};
   if(id==="new"||(updOpen&&updOpen.p===p&&updOpen.id===id)){ // a new update (or the one open) gets them; you add the words
-    if(!(updOpen&&updOpen.p===p))updOpen={p,id:null,draft:"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),files:[]};
+    if(!(updOpen&&updOpen.p===p))updOpen={p,id:null,draft:updNewId(),files:[],hrz:null};
     if(!woSplit()&&woTab!=="details")setWoTab("details","r");updAttach(p,names);setTimeout(go,120);return}
   const u=updList(p).find(x=>x.id===id);if(!u)return;
   u.files=[...new Set([...(u.files||[]),...names])];renderUpd(p);markDirty(250);
@@ -5254,7 +5276,7 @@ function updFabShow(){const b=$("#updfab");if(!b)return;
   if(b.hidden)$("#updfabmenu").hidden=true}
 function updStart(p){
   if(woTab!=="details")setWoTab("details");
-  updOpen={p,id:null,draft:"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),files:[]};renderUpd(p);updFabShow();
+  updOpen={p,id:null,draft:updNewId(),files:[],hrz:null};renderUpd(p);updFabShow();
   const box=$(p==="f"?"#f-upd":"#b-upd"),ta=box&&box.querySelector(".updt");
   const fld=box&&(box.closest(".field")||box);
   if(fld){const hdr=document.querySelector(".editbar")||document.querySelector("header.top"),top=fld.getBoundingClientRect().top+window.scrollY-(hdr?hdr.getBoundingClientRect().bottom:0)-16;window.scrollTo({top:Math.max(0,top),behavior:"smooth"})}
@@ -5293,25 +5315,26 @@ document.addEventListener("click",e=>{const b=e.target.closest(".updmore");if(!b
   if(updPhOpen.has(k))updPhOpen.delete(k);else updPhOpen.add(k);clampUpdPhotos()});
 // "Adds to the existing entry" note when the chosen date already has an update
 function updMergeHint(comp,p){const d=comp.querySelector(".updd"),h=comp.querySelector(".updmerge");if(!d||!h)return;
-  const on=updSameDay(updList(p),d.value,updOpen&&updOpen.id);h.hidden=!on;h.textContent=on?`Adds to the ${fmtDate(d.value)} entry`:""}
+  const on=updSameDay(updList(p),d.value,updOpen&&updOpen.id,!!(updOpen&&updOpen.hrz));h.hidden=!on;h.textContent=on?`Adds to the ${fmtDate(d.value)} entry`:""}
 $("#logform").addEventListener("change",e=>{if(e.target.classList.contains("updd")){const c=e.target.closest(".updcomp"),p=e.target.closest("#b-upd")?"b":"f";if(c)updMergeHint(c,p)}});
 let updDelArmed=null;
 $("#logform").addEventListener("click",e=>{const t=e.target;
-  const add=t.closest("[data-updadd]");if(add){updOpen={p:add.dataset.updadd,id:null,draft:"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),files:[]};renderUpd(updOpen.p);return}
+  const add=t.closest("[data-updadd]");if(add){updOpen={p:add.dataset.updadd,id:null,draft:updNewId(),files:[],hrz:null};renderUpd(updOpen.p);return}
   const phx=t.closest("[data-updphx]");if(phx){const[p,n]=phx.dataset.updphx.split("|");if(updOpen&&updOpen.p===p){updOpen.files=(updOpen.files||[]).filter(x=>x!==n);renderUpd(p);markDirty(250)}return}
   const view=t.closest("[data-updview]");if(view){const[key,n,all]=view.dataset.updview.split("|"),st=driveState[key];if(!st)return;
     const list=all.split("\u0001").map(x=>st.items.find(f=>f.name===x)).filter(Boolean);lbNum=key;openViewer(list,Math.max(0,list.findIndex(f=>f.name===n)));return}
   const cancel=t.closest("[data-updcancel]");if(cancel){const p=cancel.dataset.updcancel;updOpen=null;renderUpd(p);markDirty(250);return}
-  const ed=t.closest("[data-updedit]");if(ed){const[p,id]=ed.dataset.updedit.split("|"),u=updList(p).find(x=>x.id===id);updOpen={p,id,draft:"e"+id+Date.now().toString(36),files:[...((u&&u.files)||[])]};renderUpd(p);return}
+  const ed=t.closest("[data-updedit]");if(ed){const[p,id]=ed.dataset.updedit.split("|"),u=updList(p).find(x=>x.id===id);updOpen={p,id,draft:"e"+id+Date.now().toString(36),files:[...((u&&u.files)||[])],hrz:u&&u.hrz?hrzClean(u.hrz):null};renderUpd(p);return}
   const del=t.closest("[data-upddel]");if(del){const key=del.dataset.upddel,[p,id]=key.split("|");
     if(updDelArmed!==key){updDelArmed=key;del.textContent="Tap again to delete";del.style.color="var(--bad)";setTimeout(()=>{if(updDelArmed===key){updDelArmed=null;renderUpd(p)}},4000);return}
     updDelArmed=null;const L=updList(p),i=L.findIndex(u=>u.id===id);if(i>=0)L.splice(i,1);renderUpd(p);markDirty(250);return}
   const save=t.closest("[data-updsave]");if(save){const p=save.dataset.updsave,box=save.closest(".updnew"),text=box.querySelector(".updt").value.trim(),date=box.querySelector(".updd").value||today();
-    const files=(updOpen&&updOpen.files)||[];
-    if(!text&&!files.length){toast("Write what happened, or add a photo");box.querySelector(".updt").focus();return}
-    const L=updList(p),merging=updSameDay(L,date,updOpen&&updOpen.id);
-    if(updOpen&&updOpen.id){const u=L.find(x=>x.id===updOpen.id);if(u){u.text=text;u.date=date;u.files=files}}
-    else L.push({id:(updOpen&&updOpen.draft)||("u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),date,text,files});
+    const files=(updOpen&&updOpen.files)||[],hrz=updOpen&&hrzHasData(updOpen.hrz)?hrzClean(updOpen.hrz):null;
+    if(!text&&!files.length&&!hrz){toast("Write what happened, or add a photo or readings");box.querySelector(".updt").focus();return}
+    if(dict&&dict.p==="u"+p)dictStop();
+    const L=updList(p),merging=updSameDay(L,date,updOpen&&updOpen.id,!!hrz);
+    if(updOpen&&updOpen.id){const u=L.find(x=>x.id===updOpen.id);if(u){u.text=text;u.date=date;u.files=files;u.hrz=hrz}}
+    else L.push({id:(updOpen&&updOpen.draft)||updNewId(),date,text,files,hrz});
     {const M=updClean(L);L.length=0;L.push(...M)}
     if(merging)toast(`Added to the ${fmtDate(date)} update`);
     const ro=box.querySelector(".updro");if(ro&&ro.checked){segSet(p==="f"?"#f-status":"#b-status","In progress");toast(p==="b"?"Update added and sub-job reopened":"Update added and work order reopened")}
@@ -5324,45 +5347,60 @@ $("#logform").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.classL
 
 // ---------- Hot runner readings: heater and thermocouple resistance (Ω) per zone ----------
 // Stored per mould like the other fields: hrz:{n, z:[{h,t}]}. "OL" = open circuit (what the meter shows).
+// Each update can carry its own set too (readings taken on that day). Tables are keyed: "f"/"b" the work order's
+// (main / sub-job page), "uf"/"ub" the one in the update being written on that page.
 let fHrz=null,bHrz=null,hrzOpen={f:false,b:false};
 // The one-line summary shown when the table is folded away
 function hrzSummary(v){const filled=v.z.filter(r=>r.h||r.t||r.ho||r.to).length,ol=v.z.reduce((a,r)=>a+(r.ho?1:0)+(r.to?1:0),0),fl=v.z.filter(r=>r.f).length;
   return `${v.n} zone${v.n===1?"":"s"}`+(filled<v.n?` · ${filled} done`:"")+(ol?` · ${ol} OL`:"")+(fl?` · ${fl} flagged`:"")}
-const hrzList=p=>p==="f"?fHrz:bHrz;
-const hrzSet=(p,v)=>{if(p==="f")fHrz=v;else bHrz=v};
+const hrzUpd=p=>p.length>1&&updOpen&&updOpen.p===p.slice(1)?updOpen:null;
+const hrzList=p=>p==="f"?fHrz:p==="b"?bHrz:(hrzUpd(p)||{}).hrz||null;
+const hrzSet=(p,v)=>{if(p==="f")fHrz=v;else if(p==="b")bHrz=v;else{const u=hrzUpd(p);if(u)u.hrz=v}};
+const hrzEl=p=>$("#"+p+"-hrz");
 function hrzClean(v){if(!v||!(+v.n>0))return null;const n=Math.min(64,Math.max(1,Math.round(+v.n)));
   const z=Array.from({length:n},(_,i)=>{const r=(v.z||[])[i]||{},h=String(r.h??"").trim(),t=String(r.t??"").trim(),isOl=x=>/^ol$/i.test(x);
     return {l:String(r.l??"").trim().toUpperCase(),h:isOl(h)?"":h,t:isOl(t)?"":t,ho:!!r.ho||isOl(h),to:!!r.to||isOl(t),f:!!r.f}});return {n,z}}
-const hrzHasData=v=>!!(v&&v.z&&v.z.some(r=>r.h||r.t||r.l||r.ho||r.to||r.f));
+function hrzHasData(v){return !!(v&&v.z&&v.z.some(r=>r.h||r.t||r.l||r.ho||r.to||r.f))}
 const hrzShow=(r,c)=>r[c+"o"]?"OL":(r[c]||"");
 const hrzHasLabels=v=>!!(v&&v.z&&v.z.some(r=>r.l));
 // Suggested next label: G01 → G02, M09 → M10, NL → NL
 function hrzNextLabel(prev){const m=String(prev||"").match(/^(.*?)(\d+)$/);if(!m)return prev||"";return m[1]+String(+m[2]+1).padStart(m[2].length,"0")}
-const hrzMouldOf=p=>p==="f"?mainFor:boxFor;
-// The most recent readings for this mould on another work order (shown faintly as a guide)
-function hrzPrev(mid){if(!mid)return null;
-  const prev=logs.filter(l=>l.id!==editingId&&jobIds(l).includes(mid)).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-  for(const l of prev){const v=hrzClean(pmVal(l,mid).hrz);if(hrzHasData(v))return {v,wo:l.wo,date:l.date}}return null}
+const hrzMouldOf=p=>p.slice(-1)==="f"?mainFor:boxFor;
+// The most recent readings for this mould (shown faintly as a guide): from other work orders and their updates, and for
+// an update's table also this work order's own table and its other updates (on or before the update's date)
+function hrzPrev(p){const mid=hrzMouldOf(p);if(!mid||mid===FORCE)return null;const all=[];
+  for(const l of logs){if(l.id===editingId||!jobIds(l).includes(mid))continue;const v=pmVal(l,mid),w=hrzClean(v.hrz);
+    if(hrzHasData(w))all.push({v:w,wo:l.wo,date:l.date||""});
+    for(const u of updClean0(v.updates))if(u.hrz)all.push({v:u.hrz,wo:l.wo,date:u.date,upd:true})}
+  const up=hrzUpd(p);let upTo="";
+  if(up){const fp=p.slice(1),w=hrzClean(hrzList(fp)),c=hrzEl(p)&&hrzEl(p).closest(".updnew"),dd=c&&c.querySelector(".updd");upTo=(dd&&dd.value)||"";
+    if(hrzHasData(w))all.push({v:w,cur:true,date:$(fp==="f"?"#f-date":"#b-date").value||""});
+    for(const u of updClean0(updList(fp)))if(u.hrz&&u.id!==up.id)all.push({v:u.hrz,cur:true,upd:true,date:u.date})}
+  all.sort((a,b)=>String(b.date).localeCompare(String(a.date))||(b.cur?1:0)-(a.cur?1:0));
+  return (upTo&&all.find(x=>!x.date||x.date<=upTo))||all[0]||null}
+// an update's "Adds to the … entry" note depends on whether it has readings (two sets of readings never merge)
+function hrzUpdHint(p){if(!hrzUpd(p))return;const c=hrzEl(p)&&hrzEl(p).closest(".updcomp");if(c)updMergeHint(c,p.slice(1))}
+const hrzFrom=pv=>(pv.cur?"this work order":"#"+pv.wo)+(pv.upd?" update":"")
 function renderHrz(p,force){
-  const el=$(p==="f"?"#f-hrz":"#b-hrz");if(!el)return;const v=hrzList(p),mid=hrzMouldOf(p);
+  const el=hrzEl(p);if(!el)return;const v=hrzList(p),mid=hrzMouldOf(p);
   if(!mid||mid===FORCE){el.innerHTML="";el.dataset.sig="";return}
   // Same table already on screen: don't redraw it (that would close the phone keyboard mid-entry)
-  const sig=mid+"|"+(v?v.n:"none")+"|"+editingId;
+  const sig=mid+"|"+(v?v.n:"none")+"|"+editingId+"|"+((hrzUpd(p)||{}).draft||"");
   if(!force&&el.dataset.sig===sig&&el.firstChild){if(v)hrzRefresh(p);return}
   el.dataset.sig=sig;
-  if(!v){const pv=hrzPrev(mid);el.innerHTML=`<button type="button" class="addmould" data-hrzadd="${p}">+ Hot runner readings${pv?` <span class="hrzlast">(last: ${pv.v.n} zones on #${esc(pv.wo)})</span>`:""}</button>`;return}
-  const pv=hrzPrev(mid),lab=i=>{const val=v.z[i].l,sug=(pv&&pv.v.z[i]&&pv.v.z[i].l)||(i?hrzNextLabel(v.z[i-1].l):"");
+  if(!v){const pv=hrzPrev(p);el.innerHTML=`<button type="button" class="addmould" data-hrzadd="${p}">+ Hot runner readings${pv?` <span class="hrzlast">(last: ${pv.v.n} zones on ${esc(hrzFrom(pv))})</span>`:""}</button>`;return}
+  const pv=hrzPrev(p),lab=i=>{const val=v.z[i].l,sug=(pv&&pv.v.z[i]&&pv.v.z[i].l)||(i?hrzNextLabel(v.z[i-1].l):"");
       return `<input class="hrzl mono" autocapitalize="characters" autocomplete="off" enterkeyhint="next" data-hrz="${p}|${i}|l" value="${esc(val)}" placeholder="${esc(sug||"Label")}" aria-label="Zone ${i+1} label">`},
     cell=(i,c)=>{const val=v.z[i][c],ol=!!v.z[i][c+"o"],last=pv&&pv.v.z[i]?hrzShow(pv.v.z[i],c):"";
     return `<td><div class="hrzc${ol?" ol":""}"><input class="mono" inputmode="decimal" enterkeyhint="${c==="t"&&i===v.n-1?"done":"next"}" autocomplete="off" data-hrz="${p}|${i}|${c}" value="${esc(val)}" placeholder="${esc(last||"Ω")}" aria-label="Zone ${i+1} ${c==="h"?"heater":"thermocouple"} ohms"><button type="button" class="hrzol" data-hrzol="${p}|${i}|${c}" aria-pressed="${ol}" title="Open circuit">OL</button></div></td>`};
   el.innerHTML=`<details class="panel ck hrzbox" data-hrzd="${p}"${hrzOpen[p]?" open":""}><summary><span>Hot runner readings</span><span class="ckprog hrzsum">${esc(hrzSummary(v))}</span></summary><div class="hrzhead"><span class="hrztitle">Zones</span>${SpeechRec?`<button type="button" class="hrzmic${dict&&dict.p===p?" on":""}" data-hrzmic="${p}" aria-pressed="${!!(dict&&dict.p===p)}" title="Say the readings instead of typing them"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="7" y="2.5" width="6" height="10" rx="3"/><path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5"/></svg>Dictate</button>`:""}
       <span class="hrzn"><button type="button" data-hrzstep="${p}|-1" aria-label="One less zone">−</button><input class="mono" type="number" inputmode="numeric" min="1" max="64" value="${v.n}" data-hrzn="${p}" aria-label="Number of zones"><button type="button" data-hrzstep="${p}|1" aria-label="One more zone">+</button><span>zones</span></span></div>
     <table class="hrzt"><thead><tr><th>Zone</th><th>Heater Ω</th><th>T/C Ω</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr class="${r.f?"flag":""}"><th><button type="button" class="hrzz" data-hrzflag="${p}|${i}" aria-pressed="${r.f}" title="Flag this zone">Z${i+1}</button>${lab(i)}</th>${cell(i,"h")}${cell(i,"t")}</tr>`).join("")}</tbody></table>
-    <div class="hrzfoot">${pv?`<span>Grey numbers: last readings, #${esc(pv.wo)}${pv.date?" · "+esc(fmtDate(pv.date)):""}.</span> `:""}<span class="hrzkey"><i class="k-dev"></i> flagged (tap a zone number)</span> <span class="hrzkey"><i class="k-ol"></i> open circuit</span>
+    <div class="hrzfoot">${pv?`<span>Grey numbers: last readings, ${esc(hrzFrom(pv))}${pv.date?" · "+esc(fmtDate(pv.date)):""}.</span> `:""}<span class="hrzkey"><i class="k-dev"></i> flagged (tap a zone number)</span> <span class="hrzkey"><i class="k-ol"></i> open circuit</span>
       <button type="button" class="linkish" data-hrzdel="${p}">Remove table</button></div></details>`;
   if(dict&&dict.p===p){const vv=hrzList(p);if(!vv)dictStop();else{if(dict.i>=vv.n)dict.i=vv.n-1;dictMark()}}
 }
-function hrzRefresh(p){const el=$(p==="f"?"#f-hrz":"#b-hrz"),v=hrzList(p);if(!el||!v)return;
+function hrzRefresh(p){const el=hrzEl(p),v=hrzList(p);if(!el||!v)return;
   const sm=el.querySelector(".hrzsum");if(sm)sm.textContent=hrzSummary(v);
   el.querySelectorAll("[data-hrz]:not(.hrzl)").forEach(inp=>{const[,i,c]=inp.dataset.hrz.split("|"),ol=!!v.z[+i][c+"o"];
     inp.parentElement.classList.toggle("ol",ol);inp.parentElement.querySelector(".hrzol").setAttribute("aria-pressed",String(ol))});
@@ -5537,7 +5575,7 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 // Phone keyboards' Go / Next key can submit the form instead of sending Enter: treat that as "next cell" too
 document.addEventListener("submit",e=>{const a=document.activeElement;if(a&&a.dataset&&a.dataset.hrz&&e.target.id==="logform"){e.preventDefault();e.stopImmediatePropagation();hrzNext(a)}},true);
 $("#logform").addEventListener("click",e=>{const t=e.target;
-  const add=t.closest("[data-hrzadd]");if(add){const p=add.dataset.hrzadd,pv=hrzPrev(hrzMouldOf(p));hrzSet(p,hrzClean({n:pv?pv.v.n:4,z:pv?pv.v.z.map(r=>({l:r.l})):[]}));hrzOpen[p]=true;renderHrz(p,true);markDirty(400);
+  const add=t.closest("[data-hrzadd]");if(add){const p=add.dataset.hrzadd,pv=hrzPrev(p);hrzSet(p,hrzClean({n:pv?pv.v.n:4,z:pv?pv.v.z.map(r=>({l:r.l})):[]}));hrzOpen[p]=true;renderHrz(p,true);markDirty(400);hrzUpdHint(p);
     const first=$(`[data-hrz="${p}|0|h"]`);if(first)first.focus();return}
   const st=t.closest("[data-hrzstep]");if(st){const[p,d]=st.dataset.hrzstep.split("|"),v=hrzList(p);if(v)hrzResize(p,Math.min(64,Math.max(1,v.n+ +d)));return}
   const ol=t.closest("[data-hrzol]");if(ol){const[p,i,c]=ol.dataset.hrzol.split("|"),v=hrzList(p);if(!v)return;const r=v.z[+i];r[c+"o"]=!r[c+"o"]; // the typed value is kept
@@ -5545,7 +5583,7 @@ $("#logform").addEventListener("click",e=>{const t=e.target;
   const fl=t.closest("[data-hrzflag]");if(fl){const[p,i]=fl.dataset.hrzflag.split("|"),v=hrzList(p);if(!v)return;v.z[+i].f=!v.z[+i].f;hrzRefresh(p);markDirty(400);return}
   const del=t.closest("[data-hrzdel]");if(del){const p=del.dataset.hrzdel;
     if(hrzHasData(hrzList(p))&&del.dataset.armed!=="1"){del.dataset.armed="1";del.textContent="Tap again to remove the readings";del.style.color="var(--bad)";setTimeout(()=>{if(del.isConnected){del.dataset.armed="";del.textContent="Remove table";del.style.color=""}},4000);return}
-    hrzSet(p,null);renderHrz(p,true);markDirty(250);return}
+    hrzSet(p,null);renderHrz(p,true);markDirty(250);hrzUpdHint(p);return}
 });
 // For reports and backups
 const hrzRows=v=>v.z.map((r,i)=>hrzHasLabels(v)?[`Z${i+1}`,r.l||"–",hrzShow(r,"h")||"–",hrzShow(r,"t")||"–"]:[`Z${i+1}`,hrzShow(r,"h")||"–",hrzShow(r,"t")||"–"]);
@@ -5646,7 +5684,7 @@ function calBuild(){const by={};const add=(d,e)=>{if(/^\d{4}-\d{2}-\d{2}$/.test(
   for(const l of logs){const tabs=tabIdsFor(l.mouldId,l.extraMouldIds),ids=[...new Set([l.mouldId||null,...(l.extraMouldIds||[])])];
     for(const id of ids){const prim=id===(l.mouldId||null),m=id&&moulds.find(x=>x.id===id),sub=tabs.includes(id);
       for(const u of updClean(pmVal(l,prim?null:id).updates))add(u.date,{kind:"wo",l,open:sub?id:null,wo:sub?subLabel(l,id):(l.wo||""),
-        tool:m?[mlabel(m),...joinedOf(l,id).map(mName)].join(" + "):(prim?(l.mouldName||jobTool(l)):"Mould"),status:subMeta(l,id).status,text:u.text||"",files:u.files||[],
+        tool:m?[mlabel(m),...joinedOf(l,id).map(mName)].join(" + "):(prim?(l.mouldName||jobTool(l)):"Mould"),status:subMeta(l,id).status,text:u.text||(u.hrz?"Hot runner readings: "+hrzSummary(u.hrz):""),files:u.files||[],
         t:{num:woNum(l.wo),label:jobTool(l),sub:prim?"":subName(id)}})}}
   for(const n of inbox)add(n.date,{kind:"inbox",id:n.id,wo:"",tool:"Unassigned update",status:"",text:n.text||"",files:n.files||[],t:INBOX_T});
   for(const d in by)by[d].sort((a,b)=>(a.kind==="inbox")-(b.kind==="inbox")||String(a.wo).localeCompare(String(b.wo),undefined,{numeric:true}));
@@ -6116,7 +6154,7 @@ function workOrderMarkdown(l){
   md+=jobIds(l).length>1?`\n## Photos & files\n\nStored in this Google Drive folder, in a subfolder for each mould.\n`:`\n## Photos & files\n\nStored in this Google Drive folder.\n`;
   return md+`\n---\n_Backed up automatically by GT Hub on ${new Date().toLocaleString()}._\n`;
 }
-function mdUpd(list,h){const u=updClean(list);return u.length?`\n${h} Updates\n\n`+u.map(x=>`- **${fmtDate(x.date)}** – ${x.text.replace(/\n+/g," ")}${(x.files||[]).length?` _(photos: ${x.files.join(", ")})_`:""}`).join("\n")+"\n":""}
+function mdUpd(list,h){const u=updClean(list);return u.length?`\n${h} Updates\n\n`+u.map(x=>`- **${fmtDate(x.date)}** – ${(x.text||(x.hrz?"Hot runner readings":"")).replace(/\n+/g," ")}${(x.files||[]).length?` _(photos: ${x.files.join(", ")})_`:""}${x.hrz?"\n"+hrzMd(x.hrz).replace(/^/gm,"  ").replace(/^\s+$/gm,""):""}`).join("\n")+"\n":""}
 const backupFileIds={}; // work order number -> Drive file id of its backup
 async function writeBackup(l){
   const num=woNum(l.wo);if(!num)return;
@@ -6415,7 +6453,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.23-130";
+const APP_VERSION="2026.10.26-131";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){

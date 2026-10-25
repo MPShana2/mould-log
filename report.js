@@ -32,7 +32,9 @@ function reportModel(l,onlyId){
     if(rptHas(v.faults))out.push({t:"field",label:"Inspection / faults found",text:v.faults});
     {const hz=hrzClean(v.hrz);if(hrzHasData(hz))out.push({t:"table",label:"Hot runner readings",cols:hrzCols(hz),rows:hrzRows(hz),flagged:hrzFlagged(hz),insp:true})}
     if(rptHas(v.work))out.push({t:"field",label:"Work done",text:v.work});
-    {const u=updClean(v.updates);if(u.length)out.push({t:"field",label:"Updates",text:u.map(x=>`• ${fmtDate(x.date)} – ${x.text.replace(/\n+/g," / ")}${(x.files||[]).length?` (photo${x.files.length>1?"s":""}: ${x.files.join(", ")})`:""}`).join("\n")})}
+    {const u=updClean(v.updates);if(u.length)out.push({t:"field",label:"Updates",text:u.map(x=>`• ${fmtDate(x.date)} – ${(x.text||(x.hrz?"Hot runner readings (below)":"")).replace(/\n+/g," / ")}${(x.files||[]).length?` (photo${x.files.length>1?"s":""}: ${x.files.join(", ")})`:""}`).join("\n")});
+      // readings taken with an update: a table each, dated
+      u.filter(x=>x.hrz).forEach(x=>out.push({t:"table",label:"Hot runner readings – "+fmtDate(x.date),cols:hrzCols(x.hrz),rows:hrzRows(x.hrz),flagged:hrzFlagged(x.hrz)}))}
     if(rptHas(v.notes))out.push({t:"field",label:"Notes",text:v.notes});
     const pl=cleanParts(v.partsList||partsFromText(v.parts)).map(p=>({...p,text:partLabel(p)}));if(pl.length)out.push({t:"parts",label:"Parts used",items:pl});
     setProcs(v).forEach(sn=>out.push({t:"check",label:sn.name,summary:procProgress(sn,sn.st||{}).txt,rows:procRptRows(sn),shots:v.shots}));
