@@ -32,9 +32,10 @@ function reportModel(l,onlyId){
     if(rptHas(v.faults))out.push({t:"field",label:"Inspection / faults found",text:v.faults});
     {const hz=hrzClean(v.hrz);if(hrzHasData(hz))out.push({t:"table",label:"Hot runner readings",cols:hrzCols(hz),rows:hrzRows(hz),flagged:hrzFlagged(hz),insp:true})}
     if(rptHas(v.work))out.push({t:"field",label:"Work done",text:v.work});
-    {const u=updClean(v.updates);if(u.length)out.push({t:"field",label:"Updates",text:u.map(x=>`• ${fmtDate(x.date)} – ${(x.text||(x.hrz?"Hot runner readings (below)":"")).replace(/\n+/g," / ")}${(x.files||[]).length?` (photo${x.files.length>1?"s":""}: ${x.files.join(", ")})`:""}`).join("\n")});
-      // readings taken with an update: a table each, dated
-      u.filter(x=>x.hrz).forEach(x=>out.push({t:"table",label:"Hot runner readings – "+fmtDate(x.date),cols:hrzCols(x.hrz),rows:hrzRows(x.hrz),flagged:hrzFlagged(x.hrz)}))}
+    // Updates: each one dated, its text with its own line breaks, a photo count (the photos themselves are in
+    // "Photos & files"), and any hot runner readings taken with it straight underneath
+    updClean(v.updates).forEach((x,i)=>{out.push({t:"upd",label:i?"":"Updates",date:fmtDate(x.date),text:x.text||"",n:(x.files||[]).length});
+      if(x.hrz)out.push({t:"table",label:"Hot runner readings",cols:hrzCols(x.hrz),rows:hrzRows(x.hrz),flagged:hrzFlagged(x.hrz)})});
     if(rptHas(v.notes))out.push({t:"field",label:"Notes",text:v.notes});
     const pl=cleanParts(v.partsList||partsFromText(v.parts)).map(p=>({...p,text:partLabel(p)}));if(pl.length)out.push({t:"parts",label:"Parts used",items:pl});
     setProcs(v).forEach(sn=>out.push({t:"check",label:sn.name,summary:procProgress(sn,sn.st||{}).txt,rows:procRptRows(sn),shots:v.shots}));
@@ -116,6 +117,10 @@ function rptLines(text){return String(text??"").replace(/\r/g,"").replace(/\s+$/
   if(m)return {lvl:Math.min(3,Math.floor(m[1].replace(/\t/g,"    ").length/2)),mark:m[3]||"•",text:m[4]};
   return {lvl:0,mark:"",text:s.trim()}})}
 
+// In an update, a short line ending in ":" ("Moving half:") is a heading and shows in bold
+const rptSec=L=>!L.mark&&/^.{1,40}:$/.test(L.text);
+const rptPhotos=n=>n?n+" photo"+(n===1?"":"s"):"";
+
 // ---- PDF ----
 // Helvetica widths (1/1000 em) for WinAnsi codes 32-255
 const HELV=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584,350,556,350,222,556,333,1000,556,556,333,1000,667,333,1000,350,611,350,350,222,222,333,333,350,556,1000,333,1000,500,333,944,350,500,667,278,333,556,556,556,556,260,556,333,737,370,556,584,333,737,333,400,584,333,333,333,556,537,278,333,333,365,556,834,834,834,611,667,667,667,667,667,667,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,500,556,556,556,556,278,278,278,278,556,556,556,556,556,556,556,584,611,556,556,556,556,500,556,500];
@@ -172,11 +177,12 @@ function buildPdf(R,photos,logo){
   y+=16;
   // Text blocks with bullets and links
   const LH=14.2,FS=10.3;
-  function para(text,indent){const x0=M+(indent||0),w0=CW-(indent||0);
+  function para(text,indent,sec){const x0=M+(indent||0),w0=CW-(indent||0);let first=true;
     for(const L of rptLines(text)){
       if(!L.text&&!L.mark){y+=LH*.55;continue}
-      const ind=L.mark?(L.lvl*14+14):0,lines=pdfWrap(winBytes(L.text),"",FS,w0-ind);
-      lines.forEach((s,i)=>{need(LH);y+=LH;if(i===0&&L.mark){const mk=L.mark==="•"?(L.lvl%2?"-":"\u0095"):winBytes(L.mark);txt(mk,x0+L.lvl*14+1,y,"",FS,C.ink)}txt(s,x0+ind,y,"",FS,C.ink)});
+      const f=sec&&rptSec(L)?"B":"";if(f&&!first)y+=LH*.35; // a little space above a heading
+      const ind=L.mark?(L.lvl*14+14):0,lines=pdfWrap(winBytes(L.text),f,FS,w0-ind);first=false;
+      lines.forEach((s,i)=>{need(LH);y+=LH;if(i===0&&L.mark){const mk=L.mark==="•"?(L.lvl%2?"-":"\u0095"):winBytes(L.mark);txt(mk,x0+L.lvl*14+1,y,"",FS,C.ink)}txt(s,x0+ind,y,f,FS,C.ink)});
     }}
   function label(s){need(LH+24);y+=14;txt(winBytes(s.toUpperCase()),M,y,"B",7.8,C.muted);y+=1}
   function box(x,yy,state){ // checkbox at baseline yy
@@ -200,6 +206,11 @@ function buildPdf(R,photos,logo){
       const hl=pdfWrap(head,"B",12,CW-30-pw)[0];txt(hl,M+12,y+18,"B",12,C.ink);if(b.status)pill(b.status,PW-M-8,y+6);
       if(b.meta)txt(winBytes(b.meta),M+12,y+32,"",8.8,C.muted);y+=h+2;continue}
     if(b.t==="field"){if(b.label)label(b.label);else y+=2;para(b.text);y+=4;continue}
+    if(b.t==="upd"){if(b.label)label(b.label);
+      need(LH*2+8);y+=b.label?LH:LH+8; // the date stays with the first line of its text
+      const d=winBytes(b.date);txt(d,M,y,"B",FS,C.ink);
+      if(b.n)txt(winBytes(rptPhotos(b.n)),M+pdfW(d,"B",FS)+10,y,"",8.8,C.muted);
+      if(b.text)para(b.text,12,true);y+=4;continue}
     if(b.t==="table"){if(b.label)label(b.label);const rh=17,c0=58;
       // column widths: given as fractions of the page width, or a narrow first column and the rest shared
       const ws=b.widths?b.widths.map(f=>f*CW):b.cols.map((_,i)=>i?(CW-c0)/(b.cols.length-1):c0),xs=ws.map((_,i)=>M+ws.slice(0,i).reduce((a,c)=>a+c,0));
@@ -354,10 +365,11 @@ function buildDocx(R,photos,logo){
     {borders:`<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="single" w:sz="24" w:space="0" w:color="${amber}"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>`}));
   body.push(P(run(R.title,{b:true,sz:22,color:ink})+run("   ")+pillRun(R.status),{before:360,after:40}));
   body.push(P(run(R.subtitle,{sz:12,color:muted}),{after:240}));
-  const lines=(text,o={})=>rptLines(text).map(L=>{
+  const lines=(text,o={})=>{const base=o.ind||0,bi=base?`<w:ind w:left="${base}"/>`:"";let first=true;return rptLines(text).map(L=>{
     if(!L.text&&!L.mark)return P("",{after:0,line:276});
-    if(!L.mark)return P(run(L.text,{sz:10.5,color:ink}),{after:40,line:276});
-    const left=360+L.lvl*280;return P(run((L.mark==="•"?(L.lvl%2?"–":"•"):L.mark)+"\t",{sz:10.5,color:ink})+run(L.text,{sz:10.5,color:ink}),{after:40,line:276,ind:`<w:ind w:left="${left}" w:hanging="260"/>`,tabs:`<w:tabs><w:tab w:val="left" w:pos="${left}"/></w:tabs>`})}).join("");
+    const sec=o.sec&&rptSec(L),top=sec&&!first?100:0;first=false;
+    if(!L.mark)return P(run(L.text,{b:sec,sz:10.5,color:ink}),{before:top,after:40,line:276,ind:bi,keep:sec});
+    const left=base+360+L.lvl*280;return P(run((L.mark==="•"?(L.lvl%2?"–":"•"):L.mark)+"\t",{sz:10.5,color:ink})+run(L.text,{sz:10.5,color:ink}),{after:40,line:276,ind:`<w:ind w:left="${left}" w:hanging="260"/>`,tabs:`<w:tabs><w:tab w:val="left" w:pos="${left}"/></w:tabs>`})}).join("")};
   const label=s=>P(run(s,{b:true,caps:true,sz:8,color:muted,spacing:10}),{before:200,after:60,keep:true});
   const heading=s=>P(run(s,{b:true,sz:13,color:ink}),{before:360,after:120,keep:true,bdr:`<w:pBdr><w:left w:val="single" w:sz="24" w:space="8" w:color="${amber}"/><w:bottom w:val="single" w:sz="4" w:space="6" w:color="DEDAD2"/></w:pBdr>`});
   const box=st=>st==="done"?run("☑",{font:"Segoe UI Symbol",sz:11,color:ink}):st==="na"?run("N/A",{b:true,sz:7,color:muted}):run("☐",{font:"Segoe UI Symbol",sz:11,color:"8F8A82"});
@@ -372,6 +384,9 @@ function buildDocx(R,photos,logo){
     if(b.t==="sub"){body.push(P(run((b.no?b.no+"   ":"")+b.name,{b:true,sz:12,color:ink})+(b.status?run("   ")+pillRun(b.status):""),{before:280,after:b.meta?0:80,keep:true,shd:"F3F1EC",bdr:`<w:pBdr><w:left w:val="single" w:sz="24" w:space="8" w:color="${amber}"/></w:pBdr>`,ind:`<w:ind w:left="170"/>`}));
       if(b.meta)body.push(P(run(b.meta,{sz:9,color:muted}),{after:80,keep:true,shd:"F3F1EC",bdr:`<w:pBdr><w:left w:val="single" w:sz="24" w:space="8" w:color="${amber}"/></w:pBdr>`,ind:`<w:ind w:left="170"/>`}));continue}
     if(b.t==="field"){if(b.label)body.push(label(b.label));body.push(lines(b.text));continue}
+    if(b.t==="upd"){if(b.label)body.push(label(b.label));
+      body.push(P(run(b.date,{b:true,sz:10.5,color:ink})+(b.n?run("    "+rptPhotos(b.n),{sz:9,color:muted}):""),{before:b.label?0:200,after:40,keep:true}));
+      if(b.text)body.push(lines(b.text,{ind:240,sec:true}));continue}
     if(b.t==="note"){body.push(P(run(b.text,{i:true,sz:10.5,color:muted}),{before:80}));continue}
     if(b.t==="table"){body.push(label(b.label));const c0=1100,cw=Math.floor((W-c0)/(b.cols.length-1)),ws=b.cols.map((_,i)=>i?cw:c0);
       const bd=`<w:tblBorders><w:top w:val="single" w:sz="4" w:color="DEDAD2"/><w:left w:val="nil"/><w:bottom w:val="single" w:sz="4" w:color="DEDAD2"/><w:right w:val="nil"/><w:insideH w:val="single" w:sz="4" w:color="EEEBE5"/><w:insideV w:val="nil"/></w:tblBorders>`;
