@@ -164,7 +164,8 @@ nav.tabs .sideonly{display:none}
 .moretile .mi .menucount{position:absolute;top:-6px;left:18px;margin:0}
 .moretile .mt{font-weight:700;font-size:14.5px;line-height:1.2}
 .moretile small{color:var(--muted);font-size:12px;line-height:1.3}
-.morerow{display:flex;gap:8px;margin-top:10px}
+.morerow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
+.morerow button{flex-direction:column;gap:4px!important;padding:9px 4px!important;font-size:12.5px!important}
 .morerow button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px 6px;border:0;border-radius:12px;background:var(--sunk);font:inherit;font-size:13.5px;font-weight:600;color:var(--fg);cursor:pointer}
 .morerow svg{width:19px;height:19px;color:var(--muted)}
 html.moreopen nav.tabs [data-more] .ti{color:var(--accent)}
@@ -730,6 +731,15 @@ details.ck>summary span:first-child{flex:1}
 .sumhead{display:flex;flex-direction:column;gap:2px;margin:18px 0 10px;padding-top:14px;border-top:2px solid var(--line)}
 .sumhead span{font-weight:800;font-size:15px}
 .sumhead small{font-size:12.5px;color:var(--muted)}
+.aibtn{align-self:flex-start;margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;border:1px solid var(--accent);background:var(--surface);color:var(--fg);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+.aidraft{border:1px solid var(--accent);border-radius:12px;background:color-mix(in srgb,var(--accent) 6%,var(--surface));padding:12px 14px;margin:0 0 14px;display:flex;flex-direction:column;gap:10px}
+.aidhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.aidhead b{font-size:14.5px}.aidhead .small{color:var(--muted);flex:1}
+.aistream{white-space:pre-wrap;font:inherit;font-size:13.5px;color:var(--muted);margin:0;max-height:220px;overflow:auto}
+.aipart{display:flex;flex-direction:column;gap:6px}
+.aipart textarea{font-size:14.5px}
+.aipart .attbtns{margin:0}.aipart .btn{padding:7px 14px;min-height:0}
+.ainote{font-size:12.5px;color:var(--muted)}
+.aiwhat{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
 @keyframes rowflash{0%,35%{background:color-mix(in srgb,var(--accent) 28%,transparent)}100%{background:transparent}}
 .rowflash{animation:rowflash 1.6s ease-out}
 .subtitlebtn:not(:empty)::after{content:" ›";color:var(--muted);font-weight:600}
@@ -1052,8 +1062,8 @@ details summary{cursor:pointer;font-weight:600;color:var(--steel)}
   .wrap>section{max-width:none}
   .wrap>#v-cal,.wrap>#v-calday{max-width:none;margin-inline:0}
   /* settings-style pages: panels side by side instead of stretched across */
-  #v-settings,#v-account,#v-backup{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));align-items:start}
-  #v-settings>.pagehead,#v-account>.pagehead,#v-backup>.pagehead{grid-column:1/-1}
+  #v-settings,#v-account,#v-backup,#v-ai{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));align-items:start}
+  #v-settings>.pagehead,#v-account>.pagehead,#v-backup>.pagehead,#v-ai>.pagehead{grid-column:1/-1}
   /* Work hours: log form on the left, the month on the right */
   #v-hours{display:grid;grid-template-columns:minmax(340px,420px) minmax(0,1fr);align-items:start}
   #v-hours>.pagehead{grid-column:1/-1}
@@ -1270,7 +1280,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <div class="pmmain" id="pmmain">
       <div class="field" id="shots-field"><label class="label" for="f-shots">Shot count</label><input id="f-shots" class="mono" type="number" inputmode="numeric" min="0" placeholder="e.g. 412500"></div>
       <div class="field updfield"><span class="label">Updates</span><div class="upd" id="f-upd"></div></div>
-      <div class="sumhead"><span>Report summary</span><small>Fill in at the end of the job, condensed from the updates</small></div>
+      <div class="sumhead"><span>Report summary</span><small>Fill in at the end of the job, condensed from the updates</small><button type="button" class="aibtn" data-aisum="f" hidden>✦ Draft from updates</button></div><div class="aidraft" id="aid-f" hidden></div>
       <div class="field">
         <label class="label" for="f-faults">Inspection / faults found</label>
         <textarea id="f-faults" class="autogrow" rows="2" placeholder="e.g. Worn ejector pin on cavity 3, blocked vent, water leak at B-side manifold"></textarea>
@@ -1331,7 +1341,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
           <div class="mcol">
             <div class="field" id="b-shots-field"><label class="label" for="b-shots">Shot count</label><input id="b-shots" class="mono" type="number" inputmode="numeric" min="0" placeholder="e.g. 412500"></div>
             <div class="field updfield"><span class="label">Updates</span><div class="upd" id="b-upd"></div></div>
-            <div class="sumhead"><span>Report summary</span><small>Fill in at the end of the job, condensed from the updates</small></div>
+            <div class="sumhead"><span>Report summary</span><small>Fill in at the end of the job, condensed from the updates</small><button type="button" class="aibtn" data-aisum="b" hidden>✦ Draft from updates</button></div><div class="aidraft" id="aid-b" hidden></div>
             <div class="field"><label class="label" for="b-faults">Inspection / faults found</label><textarea id="b-faults" class="autogrow" rows="2" placeholder="e.g. Worn ejector pin on cavity 3, blocked vent"></textarea><div class="hrz" id="b-hrz"></div></div>
             <div class="field"><label class="label" for="b-work">Work done</label><textarea id="b-work" class="autogrow" rows="2" placeholder="e.g. Replaced ejector pin, cleaned vents"></textarea></div>
             <div class="field"><label class="label" for="b-notes">Notes</label><textarea id="b-notes" class="autogrow" placeholder="Extra detail, findings or measurements"></textarea></div>
@@ -1529,6 +1539,28 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <div><button class="btn ghost danger" id="acct-wipe" type="button">Sign out of this computer completely</button></div>
     </div>
   </section>
+  <section id="v-ai" class="stackcol page" hidden>
+    <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>AI assistant</h2></div>
+    <div class="panel stackcol">
+      <span class="label" style="margin:0">Your AI server</span>
+      <p class="hint" style="margin:0;font-size:13.5px">GT Hub can use the AI model on your own PC (LM Studio) to draft a job's report summary from its updates. Your work orders are only sent to that PC.</p>
+      <div class="field"><label class="label" for="ai-url">Server address</label><input id="ai-url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://your-pc.your-tailnet.ts.net"></div>
+      <div class="field"><label class="label" for="ai-key">API token <span class="small" style="text-transform:none;letter-spacing:0">(only if LM Studio asks for one)</span></label><input id="ai-key" type="password" autocomplete="off" placeholder="Optional"></div>
+      <div class="field"><label class="label" for="ai-model">Model</label><select id="ai-model"><option value="">Test the connection to list the models</option></select></div>
+      <label class="updreopen"><input type="checkbox" id="ai-think"> Let the model think before it writes (slower; can help on long jobs)</label>
+      <div class="attbtns" style="margin:0"><button class="btn" type="button" id="ai-test">Save and test</button><button class="btn ghost" type="button" id="ai-off">Turn off</button></div>
+      <p class="small" id="ai-status" style="margin:0"></p>
+    </div>
+    <div class="panel stackcol">
+      <span class="label" style="margin:0">What it does, and what it can't do</span>
+      <ul class="small aiwhat">
+        <li><b>Draft from updates</b> appears in a job's Report summary once this is set up. It sends that job's updates to your AI and shows a draft of <i>Inspection / faults found</i> and <i>Work done</i>.</li>
+        <li>The draft is only a suggestion. Nothing changes until you tap <b>Use</b> (or <b>Replace</b> / <b>Add below</b>), and then only that one box changes. <b>Undo</b> puts it back.</li>
+        <li>The AI can't save, change other fields, or touch Drive, photos or backups. Text you use is saved and backed up the same as if you'd typed it.</li>
+        <li>These settings stay on this device only. They aren't saved with your work orders or in backups.</li>
+      </ul>
+    </div>
+  </section>
   <section id="v-backup" class="stackcol page" hidden>
     <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Backup &amp; export</h2></div>
     <div class="panel stackcol">
@@ -1682,6 +1714,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
   <button type="button" class="sideonly" data-page="settings" aria-current="false"><span class="ti"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></span><span class="tl">Settings</span></button>
   <button type="button" class="sideonly" data-page="account" aria-current="false"><span class="ti"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c1.4-3.8 4.2-5.6 7.5-5.6s6.1 1.8 7.5 5.6"/></svg></span><span class="tl">Account</span></button>
   <button type="button" class="sideonly" data-page="backup" aria-current="false"><span class="ti"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5"/><path d="M4 16.5v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span><span class="tl">Backup &amp; export</span></button>
+  <button type="button" class="sideonly" data-page="ai" aria-current="false"><span class="ti"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l1.9 4.6 4.6 1.9-4.6 1.9L12 16.5l-1.9-4.6L5.5 10l4.6-1.9z"/><path d="M18.5 15.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/></svg></span><span class="tl">AI</span></button>
 </nav>
 <!-- More: the less-used pages, in a panel that slides up from the bottom (phones) -->
 <div class="moresheet" id="moresheet" hidden><div class="morebox" role="dialog" aria-modal="true" aria-label="More pages">
@@ -1696,6 +1729,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <button type="button" data-page="settings"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg><span>Settings</span></button>
     <button type="button" data-page="account"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c1.4-3.8 4.2-5.6 7.5-5.6s6.1 1.8 7.5 5.6"/></svg><span>Account</span></button>
     <button type="button" data-page="backup"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5"/><path d="M4 16.5v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><span>Backup</span></button>
+    <button type="button" data-page="ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l1.9 4.6 4.6 1.9-4.6 1.9L12 16.5l-1.9-4.6L5.5 10l4.6-1.9z"/><path d="M18.5 15.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/></svg><span>AI</span></button>
   </div>
 </div></div>
 <!-- Quick update (from Open jobs) and the work order picker for assigning them -->
@@ -2416,7 +2450,7 @@ const lazyMods={};
 function lazy(name){return lazyMods[name]||(lazyMods[name]=new Promise((res,rej)=>{const sc=document.createElement("script");sc.src=name+".js";
   sc.onload=res;sc.onerror=()=>{delete lazyMods[name];sc.remove();rej(new Error("Couldn't load that part of the app. Check your connection and try again."))};document.head.appendChild(sc)}))}
 const TABS=["open","cal","all","moulds"];
-const PAGES=["search","calday","inv","inbox","hours","settings","account","backup","share","proc","procedit"];
+const PAGES=["search","calday","inv","inbox","hours","settings","account","backup","ai","share","proc","procedit"];
 function currentView(){return ["log",...TABS,"hist",...PAGES].find(v=>!$("#v-"+v).hidden)||"open"}
 async function leaveLogIfNeeded(target){
   if($("#v-log").hidden||target==="log")return;
@@ -2581,7 +2615,7 @@ $("#menu").addEventListener("click",async e=>{const b=e.target.closest("[data-pa
 document.addEventListener("click",e=>{if(e.target.closest("[data-pageback]"))navBackBtn()});
 
 // ---- Bottom bar: Dashboard · Calendar · All jobs · Moulds · More ----
-const MORE_PAGES=["search","inbox","hours","inv","settings","account","backup","proc","procedit"];
+const MORE_PAGES=["search","inbox","hours","inv","settings","account","backup","ai","proc","procedit"];
 function moreBadges(){document.querySelectorAll("[data-mirror]").forEach(m=>{const src=$("#"+m.dataset.mirror);if(!src)return;m.hidden=src.hidden;m.textContent=src.textContent;m.className=src.className});
   const d=$("#moredot");if(d)d.hidden=$("#inboxcount").hidden&&$("#invcount").hidden}
 // the amber line above the current tab slides across to the new one
@@ -2700,6 +2734,7 @@ function show(view){
   if(view==="inbox"){renderInbox();renderInboxDrive()}
   if(view==="backup")loadAutoBkInfo();
   if(view==="settings")offStat();
+  if(view==="ai")aiRenderSettings();
   if(view==="inv")renderInv();
   if(view==="proc")renderProc();
   if(view==="search")srShow();
@@ -2822,7 +2857,7 @@ let formJoined={}; // sub-job mould id -> moulds that joined it
 function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,partsList:plRead(p),procs:wpList(p).map(x=>procSnap(x,x.st)),updates:updClean(updWithDraft(p)),hrz:hrzClean(hrzList(p))};
   if(p==="b"){v.status=segVal("#b-status");v.date=$("#b-date").value;v.done=$("#b-done").value;v.type=$("#b-type").value;v.desc=$("#b-desc").value}
   return v}
-function writeSet(p,id){const v=formPM[id]||{};
+function writeSet(p,id){const v=formPM[id]||{};if(typeof aiClear==="function")aiClear(p);
   $(`#${p}-shots`).value=v.shots??"";$(`#${p}-faults`).value=v.faults||"";$(`#${p}-work`).value=v.work||"";$(`#${p}-notes`).value=v.notes||"";plWrite(p,v.partsList||partsFromText(v.parts));
   if(updOpen&&updOpen.p===p)updOpen=null;
   hrzSet(p,hrzClean(v.hrz));hrzOpen[p]=false;renderHrz(p,true);
@@ -4859,7 +4894,7 @@ function updHrzView(p,u){const v=u&&u.hrz;if(!hrzHasData(v))return "";const k=p+
     `<table class="hrzt hrzro"><thead><tr><th>Zone</th><th>Heater Ω</th><th>T/C Ω</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr class="${r.f?"flag":""}"><th>Z${i+1}${r.l?`<span class="hrzlab">${esc(r.l)}</span>`:""}${r.f?` <span class="hrzfl" title="Flagged">⚑</span>`:""}</th>${["h","t"].map(c=>`<td class="${r[c+"o"]?"olv":""}">${esc(hrzShow(r,c)||"–")}</td>`).join("")}</tr>`).join("")}</tbody></table></details>`}
 document.addEventListener("toggle",e=>{const d=e.target;if(d.dataset&&d.dataset.updhrz){if(d.open)updHrzOpen.add(d.dataset.updhrz);else updHrzOpen.delete(d.dataset.updhrz)}},true);
 function renderUpd(p){
-  setTimeout(()=>{if(typeof updFabShow==="function")updFabShow()},0);
+  setTimeout(()=>{if(typeof updFabShow==="function")updFabShow();if(typeof aiSumBtns==="function")aiSumBtns()},0);
   const el=$(p==="f"?"#f-upd":"#b-upd");if(!el)return;
   if(!el.querySelector(".updlistw"))el.innerHTML=`<div class="updcomp"></div><div class="updlistw"></div>`;
   const open=updOpen&&updOpen.p===p?updOpen:null,list=updNewest(updList(p));
@@ -6178,6 +6213,137 @@ $("#hr-pdf").onclick=async()=>{const b=$("#hr-pdf");b.disabled=true;
   }catch(err){toast("Couldn't make the PDF: "+((err&&err.message)||err))}finally{b.disabled=false}};
 hrReset();
 
+// ---------- AI assistant: your own model (LM Studio on your PC, reached over Tailscale) ----------
+// It only ever suggests text. A draft lives in its own panel; nothing in the job changes until you tap Use / Replace /
+// Add below, and then only that one box changes (Undo puts it back). It never saves, never writes to the database,
+// Drive or backups itself: text you use is saved by the normal autosave, like typing. Settings stay on this device.
+const AI={get(){try{return JSON.parse(localStorage.getItem("gt_ai")||"{}")||{}}catch(e){return {}}},set(o){try{localStorage.setItem("gt_ai",JSON.stringify(o))}catch(e){}}};
+const aiOn=()=>{const c=AI.get();return !!(c.on&&c.url)};
+function aiBase(u){u=String(u||"").trim().replace(/\/+$/,"");if(!u)return "";if(!/^https?:\/\//i.test(u))u="https://"+u;return /\/v1$/.test(u)?u:u+"/v1"}
+const aiLocal=u=>/^http:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(aiBase(u));
+async function aiFetch(path,opts={},c=AI.get()){
+  const ac=new AbortController(),outer=opts.signal,tm=setTimeout(()=>ac.abort(),opts.timeout||15000),stop=()=>ac.abort();if(outer)outer.addEventListener("abort",stop);
+  const {timeout,signal,...o}=opts;
+  try{const r=await fetch(aiBase(c.url)+path,{...o,signal:ac.signal,headers:{...(o.headers||{}),...(c.key?{Authorization:"Bearer "+c.key}:{})}});
+    if(r.status===401||r.status===403)throw {code:"auth",message:"The AI server wants an API token, or the token is wrong (AI page under More)."};
+    if(!r.ok){let m="";try{const j=await r.json();m=(j.error&&(j.error.message||j.error))||""}catch(e){}throw {code:"http",message:String(m||("The AI server answered "+r.status))}}
+    return r}
+  catch(e){if(e&&typeof e.code==="string")throw e;if(outer&&outer.aborted)throw {code:"stopped",message:"Stopped"};
+    throw {code:"net",message:ac.signal.aborted?"The AI server didn't answer in time.":"Can't reach the AI server. Check the PC is on, LM Studio's server is running, and this device is on Tailscale."}}
+  finally{clearTimeout(tm);if(outer)outer.removeEventListener("abort",stop)}}
+// ---- the AI page (under More) ----
+function aiStatus(t,bad){const el=$("#ai-status");el.textContent=t||"";el.style.color=bad?"var(--bad)":""}
+function aiRenderSettings(){const c=AI.get();$("#ai-url").value=c.url||"";$("#ai-key").value=c.key||"";$("#ai-think").checked=!!c.think;
+  const sel=$("#ai-model");if(c.model&&![...sel.options].some(o=>o.value===c.model))sel.innerHTML=`<option value="${esc(c.model)}">${esc(c.model)}</option>`;sel.value=c.model||"";
+  aiStatus(!c.url?"Not set up yet.":c.on?`On · ${c.model||"no model chosen"}`:"Off. Tap Save and test to turn it on.")}
+$("#ai-test").onclick=async()=>{const b=$("#ai-test"),url=$("#ai-url").value.trim();
+  if(!url){aiStatus("Enter your server address first.",true);return}
+  if(/^http:\/\//i.test(url)&&!aiLocal(url)){aiStatus("Use the https:// address from Tailscale Serve. The app can't reach a plain http:// address (except localhost on this PC).",true);return}
+  const c={...AI.get(),url,key:$("#ai-key").value.trim(),think:$("#ai-think").checked};
+  b.disabled=true;aiStatus("Connecting…");
+  try{const j=await (await aiFetch("/models",{},c)).json(),ids=(j.data||[]).map(m=>m.id).filter(id=>id&&!/embed/i.test(id));
+    if(!ids.length)throw {message:"Connected, but LM Studio has no chat models. Download or load one in LM Studio."};
+    const sel=$("#ai-model"),pick=ids.includes(c.model)?c.model:(ids.find(id=>/qwen/i.test(id))||ids[0]);
+    sel.innerHTML=ids.map(id=>`<option value="${esc(id)}">${esc(id)}</option>`).join("");sel.value=pick;
+    AI.set({...c,model:pick,on:true});aiStatus(`Connected · ${ids.length} model${ids.length===1?"":"s"} · using ${pick}`);aiSumBtns()}
+  catch(e){AI.set({...c,on:false});aiStatus((e&&e.message)||"Couldn't connect",true);aiSumBtns()}
+  finally{b.disabled=false}};
+$("#ai-model").onchange=()=>{AI.set({...AI.get(),model:$("#ai-model").value});aiRenderSettings()};
+$("#ai-think").onchange=()=>AI.set({...AI.get(),think:$("#ai-think").checked});
+$("#ai-off").onclick=()=>{AI.set({...AI.get(),on:false});aiRenderSettings();aiSumBtns();["f","b"].forEach(aiClear)};
+// ---- Draft from updates ----
+const AI_FIELDS={faults:"Inspection / faults found",work:"Work done"};
+const aiRun={},aiUndo={};
+function aiSumBtns(){document.querySelectorAll("[data-aisum]").forEach(b=>{const p=b.dataset.aisum;b.hidden=!aiOn()||!updClean(updList(p)).length})}
+function aiClear(p){const r=aiRun[p];if(r&&r.ac)r.ac.abort();delete aiRun[p];delete aiUndo[p];const el=$("#aid-"+p);if(el){el.hidden=true;el.innerHTML=""}}
+const aiHrz=v=>{v=hrzClean(v);return hrzHasData(v)?v.z.map((r,i)=>`Z${i+1}${r.l?" "+r.l:""}: heater ${hrzShow(r,"h")||"-"}, T/C ${hrzShow(r,"t")||"-"}${r.f?" (flagged)":""}`).join("; ")+" (ohms)":""};
+// what the AI is told: the job, then every update (oldest first) with its readings; photo names are left out
+function aiPrompt(p){
+  const wo=$("#f-wo").value.trim().toUpperCase(),id=p==="f"?mainFor:boxFor,names=[mName(id),...((formJoined[id])||[]).map(mName)].join(" + ");
+  const head=[`Work order #${wo}${p==="b"&&formSubNo[id]?` (sub-job ${wo}-${formSubNo[id]})`:""}: ${names}`,`Job type: ${p==="b"?$("#b-type").value:$("#f-type").value}`,
+    $("#f-desc").value.trim()?`Work order description: ${$("#f-desc").value.trim()}`:"",p==="b"&&$("#b-desc").value.trim()?`Sub-job description: ${$("#b-desc").value.trim()}`:""].filter(Boolean);
+  const ups=updClean(updList(p)).map(u=>[`[${fmtDate(u.date)}]`,u.text,(u.files||[]).length?`(${u.files.length} photo${u.files.length===1?"":"s"})`:"",u.hrz?"Hot runner readings: "+aiHrz(u.hrz):""].filter(Boolean).join("\n"));
+  const wz=aiHrz(hrzList(p));
+  return head.join("\n")+"\n\nUpdates (oldest first):\n\n"+ups.join("\n\n")+(wz?"\n\nHot runner readings recorded on the job: "+wz:"")}
+const AI_SYS=`You write the report summary for a plastic injection mould maintenance work order, using only the technician's dated updates.
+Write exactly two sections with these headings, and nothing else:
+### INSPECTION / FAULTS FOUND
+### WORK DONE
+Rules:
+- Use only facts stated in the updates. Never add, assume, guess or generalise. If something isn't stated, leave it out.
+- Inspection / faults found: the condition on arrival and every fault, damage or problem found, including readings that were out of the ordinary or flagged.
+- Work done: what was done about it: cleaning, repairs, replacements, parts fitted or ordered (with supplier), adjustments, testing, and whether it went back to production.
+- Keep numbers, part names, pin, zone, slide and cavity numbers, measurements, thicknesses and supplier names exactly as written.
+- If the updates split the work by area (for example "Moving half:" and "Fixed half:"), group each section the same way, with that heading on its own line.
+- One fact per line, each line starting with "- ". Short and plain, past tense, Australian spelling. No dates.
+- If something was left unfinished or needs following up, make it the last line of WORK DONE, starting "Still to do:".
+- No introduction, no closing remarks.`;
+// the reply → its two parts (anything that isn't clearly split stays whole)
+function aiSplit(t){t=t.replace(/<think>[\s\S]*?<\/think>/gi,"").replace(/^[\s\S]*<\/think>/i,"").replace(/```[a-z]*\n?/gi,"").trim();
+  const hi=t.search(/^[ \t#*]*inspection[^\n]*$/im),hw=t.search(/^[ \t#*]*work done[^\n]*$/im);
+  const body=(a,b)=>t.slice(a,b<0?undefined:b).replace(/^[^\n]*\n?/,"").trim();
+  if(hi>=0&&hw>hi)return {faults:body(hi,hw),work:body(hw,-1)};
+  if(hw>=0&&hi<0)return {faults:"",work:body(hw,-1),rest:t.slice(0,hw).trim()};
+  return {whole:t}}
+function aiShowLive(p){const r=aiRun[p],el=$("#aid-"+p);if(!r||!el)return;const s=Math.round((Date.now()-r.t0)/1000);
+  const st=el.querySelector(".aidhead .small"),pre=el.querySelector(".aistream");
+  const vis=r.text.replace(/<think>[\s\S]*?(<\/think>|$)/gi,"").trim();
+  if(st)st.textContent=r.phase==="write"&&vis?"Writing…":r.phase==="think"||/<think>/i.test(r.text)&&!vis?`Thinking… ${s} s`:`Waiting for your AI… ${s} s${s>8?" (loading the model can take a minute)":""}`;
+  if(pre){pre.textContent=vis;pre.scrollTop=pre.scrollHeight}}
+async function aiSummarise(p){
+  if(!aiOn()){toast("Set up the AI under More › AI first");return}
+  const ups=updClean(updList(p));if(!ups.length){toast("There are no updates to draft from yet");return}
+  aiClear(p);const c=AI.get(),r=aiRun[p]={ac:new AbortController(),t0:Date.now(),text:"",phase:"wait"},el=$("#aid-"+p);
+  el.hidden=false;el.innerHTML=`<div class="aidhead"><b>✦ AI draft</b><span class="small"></span><button type="button" class="linkish" data-aistop="${p}">Stop</button></div><pre class="aistream"></pre>`;
+  const tick=setInterval(()=>aiShowLive(p),1000);aiShowLive(p);
+  try{
+    const body={model:c.model||undefined,messages:[{role:"system",content:AI_SYS},{role:"user",content:aiPrompt(p)+(c.think?"":"\n\n/no_think")}],temperature:0.3,top_p:0.9,max_tokens:c.think?12000:1600,stream:true};
+    const res=await aiFetch("/chat/completions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:r.ac.signal,timeout:150000},c);
+    if(!/event-stream/i.test(res.headers.get("content-type")||"")){const j=await res.json();r.text=((j.choices||[])[0]||{}).message?.content||""}
+    else{const rd=res.body.getReader(),dec=new TextDecoder();let buf="",last=Date.now();
+      const idle=setInterval(()=>{if(Date.now()-last>90000)r.ac.abort()},3000);
+      try{for(;;){const {value,done}=await rd.read();if(done)break;last=Date.now();buf+=dec.decode(value,{stream:true});
+        let i;while((i=buf.indexOf("\n"))>=0){const line=buf.slice(0,i).trim();buf=buf.slice(i+1);if(!line.startsWith("data:"))continue;const d=line.slice(5).trim();if(!d||d==="[DONE]")continue;
+          let j;try{j=JSON.parse(d)}catch(e){continue}const dl=((j.choices||[])[0]||{}).delta||{};
+          if(dl.reasoning_content||dl.reasoning)r.phase="think";if(dl.content){r.text+=dl.content;r.phase="write"}}
+        aiShowLive(p)}}
+      catch(e){if(r.ac&&r.ac.signal.aborted)throw {code:aiRun[p]===r&&r.stopped?"stopped":"net",message:r.stopped?"Stopped":"The AI stopped answering."};throw e}
+      finally{clearInterval(idle)}}
+    if(aiRun[p]!==r)return;
+    const parts=aiSplit(r.text);if(!(parts.whole||parts.faults||parts.work))throw {message:"The AI didn't send back any text. Try again."};
+    aiShowDraft(p,parts)}
+  catch(e){if(aiRun[p]!==r)return;
+    el.innerHTML=`<div class="aidhead"><b>✦ AI draft</b><span class="small" style="color:${e&&e.code==="stopped"?"var(--muted)":"var(--bad)"}">${esc((e&&e.message)||"Something went wrong")}</span></div><div class="attbtns" style="margin:0"><button type="button" class="btn ghost" data-airetry="${p}">Try again</button><button type="button" class="btn ghost" data-aiclose="${p}">Close</button></div>`}
+  finally{clearInterval(tick);if(aiRun[p]===r)r.ac=null}}
+function aiPartHtml(p,k,text){const f=$(`#${p}-${k}`),has=!!(f&&f.value.trim());
+  return `<div class="aipart" data-aik="${k}"><span class="label" style="margin:0">${AI_FIELDS[k]}</span><textarea class="autogrow aitext" rows="3">${esc(text)}</textarea>
+    <div class="attbtns">${has?`<button type="button" class="btn" data-aiuse="${p}|${k}|replace">Replace</button><button type="button" class="btn ghost" data-aiuse="${p}|${k}|add">Add below</button>`:`<button type="button" class="btn" data-aiuse="${p}|${k}|replace">Use</button>`}<button type="button" class="linkish" data-aiundo="${p}|${k}" hidden>Undo</button></div></div>`}
+function aiShowDraft(p,parts){const el=$("#aid-"+p);
+  const blocks=parts.whole!=null?aiPartHtml(p,"faults",parts.whole).replace('class="label" style="margin:0">Inspection / faults found','class="label" style="margin:0">Draft (it didn\'t split it into two parts; use it in either box)')+
+      `<div class="attbtns" style="margin:-4px 0 0"><button type="button" class="btn ghost" data-aiuse="${p}|work|replace|faults">Use for Work done instead</button></div>`
+    :(parts.faults?aiPartHtml(p,"faults",parts.faults):"")+(parts.work?aiPartHtml(p,"work",parts.work):"");
+  el.innerHTML=`<div class="aidhead"><b>✦ AI draft</b><span class="small">From ${updClean(updList(p)).length} update${updClean(updList(p)).length===1?"":"s"}. Check it before you use it: it can get things wrong. You can edit it here first.</span></div>${blocks}
+    <div class="attbtns" style="margin:0"><button type="button" class="btn ghost" data-airetry="${p}">Try again</button><button type="button" class="btn ghost" data-aiclose="${p}">Close</button></div>`;
+  el.querySelectorAll(".aitext").forEach(grow)}
+// the draft's own boxes are not job fields: their typing doesn't mark the job changed
+["f","b"].forEach(p=>{const el=$("#aid-"+p);["input","change"].forEach(ev=>el.addEventListener(ev,e=>{e.stopPropagation();if(e.target.classList.contains("aitext"))grow(e.target)}))});
+document.addEventListener("click",e=>{const t=e.target;
+  const sum=t.closest("[data-aisum]");if(sum){aiSummarise(sum.dataset.aisum);return}
+  const st=t.closest("[data-aistop]");if(st){const r=aiRun[st.dataset.aistop];if(r&&r.ac){r.stopped=true;r.ac.abort()}return}
+  const rt=t.closest("[data-airetry]");if(rt){aiSummarise(rt.dataset.airetry);return}
+  const cl=t.closest("[data-aiclose]");if(cl){aiClear(cl.dataset.aiclose);return}
+  // using it: only that one box changes, as if typed (so the normal autosave saves it); Undo puts the old text back
+  const use=t.closest("[data-aiuse]");if(use){const [p,k,how,from]=use.dataset.aiuse.split("|"),part=use.closest(".aidraft").querySelector(`.aipart[data-aik="${from||k}"]`),f=$(`#${p}-${k}`);
+    if(!part||!f)return;const draft=part.querySelector(".aitext").value.trim();if(!draft){toast("The draft is empty");return}
+    const prev=f.value,next=how==="add"&&prev.trim()?prev.replace(/\s+$/,"")+"\n\n"+draft:draft;
+    f.value=next;grow(f);f.dispatchEvent(new Event("input",{bubbles:true}));aiUndo[p+"|"+k]={prev,next};
+    const u=part.querySelector("[data-aiundo]")||use.closest(".aidraft").querySelector(`[data-aiundo="${p}|${from||k}"]`);if(u){u.hidden=false;u.dataset.aiundo=p+"|"+k}
+    toast(`Added to ${AI_FIELDS[k]}`);return}
+  const un=t.closest("[data-aiundo]");if(un){const key=un.dataset.aiundo,[p,k]=key.split("|"),f=$(`#${p}-${k}`),u=aiUndo[key];if(!f||!u)return;
+    if(f.value!==u.next){toast("That box has been changed since, so it was left as it is");return}
+    f.value=u.prev;grow(f);f.dispatchEvent(new Event("input",{bubbles:true}));delete aiUndo[key];un.hidden=true;toast(`${AI_FIELDS[k]} put back`)}});
+aiSumBtns();
+
 // Reports (PDF / Word) live in report.js and load the first time Export is tapped
 $("#exportrpt").onclick=async()=>{await flushSave();const b=$("#exportrpt");b.disabled=true;try{await lazy("report");openReport()}catch(err){toast(err.message)}finally{b.disabled=false}};
 // ---------- Changing a work order's number ----------
@@ -6601,7 +6767,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.28-136";
+const APP_VERSION="2026.10.28-137";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
