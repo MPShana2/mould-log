@@ -5734,14 +5734,15 @@ function hrParseWo(v){const m=String(v||"").trim().toUpperCase().replace(/^#/,""
   return {wo:l?l.wo:base,sub:m[2]?Number(m[2]):null,log:l||null,mouldId,badSub:!!(m[2]&&l&&!mouldId)}}
 const hrLog=h=>logs.find(l=>l.id===h.logId)||logs.find(l=>normWo(l.wo)===normWo(h.wo))||null;
 function hrTools(h){const l=hrLog(h);if(h.mouldId)return [h.mouldId,...joinedOf(l,h.mouldId)];return l?allIds(l):[]}
-// A work order for a general (or client) job: all its hours, sub-jobs included, count towards that job and its company
+// A work order's main job, when it's a general (or client) job: filtering by that job takes in its sub-jobs' hours too
 const hrMain=h=>{const l=hrLog(h),m=l&&moulds.find(x=>x.id===l.mouldId);return m&&isGen(m)?m:null};
 const coNorm=c=>String(c||"").trim().toLowerCase().replace(/\s+/g," ");
-// the companies an entry counts towards: its tools' and its general job's (each once, whatever the spelling)
-function hrCompanies(h){const o=new Map(),add=m=>{const n=String((m&&m.company)||"").trim();if(n&&!o.has(coNorm(n)))o.set(coNorm(n),n)},g=hrMain(h);
-  // hours on the general job itself (not one of its sub-jobs) are that job's company's alone
-  if(!h.mouldId&&g&&String(g.company||"").trim())return [String(g.company).trim()];
-  hrTools(h).forEach(id=>add(moulds.find(x=>x.id===id)));add(hrMain(h));return [...o.values()]}
+// The companies an entry counts towards: those tagged on the job it was logged against, and nothing else.
+// A sub-job's hours: that sub-job's tool (and tools joined to it). Hours on the work order itself: its main job
+// (and tools joined to it), so a sub-job's company doesn't take in the main job's hours, or the other way round.
+function hrCompanies(h){const o=new Map(),add=m=>{const n=String((m&&m.company)||"").trim();if(n&&!o.has(coNorm(n)))o.set(coNorm(n),n)};
+  const l=hrLog(h),ids=h.mouldId?hrTools(h):l&&l.mouldId?[l.mouldId,...joinedOf(l,l.mouldId)]:[];
+  ids.forEach(id=>add(moulds.find(x=>x.id===id)));return [...o.values()]}
 // Each entry is matched once, so hours are never counted twice however many of its tools share the company
 function hrMatch(h,f){if(!f||f==="all")return true;
   if(f.startsWith("m:")){const id=f.slice(2);return hrTools(h).includes(id)||(hrMain(h)||{}).id===id}
@@ -6593,7 +6594,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.28-134";
+const APP_VERSION="2026.10.28-135";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
