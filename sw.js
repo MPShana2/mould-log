@@ -1,5 +1,5 @@
 // GT Hub service worker: lets the app open offline and install as an app.
-const VERSION="mould-log-v160";
+const VERSION="mould-log-v161";
 const LIBS="mould-log-libs"; // Firebase and fonts: kept across app versions (their addresses change when they do)
 const THUMBS="gt-thumbs";    // small copies of Drive photo thumbnails, kept across app versions for offline use
 const THUMB_MAX=5000;

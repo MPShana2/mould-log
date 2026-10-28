@@ -1552,6 +1552,14 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <p class="small" id="ai-status" style="margin:0"></p>
     </div>
     <div class="panel stackcol">
+      <span class="label" style="margin:0">Your style</span>
+      <div class="field"><label class="label" for="ai-style">Style notes</label><textarea id="ai-style" class="autogrow" rows="4" placeholder="e.g.&#10;Always list parts replaced and who they were ordered from.&#10;Name slides, cavities and zones by number.&#10;Put follow-up for the next service at the end.&#10;Don't mention when the tool arrived or left."></textarea>
+        <div class="hint">Sent with every draft. Tell it what you want included, left out, or worded a certain way. It still only uses facts from the job's updates.</div></div>
+      <div class="field"><label class="label" for="ai-ex">Learn from my past jobs</label><select id="ai-ex"><option value="0">Off</option><option value="1">1 past job</option><option value="2">2 past jobs</option><option value="3">3 past jobs</option><option value="4">4 past jobs</option></select>
+        <div class="hint" id="ai-exhint">Finished jobs where you wrote the summary yourself go along as examples, so the draft copies how you write. The same mould's jobs are used first, then your most recent. More examples take a little longer.</div></div>
+      <div class="attbtns" style="margin:0"><button class="btn ghost" type="button" id="ai-stylesave">Save style</button></div>
+    </div>
+    <div class="panel stackcol">
       <span class="label" style="margin:0">What it does, and what it can't do</span>
       <ul class="small aiwhat">
         <li><b>Draft from updates</b> appears in a job's Report summary once this is set up. It sends that job's updates to your AI and shows a draft of <i>Inspection / faults found</i> and <i>Work done</i>.</li>
@@ -6234,6 +6242,8 @@ async function aiFetch(path,opts={},c=AI.get()){
 // ---- the AI page (under More) ----
 function aiStatus(t,bad){const el=$("#ai-status");el.textContent=t||"";el.style.color=bad?"var(--bad)":""}
 function aiRenderSettings(){const c=AI.get();$("#ai-url").value=c.url||"";$("#ai-key").value=c.key||"";$("#ai-think").checked=!!c.think;
+  $("#ai-style").value=c.style||"";$("#ai-ex").value=String(c.ex==null?2:c.ex);setTimeout(()=>grow($("#ai-style")),0);
+  {const n=aiExamplePool(null).length;$("#ai-exhint").textContent=`Finished jobs where you wrote the summary yourself go along as examples, so the draft copies how you write. The same mould's jobs are used first, then your most recent. ${n?`You have ${n} to learn from.`:"You don't have any yet: write the summary yourself on a few jobs first."} More examples take a little longer.`}
   const sel=$("#ai-model");if(c.model&&![...sel.options].some(o=>o.value===c.model))sel.innerHTML=`<option value="${esc(c.model)}">${esc(c.model)}</option>`;sel.value=c.model||"";
   aiStatus(!c.url?"Not set up yet.":c.on?`On · ${c.model||"no model chosen"}`:"Off. Tap Save and test to turn it on.")}
 $("#ai-test").onclick=async()=>{const b=$("#ai-test"),url=$("#ai-url").value.trim();
@@ -6250,6 +6260,9 @@ $("#ai-test").onclick=async()=>{const b=$("#ai-test"),url=$("#ai-url").value.tri
   finally{b.disabled=false}};
 $("#ai-model").onchange=()=>{AI.set({...AI.get(),model:$("#ai-model").value});aiRenderSettings()};
 $("#ai-think").onchange=()=>AI.set({...AI.get(),think:$("#ai-think").checked});
+$("#ai-stylesave").onclick=()=>{AI.set({...AI.get(),style:$("#ai-style").value.trim(),ex:+$("#ai-ex").value});toast("Style saved on this device")};
+$("#ai-ex").onchange=()=>AI.set({...AI.get(),ex:+$("#ai-ex").value});
+$("#ai-style").addEventListener("input",e=>{grow(e.target);AI.set({...AI.get(),style:e.target.value.trim()})});
 $("#ai-off").onclick=()=>{AI.set({...AI.get(),on:false});aiRenderSettings();aiSumBtns();["f","b"].forEach(aiClear)};
 // ---- Draft from updates ----
 const AI_FIELDS={faults:"Inspection / faults found",work:"Work done"};
@@ -6258,13 +6271,31 @@ function aiSumBtns(){document.querySelectorAll("[data-aisum]").forEach(b=>{const
 function aiClear(p){const r=aiRun[p];if(r&&r.ac)r.ac.abort();delete aiRun[p];delete aiUndo[p];const el=$("#aid-"+p);if(el){el.hidden=true;el.innerHTML=""}}
 const aiHrz=v=>{v=hrzClean(v);return hrzHasData(v)?v.z.map((r,i)=>`Z${i+1}${r.l?" "+r.l:""}: heater ${hrzShow(r,"h")||"-"}, T/C ${hrzShow(r,"t")||"-"}${r.f?" (flagged)":""}`).join("; ")+" (ohms)":""};
 // what the AI is told: the job, then every update (oldest first) with its readings; photo names are left out
-function aiPrompt(p){
-  const wo=$("#f-wo").value.trim().toUpperCase(),id=p==="f"?mainFor:boxFor,names=[mName(id),...((formJoined[id])||[]).map(mName)].join(" + ");
-  const head=[`Work order #${wo}${p==="b"&&formSubNo[id]?` (sub-job ${wo}-${formSubNo[id]})`:""}: ${names}`,`Job type: ${p==="b"?$("#b-type").value:$("#f-type").value}`,
-    $("#f-desc").value.trim()?`Work order description: ${$("#f-desc").value.trim()}`:"",p==="b"&&$("#b-desc").value.trim()?`Sub-job description: ${$("#b-desc").value.trim()}`:""].filter(Boolean);
-  const ups=updClean(updList(p)).map(u=>[`[${fmtDate(u.date)}]`,u.text,(u.files||[]).length?`(${u.files.length} photo${u.files.length===1?"":"s"})`:"",u.hrz?"Hot runner readings: "+aiHrz(u.hrz):""].filter(Boolean).join("\n"));
-  const wz=aiHrz(hrzList(p));
+function aiJobText(j){
+  const head=[`Work order #${j.wo}${j.sub?` (sub-job ${j.sub})`:""}: ${j.names}`,j.type?`Job type: ${j.type}`:"",j.woDesc?`Work order description: ${j.woDesc}`:"",j.subDesc?`Sub-job description: ${j.subDesc}`:""].filter(Boolean);
+  const ups=updClean(j.updates).map(u=>[`[${fmtDate(u.date)}]`,u.text,(u.files||[]).length?`(${u.files.length} photo${u.files.length===1?"":"s"})`:"",u.hrz?"Hot runner readings: "+aiHrz(u.hrz):""].filter(Boolean).join("\n"));
+  const wz=aiHrz(j.hrz);
   return head.join("\n")+"\n\nUpdates (oldest first):\n\n"+ups.join("\n\n")+(wz?"\n\nHot runner readings recorded on the job: "+wz:"")}
+function aiPrompt(p){
+  const wo=$("#f-wo").value.trim().toUpperCase(),id=p==="f"?mainFor:boxFor;
+  return aiJobText({wo,sub:p==="b"&&formSubNo[id]?`${wo}-${formSubNo[id]}`:"",names:[mName(id),...((formJoined[id])||[]).map(mName)].join(" + "),type:p==="b"?$("#b-type").value:$("#f-type").value,
+    woDesc:$("#f-desc").value.trim(),subDesc:p==="b"?$("#b-desc").value.trim():"",updates:updList(p),hrz:hrzList(p)})}
+// ---- Learning your style: past jobs where you wrote the summary yourself go along as worked examples ----
+// Same mould first, then the most recent. Each is that job's updates with the Inspection / Work done you wrote.
+function aiExamplePool(curId){const out=[];
+  for(const l of logs){if(l.id===editingId)continue;const tabs=tabIdsFor(l.mouldId,l.extraMouldIds);
+    for(const id of jobIds(l)){const v=pmVal(l,id),f=String(v.faults||"").trim(),w=String(v.work||"").trim(),u=updClean(v.updates).filter(x=>x.text);
+      if(!u.length||(f+w).length<20)continue;const sm=subMeta(l,id),sub=tabs.includes(id)&&sm.no?`${l.wo}-${sm.no}`:"";
+      out.push({l,id,f,w,u,sub,same:!!curId&&(id===curId||joinedOf(l,id).includes(curId)),date:sm.dateCompleted||sm.date||l.date||""})}}
+  return out.sort((a,b)=>(b.same-a.same)||String(b.date).localeCompare(String(a.date)))}
+const aiCut=(t,n)=>t.length>n?t.slice(0,n)+" …":t;
+function aiExampleMsgs(curId,n,room){const msgs=[],used=[];
+  for(const x of aiExamplePool(curId)){if(used.length>=n)break;
+    const ju=aiCut(aiJobText({wo:x.l.wo,sub:x.sub,names:[mName(x.id),...joinedOf(x.l,x.id).map(mName)].join(" + "),type:subMeta(x.l,x.id).type||x.l.type,woDesc:x.l.description||"",subDesc:x.sub?subMeta(x.l,x.id).description:"",updates:x.u,hrz:pmVal(x.l,x.id).hrz}),6000);
+    const ja=`### INSPECTION / FAULTS FOUND\n${aiCut(x.f,2500)||"(none written)"}\n\n### WORK DONE\n${aiCut(x.w,2500)||"(none written)"}`;
+    if(ju.length+ja.length>room)continue; // too long for what's left: try a shorter one
+    room-=ju.length+ja.length;msgs.push({role:"user",content:ju},{role:"assistant",content:ja});used.push(x)}
+  return {msgs,used}}
 const AI_SYS=`You write the report summary for a plastic injection mould maintenance work order, using only the technician's dated updates.
 Write exactly two sections with these headings, and nothing else:
 ### INSPECTION / FAULTS FOUND
@@ -6278,6 +6309,8 @@ Rules:
 - One fact per line, each line starting with "- ". Short and plain, past tense, Australian spelling. No dates.
 - If something was left unfinished or needs following up, make it the last line of WORK DONE, starting "Still to do:".
 - No introduction, no closing remarks.`;
+const AI_SYS_EX=`
+Earlier messages are past jobs from this same technician, each with the summary they wrote themselves. Match how they write: their wording, layout, headings, level of detail and what they choose to include or leave out. Take facts only from the current job's updates, never from the examples.`;
 // the reply → its two parts (anything that isn't clearly split stays whole)
 function aiSplit(t){t=t.replace(/<think>[\s\S]*?<\/think>/gi,"").replace(/^[\s\S]*<\/think>/i,"").replace(/```[a-z]*\n?/gi,"").trim();
   const hi=t.search(/^[ \t#*]*inspection[^\n]*$/im),hw=t.search(/^[ \t#*]*work done[^\n]*$/im);
@@ -6297,7 +6330,11 @@ async function aiSummarise(p){
   el.hidden=false;el.innerHTML=`<div class="aidhead"><b>✦ AI draft</b><span class="small"></span><button type="button" class="linkish" data-aistop="${p}">Stop</button></div><pre class="aistream"></pre>`;
   const tick=setInterval(()=>aiShowLive(p),1000);aiShowLive(p);
   try{
-    const body={model:c.model||undefined,messages:[{role:"system",content:AI_SYS},{role:"user",content:aiPrompt(p)+(c.think?"":"\n\n/no_think")}],temperature:0.3,top_p:0.9,max_tokens:c.think?12000:1600,stream:true};
+    // the request stays well inside the model's memory (about 4 characters a token; LM Studio's 16K default): examples fill what's left
+    const cur=aiPrompt(p),style=String(c.style||"").trim(),nEx=c.ex==null?2:+c.ex,curId=p==="f"?mainFor:boxFor;
+    const ex=nEx>0?aiExampleMsgs(curId,nEx,Math.max(0,(c.think?30000:40000)-cur.length-style.length-AI_SYS.length)):{msgs:[],used:[]};r.used=ex.used;
+    const sys=AI_SYS+(ex.msgs.length?AI_SYS_EX:"")+(style?`\n\nThe technician's own instructions (follow these, as long as they don't mean adding facts that aren't in the updates):\n${style}`:"");
+    const body={model:c.model||undefined,messages:[{role:"system",content:sys},...ex.msgs,{role:"user",content:cur+(c.think?"":"\n\n/no_think")}],temperature:0.3,top_p:0.9,max_tokens:c.think?12000:1600,stream:true};
     const res=await aiFetch("/chat/completions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:r.ac.signal,timeout:150000},c);
     if(!/event-stream/i.test(res.headers.get("content-type")||"")){const j=await res.json();r.text=((j.choices||[])[0]||{}).message?.content||""}
     else{const rd=res.body.getReader(),dec=new TextDecoder();let buf="",last=Date.now();
@@ -6311,18 +6348,18 @@ async function aiSummarise(p){
       finally{clearInterval(idle)}}
     if(aiRun[p]!==r)return;
     const parts=aiSplit(r.text);if(!(parts.whole||parts.faults||parts.work))throw {message:"The AI didn't send back any text. Try again."};
-    aiShowDraft(p,parts)}
+    aiShowDraft(p,parts,r.used)}
   catch(e){if(aiRun[p]!==r)return;
     el.innerHTML=`<div class="aidhead"><b>✦ AI draft</b><span class="small" style="color:${e&&e.code==="stopped"?"var(--muted)":"var(--bad)"}">${esc((e&&e.message)||"Something went wrong")}</span></div><div class="attbtns" style="margin:0"><button type="button" class="btn ghost" data-airetry="${p}">Try again</button><button type="button" class="btn ghost" data-aiclose="${p}">Close</button></div>`}
   finally{clearInterval(tick);if(aiRun[p]===r)r.ac=null}}
 function aiPartHtml(p,k,text){const f=$(`#${p}-${k}`),has=!!(f&&f.value.trim());
   return `<div class="aipart" data-aik="${k}"><span class="label" style="margin:0">${AI_FIELDS[k]}</span><textarea class="autogrow aitext" rows="3">${esc(text)}</textarea>
     <div class="attbtns">${has?`<button type="button" class="btn" data-aiuse="${p}|${k}|replace">Replace</button><button type="button" class="btn ghost" data-aiuse="${p}|${k}|add">Add below</button>`:`<button type="button" class="btn" data-aiuse="${p}|${k}|replace">Use</button>`}<button type="button" class="linkish" data-aiundo="${p}|${k}" hidden>Undo</button></div></div>`}
-function aiShowDraft(p,parts){const el=$("#aid-"+p);
+function aiShowDraft(p,parts,used){const el=$("#aid-"+p);used=used||[];
   const blocks=parts.whole!=null?aiPartHtml(p,"faults",parts.whole).replace('class="label" style="margin:0">Inspection / faults found','class="label" style="margin:0">Draft (it didn\'t split it into two parts; use it in either box)')+
       `<div class="attbtns" style="margin:-4px 0 0"><button type="button" class="btn ghost" data-aiuse="${p}|work|replace|faults">Use for Work done instead</button></div>`
     :(parts.faults?aiPartHtml(p,"faults",parts.faults):"")+(parts.work?aiPartHtml(p,"work",parts.work):"");
-  el.innerHTML=`<div class="aidhead"><b>✦ AI draft</b><span class="small">From ${updClean(updList(p)).length} update${updClean(updList(p)).length===1?"":"s"}. Check it before you use it: it can get things wrong. You can edit it here first.</span></div>${blocks}
+  el.innerHTML=`<div class="aidhead"><b>✦ AI draft</b><span class="small">From ${updClean(updList(p)).length} update${updClean(updList(p)).length===1?"":"s"}${used.length?`, in the style of ${used.map(x=>"#"+(x.sub||x.l.wo)).join(", ")}`:""}. Check it before you use it: it can get things wrong. You can edit it here first.</span></div>${blocks}
     <div class="attbtns" style="margin:0"><button type="button" class="btn ghost" data-airetry="${p}">Try again</button><button type="button" class="btn ghost" data-aiclose="${p}">Close</button></div>`;
   el.querySelectorAll(".aitext").forEach(grow)}
 // the draft's own boxes are not job fields: their typing doesn't mark the job changed
@@ -6767,7 +6804,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.28-137";
+const APP_VERSION="2026.10.28-138";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
