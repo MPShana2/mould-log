@@ -1582,6 +1582,12 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <button class="btn ghost" id="exportbtn" type="button" hidden>Export CSV</button>
       </div>
     </div>
+    <div class="panel stackcol" id="rstpanel">
+      <span class="label" style="margin:0">Restore a deleted work order</span>
+      <p class="small" style="margin:0">Brings back a work order that was deleted, from the automatic backups in Drive (<b>_Backups</b>). Updates added after that backup are recovered from the work order's own copy in its Drive folder. You can leave out any of its moulds/sub-jobs. Nothing already in the app is changed.</p>
+      <div class="attbtns" style="margin:0"><button class="btn ghost" id="rst-find" type="button">Find deleted work orders</button></div>
+      <div id="rst-out" class="stackcol"></div>
+    </div>
     <div class="panel stackcol">
       <div class="field">
         <label class="label" for="import-file">Import a backup or export</label>
@@ -3260,7 +3266,8 @@ function renderHist(){
      ${(sm.description||l.description)?`<p class="edesc">${esc(sm.description||l.description)}</p>`:`<p class="edesc none">No description</p>`}
      ${(l.todos||[]).length?`<div class="small">To-do: ${l.todos.filter(i=>i.done).length} of ${l.todos.length} ticked</div>`:""}`}</div>
      ${lastUpd(l)}
-     <div class="small">${confirmDel===l.id?`<button class="linkish" data-del="${esc(l.id)}" style="color:var(--bad)">Confirm delete</button> · <button class="linkish" data-cancel="1">Keep</button>`:`<button class="linkish" data-edit="${esc(l.id)}"${subMeta(l,m.id).no?` data-editsub="${esc(m.id)}"`:""} style="color:var(--steel)">Edit</button> · <button class="linkish" data-ask="${esc(l.id)}">Delete</button>`}${woNum(l.wo)?` · ${backupNote(l.id)}`:""}${l.updatedAt?` · <span>edited ${fmtDate(l.updatedAt.slice(0,10))}</span>`:""}</div>
+     <div class="small">${confirmDel===l.id?(allIds(l).length>1?`<button class="linkish" data-delsub="${esc(l.id)}" style="color:var(--bad)">Remove ${esc(subMeta(l,m.id).no?subLabel(l,m.id)+" ("+mName(m.id)+")":mName(m.id))} from #${esc(l.wo||"")}</button> · <button class="linkish" data-del="${esc(l.id)}" data-delall="1" style="color:var(--bad)">Delete all of #${esc(l.wo||"")} (${allIds(l).length} moulds/jobs)</button> · <button class="linkish" data-cancel="1">Keep</button>`
+       :`<button class="linkish" data-del="${esc(l.id)}" style="color:var(--bad)">Confirm delete</button> · <button class="linkish" data-cancel="1">Keep</button>`):`<button class="linkish" data-edit="${esc(l.id)}"${subMeta(l,m.id).no?` data-editsub="${esc(m.id)}"`:""} style="color:var(--steel)">Edit</button> · <button class="linkish" data-ask="${esc(l.id)}">Delete</button>`}${woNum(l.wo)?` · ${backupNote(l.id)}`:""}${l.updatedAt?` · <span>edited ${fmtDate(l.updatedAt.slice(0,10))}</span>`:""}</div>
    </div>`}).join(""):'<div class="empty"><strong>No history yet</strong>Log the first job on this mould and it will appear here, newest first.</div>';
 }
 $("#timeline").addEventListener("click",async e=>{
@@ -3269,6 +3276,11 @@ $("#timeline").addEventListener("click",async e=>{
   if(t.dataset.edit){startEdit(t.dataset.edit,t.dataset.editsub)}
   else if(t.dataset.ask){confirmDel=t.dataset.ask;renderHist()}
   else if(t.dataset.cancel){confirmDel=null;renderHist()}
+  else if(t.dataset.delsub){const S=logs.find(x=>x.id===t.dataset.delsub),X=current;confirmDel=null;if(!S||!db)return;
+    const d=logWithout(S,X);if(!d){renderHist();return}
+    // the rest of the work order stays; this tool's photos stay in Drive and its logged hours stay
+    try{await db.collection("logs").doc(S.id).set({...d,updatedAt:new Date().toISOString()});invApply(S.invUsed||{},d.invUsed||{});invLedger[S.id]=d.invUsed;scheduleBackup(S.id);
+      toast(`Removed ${mName(X)} from #${S.wo}. The rest of the work order is kept.`)}catch(err){toast("Couldn't remove it: "+(err.message||err.code))}renderHist()}
   else if(t.dataset.del){
     try{const dl=logs.find(x=>x.id===t.dataset.del);await db.collection("logs").doc(t.dataset.del).delete();if(dl)invApply(invLedger[dl.id]||dl.invUsed||{},{});toast("Entry deleted. Its Drive folder was left in place.")}catch(err){toast("Couldn't delete: "+(err.message||err.code))}confirmDel=null}
 });
@@ -3431,6 +3443,20 @@ async function woMergeGo(btn){const t=woMergeTarget($("#f-wo").value);if(!t||!db
     toast(first.existing?`Added to #${Lnow.wo}${first.no?"-"+first.no:""}`:`Added to #${Lnow.wo} as sub-job ${Lnow.wo}-${first.no}`);
     navReplace=true;await new Promise(r=>setTimeout(r,80));await startEdit(Lnow.id,first.no?first.lead:undefined)}
   catch(err){btn.disabled=false;btn.textContent="Try again";toast("Couldn't add it: "+((err&&err.message)||err))}}
+
+// ---- A work order without one of its tools: its next tool takes over as main if needed; down to one tool, it takes that
+// tool's status. Returns the whole new work order (no id), or null when that's its only tool. A tool joined to a sub-job
+// just leaves the sub-job. ----
+function logWithout(S,X){const d=JSON.parse(JSON.stringify(S));delete d.id;
+  const lead=leadOf(S,X);if(lead!==X){d.joined[lead]=(d.joined[lead]||[]).filter(x=>x!==X);d.invUsed=invUsedOf(d);return d}
+  const rest=jobIds(S).filter(id=>id!==X);if(!rest.length)return null;
+  const newMain=S.mouldId===X?rest[0]:S.mouldId,nameOf=id=>{const i=(S.extraMouldIds||[]).indexOf(id);return (i>=0&&(S.extraMouldNames||[])[i])||mName(id)};
+  d.mouldId=newMain;d.extraMouldIds=rest.filter(id=>id!==newMain);d.extraMouldNames=d.extraMouldIds.map(nameOf);
+  d.perMould=d.perMould||{};d.subs=d.subs||{};d.joined=d.joined||{};delete d.perMould[X];delete d.subs[X];delete d.joined[X];
+  if(newMain!==S.mouldId){const v=d.perMould[newMain]||{};for(const f of PM_FIELDS)d[f]=v[f]!==undefined?v[f]:(["updates","procs","partsList"].includes(f)?[]:null);
+    d.checklist=null;d.mouldName=mName(newMain);delete d.perMould[newMain]}
+  if(!tabIdsFor(d.mouldId,d.extraMouldIds).length&&rest.length===1){const r=subMeta(S,rest[0]);d.status=r.status;d.dateCompleted=r.dateCompleted||""}
+  d.invUsed=invUsedOf(d);return d}
 
 // ---- Move a sub-job to another work order (2551-2 → 2555-3) ----
 // The tool goes with everything on it (details, updates, parts, readings, procedures, logged hours, photos, and any
@@ -6832,7 +6858,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.28-139";
+const APP_VERSION="2026.10.29-140";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -7005,6 +7031,83 @@ function renderAutoBk(){const el=$("#autobk");if(!el)return;
   const when=autoBk&&autoBk.at?fmtDate(autoBk.at.slice(0,10)):null;
   el.innerHTML=autoBkBusy?"Backing up to Drive…":`${when?`Last automatic backup <b>${esc(when)}</b>`:"No automatic backup yet"}${autoBk&&autoBk.folderId?` · <a href="https://drive.google.com/drive/folders/${esc(autoBk.folderId)}" target="_blank" rel="noopener">Open ${BK_FOLDER} ↗</a>`:""}`}
 async function loadAutoBkInfo(){try{const sd=await db.doc("settings/app").get();autoBk=(sd&&sd.exists&&sd.data()||{}).autoBackup||null}catch(e){}renderAutoBk()}
+// ---- Restore a deleted work order: from the newest Drive backup that has it, plus updates its own Drive copy has that
+// the backup doesn't (that copy is rewritten a few seconds after every change, so it's the latest) ----
+let rstFound=[],rstPick=null;
+async function rstFind(){const out=$("#rst-out");
+  if(!driveRoot){out.innerHTML=`<div class="small">Set your Drive Work Orders folder first (Settings).</div>`;return}
+  if(!hasToken()){connectDrive();return}
+  out.innerHTML=`<div class="small">Looking through the backups in Drive…</div>`;
+  try{const f=await bkFolder(),files=((await dList(`'${dq(f.id)}' in parents and trashed=false and name contains 'GT Hub backup'`)).files||[]).sort((a,b)=>String(b.name).localeCompare(String(a.name))||String(b.createdTime).localeCompare(String(a.createdTime)));
+    if(!files.length){out.innerHTML=`<div class="small">There are no backups in _Backups yet.</div>`;return}
+    const have=new Set(logs.map(l=>l.id)),haveNo=new Set(logs.map(l=>woNum(l.wo)).filter(Boolean)),seen=new Map();
+    for(const [i,bf] of files.entries()){out.innerHTML=`<div class="small">Looking through the backups in Drive… (${i+1} of ${files.length})</div>`;
+      let data;try{data=await (await driveFetch(DAPI+"files/"+encodeURIComponent(bf.id)+"?alt=media&supportsAllDrives=true",{timeout:120000})).json()}catch(e){continue}
+      const at=(data&&data.exportedAt)||bf.createdTime||"";
+      for(const [id,doc] of Object.entries((data&&data.collections&&data.collections.logs)||{})){
+        if(have.has(id)||seen.has(id)||(woNum(doc.wo)&&haveNo.has(woNum(doc.wo))))continue; // still in the app (or its number's in use), or a newer backup has it
+        seen.set(id,{id,doc,at,file:bf.name})}}
+    rstFound=[...seen.values()].sort((a,b)=>String(b.at).localeCompare(String(a.at))||String(b.doc.wo).localeCompare(String(a.doc.wo),undefined,{numeric:true}));
+    out.innerHTML=rstFound.length?`<div class="small">Deleted work orders found in the backups (newest backup first):</div><div class="alist">${rstFound.map((x,i)=>`<div class="sharegroup"><button type="button" class="sharerow" data-rst="${i}"><span class="wo">${esc(x.doc.wo||"—")}</span><span class="nm">${esc(jobTool({...x.doc,id:x.id}))}<small>In the backup of ${esc(fmtDate(String(x.at).slice(0,10)))}${x.doc.description?" · "+esc(String(x.doc.description).slice(0,60)):""}</small></span><span class="stpill ${stClass(x.doc.status||"Complete")}">${esc(x.doc.status||"Complete")}</span></button></div>`).join("")}</div>`
+      :`<div class="small">No deleted work orders were found in the backups. Every work order in them is still in the app.</div>`}
+  catch(err){out.innerHTML=`<div class="small" style="color:var(--bad)">Couldn't read the backups: ${esc((err&&err.message)||err.code||"error")}</div>`}}
+// the updates in a work order's Drive copy ("#2570 Work order.md"), per mould: [{date,text,files}]
+function rstMdDate(s){s=String(s||"").trim();const d=new Date(s);if(!isNaN(d))return calISO(d);
+  const m=s.match(/^(\d{1,2})\s+([A-Za-z]{3})[a-z]*\.?,?\s+(\d{4})$/);if(m){const d2=new Date(`${m[2]} ${m[1]}, ${m[3]}`);if(!isNaN(d2))return calISO(d2)}
+  const n=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);return n?`${n[3]}-${n[2].padStart(2,"0")}-${n[1].padStart(2,"0")}`:""}
+function rstMdUpdates(md,doc){const out={},ids=jobIds(doc),names=jobNames(doc),multi=ids.length>1;let cur=multi?null:doc.mouldId,inUpd=false;
+  for(const line of String(md).split(/\r?\n/)){
+    const h2=line.match(/^## (.*)$/);if(h2){inUpd=!multi&&/^Updates\b/.test(h2[1]);if(multi){const t=h2[1];cur=null;
+        for(const [i,id] of ids.entries()){const lab=subMeta(doc,id).no?subLabel(doc,id):"";if((lab&&t.startsWith(lab+" "))||t.endsWith(names[i])){cur=id;break}}}continue}
+    const h3=line.match(/^### (.*)$/);if(h3){inUpd=multi&&/^Updates\b/.test(h3[1]);continue}
+    if(!inUpd||!cur)continue;
+    const b=line.match(/^- \*\*(.+?)\*\* – (.*)$/);if(!b)continue;
+    let text=b[2],files=[];const ph=text.match(/\s*_\(photos: (.*)\)_\s*$/);if(ph){files=ph[1].split(/,\s*/).filter(Boolean);text=text.slice(0,ph.index)}
+    text=text.trim();if(text==="Hot runner readings")text="";
+    const date=rstMdDate(b[1]);if(date)(out[cur]=out[cur]||[]).push({date,text,files})}
+  return out}
+const rstNorm=t=>String(t||"").replace(/\s+/g," ").trim().toLowerCase();
+async function rstOpen(i){const x=rstFound[i];if(!x)return;rstPick={x,extra:{},mdLink:""};const doc={...x.doc,id:x.id},ids=jobIds(doc),names=jobNames(doc);
+  const out=$("#rst-out");
+  out.innerHTML=`<div class="mvsub"><div><b>Restore #${esc(doc.wo||"")}</b> · from the backup of ${esc(fmtDate(String(x.at).slice(0,10)))}</div>
+    ${ids.length>1?`<div class="small">Untick any mould/sub-job to leave it out:</div><div class="stackcol">${ids.map((id,k)=>`<label class="updreopen"><input type="checkbox" class="rst-keep" value="${esc(id)}" checked> ${esc((subMeta(doc,id).no?subLabel(doc,id)+" · ":"")+names[k])}</label>`).join("")}</div>`:""}
+    <div class="small" id="rst-md">Checking its Drive copy for updates added after the backup…</div>
+    <div class="attbtns" style="margin:0"><button type="button" class="btn" id="rst-go" disabled>Restore</button><button type="button" class="btn ghost" id="rst-back">Back</button></div></div>`;
+  // updates its Drive copy has that the backup doesn't
+  let note="";
+  try{const num=woNum(doc.wo),fo=num&&await findWoFolder(num),mf=fo&&((await dList(`'${dq(fo.id)}' in parents and trashed=false and name='${dq("#"+num+" Work order.md")}'`)).files||[])[0];
+    if(mf){rstPick.mdLink=mf.webViewLink||"";const md=await (await driveFetch(DAPI+"files/"+encodeURIComponent(mf.id)+"?alt=media&supportsAllDrives=true")).text(),got=rstMdUpdates(md,doc);let n=0;
+      for(const [id,list] of Object.entries(got)){const have=updClean(pmVal(doc,id).updates).map(u=>u.date+"|"+rstNorm(u.text));
+        const add=list.filter(u=>!have.includes(u.date+"|"+rstNorm(u.text)));if(add.length){rstPick.extra[id]=add;n+=add.length}}
+      note=n?`<b>${n} update${n===1?"":"s"}</b> added after the backup ${n===1?"was":"were"} found in its Drive copy and will be restored too (their line breaks and any hot runner readings in them can't be recovered).`
+        :"Its Drive copy has no updates newer than the backup.";
+      note+=` Other details are as they were in the backup${mf.webViewLink?`; <a href="${esc(mf.webViewLink)}" target="_blank" rel="noopener">its Drive copy</a> shows them as they were last`:""}.`}
+    else note="No Drive copy of it was found, so it's restored as it was in the backup."}
+  catch(e){note="Couldn't read its Drive copy, so it's restored as it was in the backup."}
+  if(rstPick&&rstPick.x===x){$("#rst-md").innerHTML=note;$("#rst-go").disabled=false}}
+async function rstGo(){const P=rstPick;if(!P||!db)return;const b=$("#rst-go");
+  const keep=[...document.querySelectorAll(".rst-keep")].map(c=>c.checked?c.value:null),drop=[...document.querySelectorAll(".rst-keep")].filter(c=>!c.checked).map(c=>c.value);
+  if(keep.length&&!keep.some(Boolean)){toast("Keep at least one mould/sub-job");return}
+  b.disabled=true;b.textContent="Restoring…";
+  try{let doc={...JSON.parse(JSON.stringify(P.x.doc)),id:P.x.id};
+    // recovered updates go onto their moulds
+    for(const [id,list] of Object.entries(P.extra)){const add=list.map(u=>({id:"r"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),date:u.date,text:u.text,...(u.files.length?{files:u.files}:{})}));
+      if(id===doc.mouldId)doc.updates=updClean([...(doc.updates||[]),...add]);else{doc.perMould=doc.perMould||{};doc.perMould[id]={...(doc.perMould[id]||{}),updates:updClean([...((doc.perMould[id]||{}).updates||[]),...add])}}}
+    // left out: those moulds/sub-jobs are taken off
+    for(const X of drop){const d=logWithout(doc,X);if(d)doc={...d,id:doc.id}}
+    if(logs.some(l=>l.id===doc.id)||(woNum(doc.wo)&&logs.some(l=>woNum(l.wo)===woNum(doc.wo))))throw {message:`#${doc.wo} is already in the app`};
+    const id=doc.id;delete doc.id;doc.invUsed=invUsedOf(doc);doc.updatedAt=new Date().toISOString();
+    for(const k of Object.keys(doc))if(doc[k]===undefined)delete doc[k];
+    await db.collection("logs").doc(id).set(doc);
+    // parts it used come off stock again (deleting it had put them back); its logged hours were never removed
+    invApply({},doc.invUsed);invLedger[id]=doc.invUsed;scheduleBackup(id);
+    toast(`Restored #${doc.wo}${drop.length?` without ${drop.map(mName).join(", ")}`:""}`);rstPick=null;rstFound=[];$("#rst-out").innerHTML="";
+    await new Promise(r=>setTimeout(r,150));startEdit(id)}
+  catch(err){b.disabled=false;b.textContent="Restore";toast("Couldn't restore it: "+((err&&err.message)||err))}}
+$("#rst-find").onclick=rstFind;
+$("#rst-out").addEventListener("click",e=>{const r=e.target.closest("[data-rst]");if(r){rstOpen(+r.dataset.rst);return}
+  if(e.target.closest("#rst-back")){rstPick=null;rstFind();return}
+  if(e.target.closest("#rst-go"))rstGo()});
 $("#autobk-now").onclick=()=>{if(!hasToken()){connectDrive();return}autoBackup(true)};
 setTimeout(()=>autoBackup(false),25000);setInterval(()=>autoBackup(false),6*3600e3);
 window.addEventListener("online",()=>setTimeout(()=>autoBackup(false),5000));
