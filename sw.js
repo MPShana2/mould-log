@@ -1,5 +1,5 @@
 // GT Hub service worker: lets the app open offline and install as an app.
-const VERSION="mould-log-v161";
+const VERSION="mould-log-v162";
 const LIBS="mould-log-libs"; // Firebase and fonts: kept across app versions (their addresses change when they do)
 const THUMBS="gt-thumbs";    // small copies of Drive photo thumbnails, kept across app versions for offline use
 const THUMB_MAX=5000;
@@ -78,7 +78,7 @@ self.addEventListener("message",e=>{const d=e.data||{};
 // asks to be woken again. The moment the app is on screen again it takes back over, so the two never upload at once.
 // Same steps as the app's own uploader (folders, names, "already in Drive" check, resumable pieces).
 const BG_TAG="gt-upload",DAPI="https://www.googleapis.com/drive/v3/",UPAPI="https://www.googleapis.com/upload/drive/v3/files",FOLDER_MT="application/vnd.google-apps.folder";
-const INBOX_NUM="_UNASSIGNED",INBOX_FOLDER="_Unassigned";
+const INBOX_NUM="_UNASSIGNED",INBOX_FOLDER="_Unassigned",MUPD_NUM="_MOULDUPD",MUPD_FOLDER="_Mould updates";
 function idbOpen(name,store,key){return new Promise((res,rej)=>{const r=indexedDB.open(name,1);r.onupgradeneeded=()=>r.result.createObjectStore(store,key?{keyPath:key}:undefined);r.onsuccess=()=>{const d=r.result;d.onversionchange=()=>d.close();res(d)};r.onerror=()=>rej(r.error)})}
 function idbDo(dbp,store,mode,fn){return dbp.then(d=>new Promise((res,rej)=>{const t=d.transaction(store,mode),r=fn(t.objectStore(store));t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error)}))}
 const upDb=()=>idbOpen("mouldlog-uploads","q","id"),kvDb=()=>idbOpen("mouldlog-bg","kv");
@@ -118,11 +118,11 @@ function bgSession(auth,deadline){
   async function woFolder(num,label){
     if(folders[num])return folders[num];
     let f;
-    if(num===INBOX_NUM)f=((await list(`'${dq(auth.root)}' in parents and mimeType='${FOLDER_MT}' and trashed=false and name='${INBOX_FOLDER}'`)).files||[])[0];
+    if(num===INBOX_NUM||num===MUPD_NUM)f=((await list(`'${dq(auth.root)}' in parents and mimeType='${FOLDER_MT}' and trashed=false and name='${num===INBOX_NUM?INBOX_FOLDER:MUPD_FOLDER}'`)).files||[])[0];
     else{const r=await list(`'${dq(auth.root)}' in parents and mimeType='${FOLDER_MT}' and trashed=false and name contains '${dq(num)}'`);
       const re=/^T/.test(num)?new RegExp(`^#?${num}([^0-9A-Za-z]|$)`,"i"):new RegExp(`(^|[^0-9])${num}([^0-9]|$)`);
       f=(r.files||[]).find(x=>re.test(x.name||""))}
-    if(!f)f=await mk(num===INBOX_NUM?INBOX_FOLDER:`#${num} - ${label||"Job"}`.replace(/[\\/]/g,"-").slice(0,120),auth.root);
+    if(!f)f=await mk(num===INBOX_NUM?INBOX_FOLDER:num===MUPD_NUM?MUPD_FOLDER:`#${num} - ${label||"Job"}`.replace(/[\\/]/g,"-").slice(0,120),auth.root);
     return folders[num]=f;
   }
   async function folderFor(it){const f=await woFolder(it.num,it.label);if(!it.sub)return f;const k=it.num+"/"+it.sub;if(subs[k])return subs[k];
@@ -157,7 +157,7 @@ function bgSession(auth,deadline){
   return {upload};
 }
 
-const destOf=it=>it.num===INBOX_NUM?"Unassigned":"#"+it.num+(it.sub?" / "+it.sub:"");
+const destOf=it=>it.num===INBOX_NUM?"Unassigned":it.num===MUPD_NUM?"Mould updates / "+it.sub:"#"+it.num+(it.sub?" / "+it.sub:"");
 const plural=(n,w)=>n+" "+w+(n===1?"":"s");
 async function bgNotify(title,body){
   try{if(self.Notification&&Notification.permission!=="granted")return;if((await kvGet("notify"))===false)return;
