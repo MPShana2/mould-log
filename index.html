@@ -1584,6 +1584,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <div class="hint" style="margin-top:0">For work that isn't on a mould, like presses, chillers, robots or the workshop. It gets its own history and work orders, just like a mould.</div>
         <div class="field"><label class="label" for="g-name">Job / equipment name</label><input id="g-name" required placeholder="e.g. Press 6 hydraulics"></div>
         <div class="field"><label class="label" for="g-area">Area / location</label><input id="g-area" placeholder="e.g. Moulding hall, Tool room"></div>
+        <div class="field"><label class="label" for="g-comp">Company</label><input id="g-comp" list="complist" placeholder="Who the work is for (optional)"><div class="hint">Its hours count towards this company, including moulds worked on as part of it.</div></div>
         <button class="btn" type="submit">Add general job</button>
       </form>
     </details>
@@ -1638,7 +1639,10 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
           <button type="button" class="addmould" id="e-dsadd">+ Add a date stamp</button>
           <div class="hint">One line per size. The arrow year is the year the stamp currently shows; Inventory → Date stamps lists every stamp so you can change the arrows each new year.</div></div>
       </div><datalist id="complist"></datalist>
-      <div class="field" id="e-genfields"><label class="label" for="e-area">Area / location</label><input id="e-area" placeholder="e.g. Tool room"></div>
+      <div class="stackcol" id="e-genfields">
+        <div class="field"><label class="label" for="e-area">Area / location</label><input id="e-area" placeholder="e.g. Tool room"></div>
+        <div class="field"><label class="label" for="e-gcomp">Company</label><input id="e-gcomp" list="complist" placeholder="Who the work is for (optional)"><div class="hint">Its hours count towards this company, including moulds worked on as part of it.</div></div>
+      </div>
       <div class="stackcol" id="e-clifields">
         <div class="field"><label class="label" for="e-ccomp">Client / company</label><input id="e-ccomp" list="complist" placeholder="e.g. Smith Plastics"></div>
         <div class="field"><label class="label" for="e-ccontact">Contact person</label><input id="e-ccontact" placeholder="e.g. Jane Smith"></div>
@@ -3119,7 +3123,7 @@ function openMouldEdit(){
   const m=moulds.find(x=>x.id===current);if(!m)return;const gen=isGen(m);
   $("#e-name").value=mlabel(m);$("#e-alias").value=(m.aliases||[]).join(", ");$("#e-part").value=m.part||"";$("#e-cav").value=m.cavities||"";$("#e-mat").value=m.material||"";$("#e-comp").value=m.company||"";$("#complist").innerHTML=companies().map(c=>`<option value="${esc(c)}">`).join("");$("#e-area").value=m.area||"";
   segSet("#e-kind",kindOf(m));editKindFields();dsEditRender(m.dateStamps||[]);
-  $("#e-ccomp").value=m.company||"";$("#e-ccontact").value=m.contact||"";$("#e-cphone").value=m.phone||"";$("#e-cemail").value=m.email||"";$("#e-caddr").value=m.address||"";setTimeout(growAll,0);
+  $("#e-ccomp").value=m.company||"";$("#e-gcomp").value=m.company||"";$("#e-ccontact").value=m.contact||"";$("#e-cphone").value=m.phone||"";$("#e-cemail").value=m.email||"";$("#e-caddr").value=m.address||"";setTimeout(growAll,0);
   resetMouldDel();
   $("#mouldedit").hidden=false;$("#e-name").focus();
 }
@@ -3131,9 +3135,11 @@ const KIND_NAME={mould:"mould",generic:"general job",client:"client work"};
 const kindAffected=id=>logs.filter(l=>l.mouldId===id&&(l.extraMouldIds||[]).length);
 function editKindFields(){
   const m=moulds.find(x=>x.id===current);if(!m)return;const k=segVal("#e-kind")||kindOf(m);
-  // carry the company across between the mould and client fields
-  if(k==="client"&&!$("#e-ccomp").value)$("#e-ccomp").value=$("#e-comp").value;
-  if(k==="mould"&&!$("#e-comp").value)$("#e-comp").value=$("#e-ccomp").value;
+  // carry the company across between the mould, general job and client fields
+  const anyCo=()=>$("#e-comp").value||$("#e-gcomp").value||$("#e-ccomp").value;
+  if(k==="client"&&!$("#e-ccomp").value)$("#e-ccomp").value=anyCo();
+  if(k==="mould"&&!$("#e-comp").value)$("#e-comp").value=anyCo();
+  if(k==="generic"&&!$("#e-gcomp").value)$("#e-gcomp").value=anyCo();
   $("#e-mouldfields").hidden=k!=="mould";$("#e-genfields").hidden=k!=="generic";$("#e-clifields").hidden=k!=="client";
   const was=kindOf(m),h=$("#e-kindhint");
   if(k===was){h.hidden=true;h.textContent=""}
@@ -3167,7 +3173,7 @@ $("#mouldedit").addEventListener("submit",async e=>{
   const name=$("#e-name").value.trim();if(!name){toast("Enter a name");return}
   if(moulds.some(x=>x.id!==m.id&&mlabel(x).toLowerCase()===name.toLowerCase())){toast(name+" is already used by another mould or job");return}
   const k=segVal("#e-kind")||kindOf(m),was=kindOf(m);
-  const patch=k==="client"?{name,company:$("#e-ccomp").value.trim(),contact:$("#e-ccontact").value.trim(),phone:$("#e-cphone").value.trim(),email:$("#e-cemail").value.trim(),address:$("#e-caddr").value.trim()}:k==="generic"?{name,area:$("#e-area").value.trim()}:{name,part:$("#e-part").value.trim(),cavities:$("#e-cav").value.trim(),material:$("#e-mat").value.trim(),company:$("#e-comp").value.trim()};
+  const patch=k==="client"?{name,company:$("#e-ccomp").value.trim(),contact:$("#e-ccontact").value.trim(),phone:$("#e-cphone").value.trim(),email:$("#e-cemail").value.trim(),address:$("#e-caddr").value.trim()}:k==="generic"?{name,area:$("#e-area").value.trim(),company:$("#e-gcomp").value.trim()}:{name,part:$("#e-part").value.trim(),cavities:$("#e-cav").value.trim(),material:$("#e-mat").value.trim(),company:$("#e-comp").value.trim()};
   patch.kind=k==="mould"?"":k;
   if(k==="mould")patch.dateStamps=dsEditRead();
   patch.aliases=[...new Set($("#e-alias").value.split(/[,;\n]/).map(x=>x.trim()).filter(Boolean))].slice(0,20);
@@ -3183,9 +3189,9 @@ function renderHist(){
   const m=moulds.find(x=>x.id===current);if(!m)return;
   renderHistParts();
   const s=summary(m);
-  $("#histhead").innerHTML=`<div class="row"><div><div style="font-family:var(--display);font-size:22px;font-weight:700">${esc(mlabel(m))}</div><div style="color:var(--muted)">${isClient(m)?"Client work"+(m.company?" · "+esc(m.company):""):isGen(m)?"General job"+(m.area?" · "+esc(m.area):""):esc(m.part||"No part recorded")}</div></div><span class="stpill ${s.open?"st-Inprogress":s.count?"st-Complete":"none"}">${s.open?s.open+" open job"+(s.open===1?"":"s"):s.count?"All complete":"No jobs"}</span></div>
+  $("#histhead").innerHTML=`<div class="row"><div><div style="font-family:var(--display);font-size:22px;font-weight:700">${esc(mlabel(m))}</div><div style="color:var(--muted)">${isClient(m)?"Client work"+(m.company?" · "+esc(m.company):""):isGen(m)?"General job"+(m.area?" · "+esc(m.area):"")+(m.company?" · "+esc(m.company):""):esc(m.part||"No part recorded")}</div></div><span class="stpill ${s.open?"st-Inprogress":s.count?"st-Complete":"none"}">${s.open?s.open+" open job"+(s.open===1?"":"s"):s.count?"All complete":"No jobs"}</span></div>
    <div style="margin-top:10px"><button type="button" class="btn ghost" id="meditbtn">Edit details</button></div>
-   <div class="facts">${isClient(m)?`<div><span>Client</span><b>${esc(m.company||"—")}</b></div><div><span>Contact</span><b>${esc(m.contact||"—")}</b></div><div><span>Phone</span><b>${m.phone?`<a href="${esc(telHref(m.phone))}">${esc(m.phone)}</a>`:"—"}</b></div>${m.email?`<div><span>Email</span><b><a href="mailto:${esc(m.email)}">${esc(m.email)}</a></b></div>`:""}${m.address?`<div class="wide"><span>Address</span><b>${esc(m.address)}</b></div>`:""}<div><span>Entries</span><b>${s.count}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`:isGen(m)?`<div><span>Area</span><b>${esc(m.area||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`:
+   <div class="facts">${isClient(m)?`<div><span>Client</span><b>${esc(m.company||"—")}</b></div><div><span>Contact</span><b>${esc(m.contact||"—")}</b></div><div><span>Phone</span><b>${m.phone?`<a href="${esc(telHref(m.phone))}">${esc(m.phone)}</a>`:"—"}</b></div>${m.email?`<div><span>Email</span><b><a href="mailto:${esc(m.email)}">${esc(m.email)}</a></b></div>`:""}${m.address?`<div class="wide"><span>Address</span><b>${esc(m.address)}</b></div>`:""}<div><span>Entries</span><b>${s.count}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`:isGen(m)?`<div><span>Area</span><b>${esc(m.area||"—")}</b></div>${m.company?`<div><span>Company</span><b>${esc(m.company)}</b></div>`:""}<div><span>Entries</span><b>${s.count}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>`:
    `${m.company?`<div><span>Company</span><b>${esc(m.company)}</b></div>`:""}<div><span>Cavities</span><b>${esc(m.cavities||"—")}</b></div><div><span>Material</span><b>${esc(m.material||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div>
    <div><span>Latest shots</span><b>${fmtNum(s.shots)}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>${(m.dateStamps||[]).length?`<div class="wide"><span>Date stamps</span><b class="dsfacts">${m.dateStamps.map(dsChip).join("")}</b></div>`:""}`}</div>`;
   $("#histhead").insertAdjacentHTML("beforeend",mpHtml(m));
@@ -3818,8 +3824,8 @@ $("#genform").addEventListener("submit",async e=>{
   const name=$("#g-name").value.trim();if(!name)return;
   const id="gen_"+slug(name);
   if(moulds.some(m=>m.id===id||mlabel(m).toLowerCase()===name.toLowerCase())){toast(name+" is already registered");return}
-  const doc={kind:"generic",name,area:$("#g-area").value.trim(),createdAt:new Date().toISOString()};
-  try{await db.collection("moulds").doc(id).set(doc);["#g-name","#g-area"].forEach(s=>$(s).value="");$("#genpanel").open=false;toast("Added "+name)}
+  const doc={kind:"generic",name,area:$("#g-area").value.trim(),company:$("#g-comp").value.trim(),createdAt:new Date().toISOString()};
+  try{await db.collection("moulds").doc(id).set(doc);["#g-name","#g-area","#g-comp"].forEach(s=>$(s).value="");$("#genpanel").open=false;toast("Added "+name)}
   catch(err){toast("Couldn't add: "+(err.message||err.code))}
 });
 
@@ -3834,6 +3840,7 @@ $("#cliform").addEventListener("submit",async e=>{
 });
 $("#clipanel").addEventListener("toggle",()=>{$("#complist").innerHTML=companies().map(c=>`<option value="${esc(c)}">`).join("")});
 $("#addpanel").addEventListener("toggle",()=>{$("#complist").innerHTML=companies().map(c=>`<option value="${esc(c)}">`).join("")});
+$("#genpanel").addEventListener("toggle",()=>{$("#complist").innerHTML=companies().map(c=>`<option value="${esc(c)}">`).join("")});
 $("#mouldform").addEventListener("submit",async e=>{
   e.preventDefault();if(!db){toast("Saving isn't available in this view");return}
   const name=$("#m-name").value.trim();if(!name)return;
@@ -5716,16 +5723,29 @@ const hrzCsv=v=>{v=hrzClean(v);return hrzHasData(v)?v.z.map((r,i)=>`Z${i+1}${r.l
 // Each entry: {date, tech, wo, sub, logId, mouldId, hours}. "2601-1" puts the hours against that sub-job's mould.
 let hoursList=[], hrEditing=null, hrConfirm=null;
 const fmtH=n=>{const v=Math.round((Number(n)||0)*100)/100;return v.toLocaleString(undefined,{maximumFractionDigits:2})+" h"};
-const companies=()=>[...new Set(moulds.map(m=>String(m.company||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:"base"}));
+// Every company named on a mould or job, once each: spellings that differ only in capitals or spaces are one company,
+// shown the way it's most often written
+const companies=()=>{const by=new Map();for(const m of moulds){const n=String(m.company||"").trim();if(!n)continue;const k=n.toLowerCase().replace(/\s+/g," ");
+    const g=by.get(k)||{};g[n]=(g[n]||0)+1;by.set(k,g)}
+  return [...by.values()].map(g=>Object.entries(g).sort((a,b)=>b[1]-a[1])[0][0]).sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:"base"}))};
 function hrParseWo(v){const m=String(v||"").trim().toUpperCase().replace(/^#/,"").match(/^(.*?\d+)(?:-(\d+))?$/);if(!m)return null;
   const base=m[1],l=logs.find(x=>normWo(x.wo)===normWo(base));
   let mouldId=null;if(l&&m[2]){const hit=Object.entries(l.subs||{}).find(([,s])=>s&&String(s.no)===m[2]);mouldId=hit?hit[0]:null}
   return {wo:l?l.wo:base,sub:m[2]?Number(m[2]):null,log:l||null,mouldId,badSub:!!(m[2]&&l&&!mouldId)}}
 const hrLog=h=>logs.find(l=>l.id===h.logId)||logs.find(l=>normWo(l.wo)===normWo(h.wo))||null;
 function hrTools(h){const l=hrLog(h);if(h.mouldId)return [h.mouldId,...joinedOf(l,h.mouldId)];return l?allIds(l):[]}
-function hrMatch(h,f){if(!f||f==="all")return true;const ids=hrTools(h);
-  if(f.startsWith("m:"))return ids.includes(f.slice(2));
-  if(f.startsWith("c:"))return ids.some(id=>{const m=moulds.find(x=>x.id===id);return m&&String(m.company||"").trim()===f.slice(2)});
+// A work order for a general (or client) job: all its hours, sub-jobs included, count towards that job and its company
+const hrMain=h=>{const l=hrLog(h),m=l&&moulds.find(x=>x.id===l.mouldId);return m&&isGen(m)?m:null};
+const coNorm=c=>String(c||"").trim().toLowerCase().replace(/\s+/g," ");
+// the companies an entry counts towards: its tools' and its general job's (each once, whatever the spelling)
+function hrCompanies(h){const o=new Map(),add=m=>{const n=String((m&&m.company)||"").trim();if(n&&!o.has(coNorm(n)))o.set(coNorm(n),n)},g=hrMain(h);
+  // hours on the general job itself (not one of its sub-jobs) are that job's company's alone
+  if(!h.mouldId&&g&&String(g.company||"").trim())return [String(g.company).trim()];
+  hrTools(h).forEach(id=>add(moulds.find(x=>x.id===id)));add(hrMain(h));return [...o.values()]}
+// Each entry is matched once, so hours are never counted twice however many of its tools share the company
+function hrMatch(h,f){if(!f||f==="all")return true;
+  if(f.startsWith("m:")){const id=f.slice(2);return hrTools(h).includes(id)||(hrMain(h)||{}).id===id}
+  if(f.startsWith("c:")){const k=coNorm(f.slice(2));return hrCompanies(h).some(n=>coNorm(n)===k)}
   return true}
 function hrLabel(h){const l=hrLog(h);if(h.mouldId){const m=moulds.find(x=>x.id===h.mouldId);const mem=joinedOf(l,h.mouldId);return m?[mlabel(m),...mem.map(mName)].join(" + "):(l?jobTool(l):"")}return l?jobTool(l):"Work order not found"}
 // Hours on a work order (or one of its sub-jobs), for the small total on the work order page
@@ -6076,7 +6096,7 @@ function hrByWo(entries){const g={};
     if(!g[k]){const mid=l&&h.sub?(subJobs(l).find(x=>String(x.no)===String(h.sub))||{}).id:null;
       const sm=l&&mid?subMeta(l,mid):null;
       g[k]={l,mid,wo:h.sub?`${h.wo}-${h.sub}`:h.wo,tool:hrLabel(h),status:sm?sm.status:(l?l.status||"Complete":""),
-        desc:(sm&&sm.description)||(l?l.description||"":""),company:[...new Set(hrTools(h).map(id=>(moulds.find(x=>x.id===id)||{}).company).filter(Boolean))].join(", "),hours:0,n:0,techs:{},start:sm?sm.date:(l?l.date||"":""),end:(sm?sm.dateCompleted:(l?l.dateCompleted||"":""))||""};
+        desc:(sm&&sm.description)||(l?l.description||"":""),company:hrCompanies(h).join(", "),hours:0,n:0,techs:{},start:sm?sm.date:(l?l.date||"":""),end:(sm?sm.dateCompleted:(l?l.dateCompleted||"":""))||""};
       const st=g[k].status;if(l&&!isDone(st))g[k].end="present"}
     const t=(h.tech||"").trim()||"Unnamed";g[k].hours+=Number(h.hours)||0;g[k].n++;g[k].techs[t]=(g[k].techs[t]||0)+(Number(h.hours)||0)}
   Object.values(g).forEach(r=>r.byTech=Object.entries(r.techs).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])));
@@ -6123,7 +6143,7 @@ const hrFileBase=()=>{const mon=$("#hr-month").value,f=hrFilter;return `Work hou
 // CSV: the breakdown by work order, then every entry
 $("#hr-csv").onclick=()=>{
   const mon=$("#hr-month").value,q=v=>'"'+String(v??"").replace(/"/g,'""')+'"',rows=hrMonthEntries(),bw=hrByWo(rows),tot=rows.reduce((t,h)=>t+(Number(h.hours)||0),0);
-  const comp=h=>[...new Set(hrTools(h).map(id=>(moulds.find(x=>x.id===id)||{}).company).filter(Boolean))].join(", ");
+  const comp=h=>hrCompanies(h).join(", ");
   const L=[[`Work hours – ${hrMonthName(mon)}`],[hrFilterTitle()],[],
     ["Work order","Mould / job","Company","Description","Start","End","Status","Technicians","Hours"],...bw.map(r=>[r.wo,r.tool,r.company,r.desc,r.start,r.end==="present"?"Present":r.end,r.status,r.byTech.map(([t,v])=>`${t} ${fmtH(v)}`).join("; "),r.hours]),["","","","","","","","Total",tot],[],
     ["Date","Technician","Work order","Mould / job","Company","Hours"],...rows.map(h=>[h.date,h.tech,h.sub?h.wo+"-"+h.sub:h.wo,hrLabel(h),comp(h),h.hours])];
@@ -6573,7 +6593,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.28-133";
+const APP_VERSION="2026.10.28-134";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
