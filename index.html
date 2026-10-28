@@ -6102,6 +6102,13 @@ function hrByWo(entries){const g={};
     const t=(h.tech||"").trim()||"Unnamed";g[k].hours+=Number(h.hours)||0;g[k].n++;g[k].techs[t]=(g[k].techs[t]||0)+(Number(h.hours)||0)}
   Object.values(g).forEach(r=>r.byTech=Object.entries(r.techs).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])));
   return Object.values(g).sort((a,b)=>String(a.wo).localeCompare(String(b.wo),undefined,{numeric:true}))}
+// With a search, a sub-job's row comes straight after a row for its work order's main job, so it reads in context.
+// That row only names the job (no hours); the hours and totals are the search's alone.
+function hrWithMain(bw){if(hrFilter==="all")return bw;const out=[];
+  for(const r of bw){if(r.l&&r.mid&&!out.some(x=>x.l===r.l&&!x.mid)){const l=r.l,m=moulds.find(x=>x.id===l.mouldId),st=l.status||"Complete";
+      out.push({l,mid:null,ctx:true,wo:l.wo,tool:m&&isGen(m)?mlabel(m):jobTool(l),company:String((m&&m.company)||"").trim(),desc:l.description||"",status:st,start:l.date||"",end:isDone(st)?(l.dateCompleted||""):"present",hours:0,byTech:[]})}
+    out.push(r)}
+  return out}
 function hrMonthName(mon){return new Date(mon+"-01T00:00:00").toLocaleDateString(undefined,{month:"long",year:"numeric"})}
 function hrMonthEntries(){const f=hrFilter,mon=$("#hr-month").value;return hoursList.filter(h=>hrMatch(h,f)&&String(h.date||"").slice(0,7)===mon).sort((a,b)=>(a.date||"").localeCompare(b.date||"")||String(a.wo).localeCompare(String(b.wo),undefined,{numeric:true}))}
 function hrFilterTitle(){const f=hrFilter;return f==="all"?"All work":(f.startsWith("c:")?"Company: ":"Tool: ")+hrFilterLabel(f)}
@@ -6146,7 +6153,7 @@ $("#hr-csv").onclick=()=>{
   const mon=$("#hr-month").value,q=v=>'"'+String(v??"").replace(/"/g,'""')+'"',rows=hrMonthEntries(),bw=hrByWo(rows),tot=rows.reduce((t,h)=>t+(Number(h.hours)||0),0);
   const comp=h=>hrCompanies(h).join(", ");
   const L=[[`Work hours – ${hrMonthName(mon)}`],[hrFilterTitle()],[],
-    ["Work order","Mould / job","Company","Description","Start","End","Status","Technicians","Hours"],...bw.map(r=>[r.wo,r.tool,r.company,r.desc,r.start,r.end==="present"?"Present":r.end,r.status,r.byTech.map(([t,v])=>`${t} ${fmtH(v)}`).join("; "),r.hours]),["","","","","","","","Total",tot],[],
+    ["Work order","Mould / job","Company","Description","Start","End","Status","Technicians","Hours"],...hrWithMain(bw).map(r=>[r.wo,r.tool,r.company,r.desc,r.start,r.end==="present"?"Present":r.end,r.status,r.byTech.map(([t,v])=>`${t} ${fmtH(v)}`).join("; "),r.ctx?"":r.hours]),["","","","","","","","Total",tot],[],
     ["Date","Technician","Work order","Mould / job","Company","Hours"],...rows.map(h=>[h.date,h.tech,h.sub?h.wo+"-"+h.sub:h.wo,hrLabel(h),comp(h),h.hours])];
   saveFile(hrFileBase()+".csv",new Blob(["\ufeff"+L.map(r=>r.map(q).join(",")).join("\r\n")],{type:"text/csv"}));
 };
@@ -6164,7 +6171,7 @@ $("#hr-pdf").onclick=async()=>{const b=$("#hr-pdf");b.disabled=true;
     const dShort=d=>{const x=new Date(d+"T00:00:00");return isNaN(x)?d:x.toLocaleDateString(undefined,{day:"2-digit",month:"2-digit",year:"numeric"})};
     const datesCell=r=>r.start?[dShort(r.start)+" –",r.end==="present"?"present":r.end?dShort(r.end):"?"]:["–"];
     R.blocks.push({t:"table",cols:["Work order","Mould / job","Description","Dates","Status","Technician","Hours"],widths:[.11,.16,.25,.14,.13,.11,.10],fs:9,right:[6],bold:[0],total:true,wrap:true,
-      rows:[...bw.map(r=>[r.wo,r.tool,r.desc||"–",datesCell(r),r.status||"",techCell(r),hrsCell(r)]),["Total","","","","","",fmtH(tot)]]});
+      rows:[...hrWithMain(bw).map(r=>r.ctx?[r.wo,r.tool,r.desc||"–",datesCell(r),r.status||"",[{t:"–",m:true}],[{t:"–",m:true}]]:[r.wo,r.tool,r.desc||"–",datesCell(r),r.status||"",techCell(r),hrsCell(r)]),["Total","","","","","",fmtH(tot)]]});
     if(bw.some(r=>r.company)&&!hrFilter.startsWith("c:"))R.blocks.push({t:"note",text:"Companies: "+[...new Set(bw.map(r=>r.company).filter(Boolean))].join(", ")});
     const pdf=buildPdf(R,null,await rptLogo());
     saveFile(hrFileBase()+".pdf",new Blob([pdf],{type:"application/pdf"}));
@@ -6594,7 +6601,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.28-135";
+const APP_VERSION="2026.10.28-136";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
