@@ -819,6 +819,17 @@ details.ck>summary span:first-child{flex:1}
 .cl-plus{width:26px;text-align:center;color:var(--muted);font-size:20px;line-height:37px;flex:none}
 .cl-donetoggle{border:0;border-top:1px solid var(--line);background:none;font:inherit;font-size:13px;font-weight:600;color:var(--muted);padding:10px 2px 6px;margin-top:6px;text-align:left;cursor:pointer}
 .cl-form{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 8px}
+.cl-meta{font-size:12.5px;color:var(--muted);margin:-4px 0 6px 6px;line-height:1.3}
+.nwsec{gap:4px}.nwsec .small{margin:0;color:var(--muted)}
+.nwbox .nwname{font-weight:600;font-size:14px;margin:8px 0 4px}
+.nwbox .cl{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:4px 8px}
+.nwban{border:1px solid var(--accent);border-left-width:4px;border-radius:10px;background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.nwban .nwbhead{display:flex;flex-direction:column;gap:2px}
+.nwban .nwbhead span{font-size:13px;color:var(--muted)}
+.nwban .attbtns{margin:2px 0 0}
+.nwtag{color:#8a5a00;font-weight:600}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .nwtag{color:var(--accent)}}
+:root[data-theme="dark"] .nwtag{color:var(--accent)}
 /* Hot runner dictation */
 .hrzmic{display:inline-flex;align-items:center;gap:6px;margin-left:auto;margin-right:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--accent);background:var(--surface);color:var(--fg);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
 .hrzmic svg{color:var(--accent)}
@@ -1268,6 +1279,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <button type="button" class="addmould" id="f-addbtn">+ Add another mould</button>
         <div class="fprocs" id="f-procs" hidden></div>
       </div>
+      <div class="nwban" id="f-nwban" hidden></div>
       <div class="grid2">
         <div class="field"><label class="label" for="f-date">Date started</label><input id="f-date" type="date" required></div>
         <div class="field"><label class="label" for="f-done">Date completed</label><input id="f-done" type="date"></div>
@@ -1301,6 +1313,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <label class="label" for="f-notes">Notes</label>
         <textarea id="f-notes" class="autogrow" placeholder="Extra detail, findings or measurements"></textarea>
       </div>
+      <div class="field nwbox" id="f-nwbox" hidden></div>
       </div>
       <div class="field" id="wonotes-field" hidden><label class="label" for="f-wonotes">Notes</label><textarea id="f-wonotes" class="autogrow" rows="2" placeholder="Notes for the whole work order (each sub-job has its own too)"></textarea></div>
       
@@ -1352,6 +1365,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
             <div class="field"><label class="label" for="b-faults">Inspection / faults found</label><textarea id="b-faults" class="autogrow" rows="2" placeholder="e.g. Worn ejector pin on cavity 3, blocked vent"></textarea><div class="hrz" id="b-hrz"></div></div>
             <div class="field"><label class="label" for="b-work">Work done</label><textarea id="b-work" class="autogrow" rows="2" placeholder="e.g. Replaced ejector pin, cleaned vents"></textarea></div>
             <div class="field"><label class="label" for="b-notes">Notes</label><textarea id="b-notes" class="autogrow" placeholder="Extra detail, findings or measurements"></textarea></div>
+            <div class="field nwbox" id="b-nwbox" hidden></div>
           </div>
           <div class="mcol">
             <div class="woprocs" id="b-wprocs"></div>
@@ -1677,6 +1691,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <div class="hgrid">
     <div class="hside">
     <div class="panel" id="histhead"></div>
+    <div class="panel stackcol nwsec" id="h-nw"></div>
     <div class="panel stackcol" id="histproc"></div>
     <div class="panel stackcol" id="histparts"></div>
     <form class="panel" id="mouldedit" hidden autocomplete="off">
@@ -2082,17 +2097,17 @@ document.addEventListener("paste",e=>{
 // Each list lives in a .cl element with data-cl="<key>"; clInst[key] holds {items:[{id,text,done}], save(items), showDone}
 const clInst={};
 const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-const cleanItems=items=>(items||[]).filter(i=>String(i.text||"").trim()||i.done).map(i=>({id:i.id||newId(),text:String(i.text||"").replace(/\s+$/,""),done:!!i.done,...(validDay(i.due)?{due:i.due}:{})}));
-function clRow(i,fin){return `<div class="cl-row${i.done?" done":""}" data-id="${esc(i.id)}">${i.done?"":gripBtn("cl","Drag to reorder this item")}<input type="checkbox" class="cl-cb"${i.done?" checked":""} aria-label="Done"><div class="cl-body"><textarea class="cl-text" rows="1" aria-label="List item">${esc(i.text)}</textarea>${validDay(i.due)?`<button type="button" class="due ${i.done||fin?"later":dueCls(i.due)} cl-due" data-cldue="1" aria-label="Due ${esc(dueLabel(i.due))}. Change the date">${DUE_ICON}${esc(dueLabel(i.due))}</button>`:""}</div>${i.done||validDay(i.due)?"":`<button type="button" class="cl-dset" data-cldue="1" aria-label="Add a due date" title="Due date">${DUE_ICON}</button>`}<button type="button" class="cl-del" aria-label="Delete item">×</button></div>`}
+const cleanItems=items=>(items||[]).filter(i=>String(i.text||"").trim()||i.done).map(i=>({id:i.id||newId(),text:String(i.text||"").replace(/\s+$/,""),done:!!i.done,...(validDay(i.due)?{due:i.due}:{}),...(i.src&&typeof i.src==="object"?{src:i.src}:{}),...(i.done&&validDay(i.doneAt)?{doneAt:i.doneAt}:{})}));
+function clRow(i,fin,meta,noDue){return `<div class="cl-row${i.done?" done":""}" data-id="${esc(i.id)}">${i.done?"":gripBtn("cl","Drag to reorder this item")}<input type="checkbox" class="cl-cb"${i.done?" checked":""} aria-label="Done"><div class="cl-body"><textarea class="cl-text" rows="1" aria-label="List item">${esc(i.text)}</textarea>${meta?`<span class="cl-meta">${esc(meta)}</span>`:""}${noDue?"":validDay(i.due)?`<button type="button" class="due ${i.done||fin?"later":dueCls(i.due)} cl-due" data-cldue="1" aria-label="Due ${esc(dueLabel(i.due))}. Change the date">${DUE_ICON}${esc(dueLabel(i.due))}</button>`:""}</div>${noDue||i.done||validDay(i.due)?"":`<button type="button" class="cl-dset" data-cldue="1" aria-label="Add a due date" title="Due date">${DUE_ICON}</button>`}<button type="button" class="cl-del" aria-label="Delete item">×</button></div>`}
 function clRender(key,focus){
   const inst=clInst[key];if(!inst)return;
   const el=document.querySelector(`.cl[data-cl="${CSS.escape(key)}"]`);if(!el)return;
   if(sortDrag&&sortDrag.box===el){inst.redraw=true;return} // not while an item is being dragged; redrawn on drop
   const open=inst.items.filter(i=>!i.done),done=inst.items.filter(i=>i.done);
   // finished work order (the one open in the form, or a work order's list on the Dashboard): dates without the overdue colour
-  const fin=key==="form"?isDone(segVal("#f-status")):key.startsWith("wo:")?(l=>!!l&&!woIsOpen(l))(logs.find(x=>x.id===key.slice(3))):false,row=i=>clRow(i,fin);
+  const fin=key==="form"?isDone(segVal("#f-status")):key.startsWith("wo:")?(l=>!!l&&!woIsOpen(l))(logs.find(x=>x.id===key.slice(3))):false,nw=/^nwf?:/.test(key),row=i=>clRow(i,fin,nw?nwMeta(i):"",nw);
   el.innerHTML=open.map(row).join("")+
-    `<div class="cl-add"><span class="cl-plus" aria-hidden="true">+</span><textarea class="cl-new" rows="1" placeholder="List item" aria-label="Add list item"></textarea></div>`+
+    `<div class="cl-add"><span class="cl-plus" aria-hidden="true">+</span><textarea class="cl-new" rows="1" placeholder="${nw?"Work to do next time":"List item"}" aria-label="Add list item"></textarea></div>`+
     (done.length?`<button type="button" class="cl-donetoggle" aria-expanded="${!!inst.showDone}">${inst.showDone?"▾":"▸"} ${done.length} ticked item${done.length===1?"":"s"}</button>`+(inst.showDone?`<div class="cl-donelist">${done.map(row).join("")}</div>`:""):"");
   growMany(el.querySelectorAll("textarea"));
   if(focus){
@@ -2369,6 +2384,92 @@ function tdSaveLater(key,fn){
 function tdMerged(key,items,server){const inst=clInst[key],local=cleanItems(items),out=inst&&inst.base?cleanItems(mergeById(cleanItems(inst.base),local,cleanItems(server||[]))):local;
   if(inst)inst.base=JSON.parse(JSON.stringify(local));return out}
 function tdFlush(){for(const k of Object.keys(tdTimers)){clearTimeout(tdTimers[k].t);tdTimers[k].fn()}}
+// ---- Next time: work recommended for a mould's next visit. Kept on the mould (moulds/{id}.nextWork), so it's on
+// the mould's page whatever work order it's in. Each item: {id,text,done,src:{date,wo,logId},doneAt}. Added to a work
+// order's to-do list, the to-do item keeps the same id: ticking either one ticks the other. ----
+const nwList=m=>cleanItems((m&&m.nextWork)||[]);
+const nwOpen=m=>nwList(m).filter(i=>!i.done);
+const nwPlanned=id=>logs.find(l=>(l.todos||[]).some(t=>t.id===id));
+const nwWhen=d=>{const x=fmtDate(d);return String(d).slice(0,4)===today().slice(0,4)?x.replace(/,?\s*\d{4}$/,""):x}; // this year's dates without the year
+function nwMeta(i){const s=i.src||{},l=!i.done&&nwPlanned(i.id),bits=[];
+  if(s.wo)bits.push(`From #${s.wo}`+(s.date?` · ${nwWhen(s.date)}`:""));else if(s.date)bits.push(`Added ${nwWhen(s.date)}`);
+  if(i.done&&i.doneAt)bits.push(`Done ${nwWhen(i.doneAt)}`);
+  if(l)bits.push(`On #${l.wo||"—"}'s to-do`);
+  return bits.join(" · ")}
+// where a new recommendation came from: the work order open in the form, or the mould's own page
+function nwSrc(key){if(!key.startsWith("nwf:"))return {date:today()};const wo=$("#f-wo").value.trim().toUpperCase();
+  return {date:today(),...(wo?{wo}:{}),...(editingId?{logId:editingId}:{})}}
+function nwSave(mid,key){return items=>tdSaveLater(key,async()=>{const m=moulds.find(x=>x.id===mid);if(!m)return;
+  const before=new Map(nwList(m).map(i=>[i.id,i]));
+  for(const it of items){if(!it.src)it.src=nwSrc(key);const b=before.get(it.id);
+    if(it.done&&!(b&&b.done))it.doneAt=today();if(!it.done)delete it.doneAt;
+    // on a work order's to-do list: ticked here, it's ticked there too
+    if(b&&!!b.done!==!!it.done){const l=nwPlanned(it.id);if(l){const todos=(l.todos||[]).map(t=>t.id===it.id?{...t,done:!!it.done}:t);
+      await db.collection("logs").doc(l.id).update({todos,updatedAt:new Date().toISOString()});scheduleBackup(l.id)}}}
+  await db.collection("moulds").doc(mid).update({nextWork:tdMerged(key,items,(moulds.find(x=>x.id===mid)||{}).nextWork),updatedAt:new Date().toISOString()})})}
+let nwStale=false;
+const nwTyping=box=>box.contains(document.activeElement)&&document.activeElement.matches("textarea,input");
+// on the mould's page
+function renderNwHist(m){const box=$("#h-nw");if(!box)return;const key="nw:"+m.id;
+  if(box.dataset.for===m.id&&nwTyping(box)){nwStale=true;return}
+  if(box.dataset.for!==m.id){box.dataset.for=m.id;
+    box.innerHTML=`<span class="label" style="margin:0">Next time<span id="h-nwn"></span></span><p class="small">Work to do the next time this ${isGen(m)?"job":"mould"} is in. Its next work order offers to add it to the to-do list.</p><div class="cl" data-cl="${esc(key)}"></div>`}
+  const n=nwOpen(m).length;$("#h-nwn").textContent=n?` · ${n} to do`:"";
+  clMount(key,nwList(m),nwSave(m.id,key))}
+// in the work order: the main mould's fields (f), or the sub-job page (b, with any moulds joined to it)
+function nwFormIds(p){if(p==="b")return subPage?[subPage,...(formJoined[subPage]||[])]:[];
+  const prim=$("#f-mould").value||lastPrimary;return prim&&!$("#pmmain").classList.contains("off")?[prim]:[]}
+function renderNwForm(){
+  for(const p of ["f","b"]){const box=$("#"+p+"-nwbox");if(!box)continue;const ids=nwFormIds(p).filter(id=>moulds.some(m=>m.id===id)),sig=ids.join(",");
+    if(box.dataset.sig===sig&&nwTyping(box)){nwStale=true;continue}
+    box.hidden=!ids.length;
+    if(box.dataset.sig!==sig){box.dataset.sig=sig;
+      box.innerHTML=ids.length?`<span class="label">For next time</span><div class="hint" style="margin:0 0 6px">Work to recommend for the next time ${ids.length>1?"these moulds are":"it's"} in. It's kept on the ${ids.length>1?"moulds":isGen(moulds.find(m=>m.id===ids[0]))?"job":"mould"}, not this work order.</div>`+
+        ids.map(id=>`${ids.length>1?`<div class="nwname">${esc(mName(id))}</div>`:""}<div class="cl" data-cl="nwf:${esc(id)}"></div>`).join(""):""}
+    for(const id of ids)clMount("nwf:"+id,nwList(moulds.find(m=>m.id===id)),nwSave(id,"nwf:"+id))}
+  renderNwBanner()}
+["#h-nw","#f-nwbox","#b-nwbox"].forEach(s=>{const el=$(s);if(el)el.addEventListener("focusout",()=>setTimeout(()=>{if(!nwStale||nwTyping(el))return;nwStale=false;
+  if(!$("#v-hist").hidden)renderHist();if(!$("#v-log").hidden)renderNwForm()},0))});
+// ---- On a work order: what's been recommended for its moulds, to add to its to-do list or put off for a later one ----
+let formNwSkip=[]; // put off on this work order (saved with it)
+const nwBanOff=new Set(); // unticked in the banner
+function nwBannerItems(){if(isDone(segVal("#f-status")))return [];
+  const wo=normWo($("#f-wo").value),inTodo=new Set(formTodos.map(t=>t.id)),out=[];
+  const ids=[...new Set([$("#f-mould").value||lastPrimary,...extraIds,...Object.values(formJoined).flat()].filter(Boolean))];
+  for(const id of ids)for(const i of nwOpen(moulds.find(m=>m.id===id))){const s=i.src||{};
+    if(inTodo.has(i.id)||formNwSkip.includes(i.id)||(s.logId&&s.logId===editingId)||(s.wo&&wo&&normWo(s.wo)===wo)||nwPlanned(i.id))continue;
+    out.push({mid:id,i})}
+  return out}
+function renderNwBanner(){const el=$("#f-nwban");if(!el)return;const list=nwBannerItems();
+  el.hidden=!list.length;if(!list.length){el.innerHTML="";return}
+  const several=new Set(list.map(x=>x.mid)).size>1,on=list.filter(x=>!nwBanOff.has(x.i.id)).length;
+  el.innerHTML=`<div class="nwbhead"><b>Recommended for next time</b><span>${several?"From earlier work on these moulds":`From earlier work on ${esc(mName(list[0].mid))}`}</span></div>`+
+    `<div class="stackcol" style="gap:6px">${list.map(x=>`<label class="updreopen rec"><input type="checkbox" class="nwb-cb" value="${esc(x.i.id)}"${nwBanOff.has(x.i.id)?"":" checked"}><span>${esc(x.i.text)}<span class="small"> · ${esc((several?mName(x.mid)+" · ":"")+nwMeta(x.i))}</span></span></label>`).join("")}</div>`+
+    `<div class="attbtns"><button type="button" class="btn" data-nwb="add"${on?"":" disabled"}>Add ${on===list.length?"":"ticked "}to this job's to-do</button><button type="button" class="btn ghost" data-nwb="skip">Not now</button></div>`+
+    `<div class="small">“Not now” leaves ${list.length===1?"it":"them"} on the mould for a later work order.</div>`}
+$("#f-nwban").addEventListener("change",e=>{const c=e.target.closest(".nwb-cb");if(!c)return;if(c.checked)nwBanOff.delete(c.value);else nwBanOff.add(c.value);renderNwBanner()});
+$("#f-nwban").addEventListener("click",e=>{const b=e.target.closest("[data-nwb]");if(!b)return;const list=nwBannerItems();if(!list.length)return;
+  const several=new Set([$("#f-mould").value||lastPrimary,...extraIds].filter(Boolean)).size>1;
+  const add=b.dataset.nwb==="add"?list.filter(x=>!nwBanOff.has(x.i.id)):[],put=list.filter(x=>!add.includes(x));
+  if(add.length){const at=formTodos.findIndex(t=>t.done),items=add.map(x=>({id:x.i.id,text:(several?mName(x.mid)+": ":"")+x.i.text,done:false}));
+    if(at<0)formTodos.push(...items);else formTodos.splice(at,0,...items);mountFormTodos()}
+  for(const x of put)if(!formNwSkip.includes(x.i.id))formNwSkip.push(x.i.id);
+  nwBanOff.clear();markDirty(250);renderNwBanner();
+  toast(add.length?`Added ${add.length} to the to-do list`+(put.length?`; ${put.length} left for later`:""):`Left for a later work order`)});
+// a work order's to-do ticked or unticked (here or on another device): its recommendation on the mould follows
+let nwSyncT=null,nwSyncing=false;
+function nwSyncSoon(){clearTimeout(nwSyncT);nwSyncT=setTimeout(nwSync,400)}
+async function nwSync(){if(!db||!loaded.m||!loaded.l||nwSyncing)return;
+  const by=new Map();for(const m of moulds)for(const i of (m.nextWork||[]))by.set(i.id,m);if(!by.size)return;
+  const fix={};
+  for(const l of logs)for(const t of (l.todos||[])){const m=by.get(t.id);if(!m)continue;const i=m.nextWork.find(x=>x.id===t.id);
+    if(i&&!!i.done!==!!t.done)(fix[m.id]=fix[m.id]||{})[t.id]=!!t.done}
+  nwSyncing=true;
+  try{for(const [mid,ch] of Object.entries(fix)){if(tdTimers["nw:"+mid]||tdTimers["nwf:"+mid])continue; // a change here is about to be saved
+      const m=moulds.find(x=>x.id===mid);if(!m)continue;
+      const list=(m.nextWork||[]).map(i=>{if(!(i.id in ch))return i;const {doneAt,...r}=i;return ch[i.id]?{...r,done:true,doneAt:today()}:{...r,done:false}});
+      try{await db.collection("moulds").doc(mid).update({nextWork:list,updatedAt:new Date().toISOString()})}catch(e){}}}
+  finally{nwSyncing=false}}
 function updateTodoCount(){
   const n=todoLists.reduce((a,L)=>a+(L.items||[]).filter(i=>!i.done).length,0)+logs.reduce((a,l)=>a+(l.todos||[]).filter(i=>!i.done).length,0);
   const c=$("#todocount");c.textContent=n;c.hidden=!n;
@@ -3080,7 +3181,7 @@ function renderList(){
     return `<button class="mould b-${stClass(s.st).slice(3)}" data-id="${esc(m.id)}" type="button">
       <span><span class="mname">${esc(mlabel(m))}</span>${sub?` <span style="color:var(--muted)">· ${esc(sub)}</span>`:""}</span>
       <span class="stpill ${s.st?stClass(s.st):"none"}" style="align-self:start">${s.st?esc(s.st):"No jobs"}</span>
-      <span class="meta"><span>Last: ${s.last?(s.last.wo?esc(s.last.wo)+" · ":"")+fmtDate(s.last.date)+" · "+esc(s.last.type):"—"}</span><span class="mono">${s.shots?fmtNum(s.shots)+" shots":""}</span>${s.open?`<span class="openjobs">${s.open} open job${s.open===1?"":"s"}</span>`:""}${procFor(m.id,false).length?`<span>${procFor(m.id,false).length} procedure${procFor(m.id,false).length===1?"":"s"}</span>`:""}</span>
+      <span class="meta"><span>Last: ${s.last?(s.last.wo?esc(s.last.wo)+" · ":"")+fmtDate(s.last.date)+" · "+esc(s.last.type):"—"}</span><span class="mono">${s.shots?fmtNum(s.shots)+" shots":""}</span>${s.open?`<span class="openjobs">${s.open} open job${s.open===1?"":"s"}</span>`:""}${procFor(m.id,false).length?`<span>${procFor(m.id,false).length} procedure${procFor(m.id,false).length===1?"":"s"}</span>`:""}${(n=>n?`<span class="nwtag">${n} for next time</span>`:"")(nwOpen(m).length)}</span>
     </button>`};
   const mo=rows.filter(m=>!isGen(m)),ge=rows.filter(m=>isGen(m)&&!isClient(m)),cl=rows.filter(isClient);
   el.innerHTML=jobsHTML+(procHits.length?`<div class="group"><span class="label">Procedures · ${procHits.length}</span>${procListHTML(procHits,true)}</div>`:"")+(mo.length?`<div class="group cohead"><span class="label">Moulds · ${mo.length}</span></div>${coGroups(mo,card,!!q)}`:"")+
@@ -3254,7 +3355,7 @@ function renderHist(){
   // the mould's own updates (kept as they are while one is being written)
   if(mUpdFor!==m.id){mUpdFor=m.id;mUpdDel.clear();if(updOpen&&updOpen.p==="m")updOpen=null;$("#m-upd").innerHTML=""}
   if(!(updOpen&&updOpen.p==="m"))mUpds=updClean(m.updates);
-  $("#mupd-kind").textContent=isGen(m)?"job":"mould";renderUpd("m");
+  $("#mupd-kind").textContent=isGen(m)?"job":"mould";renderUpd("m");renderNwHist(m);
   const s=summary(m);
   $("#histhead").innerHTML=`<div class="row"><div><div style="font-family:var(--display);font-size:22px;font-weight:700">${esc(mlabel(m))}</div><div style="color:var(--muted)">${isClient(m)?"Client work"+(m.company?" · "+esc(m.company):""):isGen(m)?"General job"+(m.area?" · "+esc(m.area):"")+(m.company?" · "+esc(m.company):""):esc(m.part||"No part recorded")}</div></div><span class="stpill ${s.open?"st-Inprogress":s.count?"st-Complete":"none"}">${s.open?s.open+" open job"+(s.open===1?"":"s"):s.count?"All complete":"No jobs"}</span></div>
    <div style="margin-top:10px"><button type="button" class="btn ghost" id="meditbtn">Edit details</button></div>
@@ -3660,13 +3761,13 @@ function renderAll(){
 }
 
 let editingId=null, origWo=null;
-function segSet(id,v){const bs=[...$(id).querySelectorAll("button")];const hit=bs.find(b=>b.dataset.v===v)||bs[0];bs.forEach(b=>b.setAttribute("aria-pressed",b===hit?"true":"false"));if(id==="#f-status"&&typeof fDueHint==="function"){fDueHint();if(clInst.form)clRender("form")}} // a finished job keeps its due date but drops the due/overdue tag
+function segSet(id,v){const bs=[...$(id).querySelectorAll("button")];const hit=bs.find(b=>b.dataset.v===v)||bs[0];bs.forEach(b=>b.setAttribute("aria-pressed",b===hit?"true":"false"));if(id==="#f-status"&&typeof fDueHint==="function"){fDueHint();if(clInst.form)clRender("form");renderNwBanner()}} // a finished job keeps its due date but drops the due/overdue tag
 let formTodos=[];
 function mountFormTodos(){if(clInst.form)clInst.form.pending=false;clMount("form",formTodos,items=>{formTodos=items;clInst.form.pending=false;markDirty(600)})}
 mountFormTodos();
 function clearForm(){
   resetPM();setMould("");setExtras([]);
-  formTodos=[];mountFormTodos();
+  formTodos=[];mountFormTodos();formNwSkip=[];nwBanOff.clear();
   $("#f-shots").value="";$("#f-work").value="";$("#f-notes").value="";$("#f-wonotes").value="";$("#f-desc").value="";plWrite("f",[]);$("#f-done").value="";
   setExtras([]);
   $("#f-type").selectedIndex=0;$("#f-faults").value="";segReset("#f-status");$("#f-date").value=today();$("#f-due").value="";fDueHint();
@@ -3695,7 +3796,7 @@ function fillForm(l){
   formJoined=JSON.parse(JSON.stringify(l.joined||{}));
   for(const [x,sm] of Object.entries(l.subs||{})){if(!sm||!formPM[x])continue;if(sm.no)formSubNo[x]=sm.no;Object.assign(formPM[x],{status:sm.status,date:sm.date,done:sm.dateCompleted||"",type:sm.type||"",desc:sm.description||""})}
   $("#f-wo").value=l.wo||"";$("#f-order").value=l.orderNo||"";setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);
-  formTodos=(l.todos||[]).map(i=>({...i}));mountFormTodos();$("#f-date").value=l.date||today();
+  formTodos=(l.todos||[]).map(i=>({...i}));mountFormTodos();formNwSkip=[...(l.nwSkip||[])];nwBanOff.clear();$("#f-date").value=l.date||today();
   $("#f-shots").value=l.shots??"";plWrite("f",l.partsList||partsFromText(l.parts));$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-due").value=validDay(l.due)?l.due:"";fDueHint();$("#f-desc").value=l.description||"";$("#f-wonotes").value=l.woNotes||"";
   $("#f-type").value=JOBTYPES.includes(l.type)?l.type:JOBTYPES[0];
   $("#f-work").value=l.work==="Other (see notes)"?"":(l.work||"");$("#f-notes").value=l.notes||"";
@@ -3800,7 +3901,7 @@ function buildEntry(){
   const main=pmClean(mouldId), extras=extraIds.filter(x=>x!==mouldId);
   const perMould={};for(const x of extras)perMould[x]=pmClean(x);
   const subs={};for(const x of tabIdsFor(mouldId,extras)){const v=formPM[x]||{};subs[x]={no:formSubNo[x]||null,status:v.status||segVal("#f-status"),date:v.date??$("#f-date").value,dateCompleted:v.done||"",type:v.type||$("#f-type").value,description:String(v.desc||"").trim()}}
-  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),joined:joinedFor(mouldId,extraIds.filter(x=>x!==mouldId)),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",due:validDay($("#f-due").value)?$("#f-due").value:"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,procs:main.procs,updates:main.updates,hrz:main.hrz,todos:cleanItems(formTodos),subs,orderNo:$("#f-order").value.trim(),woNotes:$("#f-wonotes").value.trim()}};
+  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),joined:joinedFor(mouldId,extraIds.filter(x=>x!==mouldId)),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",due:validDay($("#f-due").value)?$("#f-due").value:"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,procs:main.procs,updates:main.updates,hrz:main.hrz,todos:cleanItems(formTodos),subs,orderNo:$("#f-order").value.trim(),woNotes:$("#f-wonotes").value.trim(),...(formNwSkip.length?{nwSkip:formNwSkip.slice()}:{})}};
 }
 function markDirty(delay){
   if(!db)return;
@@ -4565,6 +4666,7 @@ function renderFormDrive(){
     if(tt.sub!==t.sub&&!st)dsEnsure(dkey(tt),tt)}
     if(tot)n=String(tot)+(more?"+":"")}
   $("#wotabn").textContent=n;
+  renderNwForm();
 }
 // ---- Details | Photos & files tabs (tap, or swipe sideways) ----
 let woTab="details";
@@ -6099,6 +6201,7 @@ function srLocal(q){const words=searchWords(q),qn=normWo(q),R={wo:[],upd:[],file
   for(const L of todoLists){if(L.title&&hit(L.title)&&!(L.items||[]).some(i=>i.text&&hit(i.text)))R.other.push({sc:hit(L.title),kind:"todo",title:"To-do list",text:L.title,list:L.id});
     for(const it of (L.items||[])){const sc=it.text?hit(it.text):0;if(sc)R.other.push({sc,kind:"todo",title:L.title||"To-do list",text:it.text,done:it.done,list:L.id})}}
   for(const l of logs)for(const it of (l.todos||[])){const sc=it.text?hit(it.text):0;if(sc)R.other.push({sc,kind:"wotodo",l,title:`#${l.wo||"—"} ${jobTool(l)}`,text:it.text,done:it.done})}
+  for(const m of moulds)for(const it of nwList(m)){const sc=it.text?hit(it.text):0;if(sc)R.other.push({sc,kind:"nw",m,title:mlabel(m),text:it.text,done:it.done})}
   for(const p of procedures){const body=[...srStrings(p.sections),...(p.notes||[])].join(" · "),sc=hit([p.name,...procMouldNames(p),body].join(" "));if(sc)R.other.push({sc,kind:"proc",p,title:p.name||"Untitled procedure",text:body})}
   for(const it of inventory)if(invMatch(it,q))R.other.push({sc:2,kind:"inv",it,title:it.name||"Item",text:[it.spec,it.partNo,it.supplier,it.location,it.notes].filter(Boolean).join(" · ")});
   ["wo","upd","moulds"].forEach(k=>R[k].sort(srByDate));R.moulds.sort((a,b)=>b.sc-a.sc||mlabel(a.m).localeCompare(mlabel(b.m),undefined,{numeric:true}));
@@ -6168,7 +6271,7 @@ function srRender(){if($("#v-search").hidden)return;const q=srQ,el=$("#sr-result
     wo:(x,i)=>{const l=x.l,st=l.status||"Complete";return `<button type="button" class="srrow" data-sri="wo|${i}"><span class="srtop"><span class="wotag">${srMark(l.wo||"—",words)}</span><b class="srtool">${srMark(jobTool(l),words)}</b>${pill(st)}</span>${x.why?`<span class="srwhy"><small>${esc(x.why[0])}</small>${srSnip(x.why[1],words)}</span>`:""}<span class="srmeta">${esc([l.type,l.date?fmtDate(l.date):""].filter(Boolean).join(" · "))}</span></button>`},
     upd:(x,i)=>`<button type="button" class="srrow" data-sri="upd|${i}"><span class="srtop">${x.inbox?`<span class="stpill none">Not assigned</span>`:x.mould?`<span class="stpill none">${isGen(x.mould)?"Job":"Mould"} update</span>`:`<span class="wotag">${esc(x.wo||"—")}</span>`}<b class="srtool">${esc(x.tool)}</b><span class="srdate">${esc(fmtDate(x.date))}</span></span><span class="srwhy">${srSnip(x.text,words,220)}</span></button>`,
     moulds:(x,i)=>`<button type="button" class="srrow" data-sri="moulds|${i}"><span class="srtop"><b class="srtool">${srMark(mlabel(x.m),words)}</b>${x.m.company?`<span class="srmeta">${esc(x.m.company)}</span>`:""}</span>${x.why?`<span class="srwhy"><small>${esc(x.why[0])}</small>${srSnip(x.why[1],words)}</span>`:x.m.part?`<span class="srmeta">${esc(x.m.part)}</span>`:""}</button>`,
-    other:(x,i)=>`<button type="button" class="srrow" data-sri="other|${i}"><span class="srtop"><span class="srkind">${{todo:"To-do",wotodo:"To-do",proc:"Procedure",inv:"Inventory"}[x.kind]}</span><b class="srtool">${srMark(x.title,words)}</b></span>${x.text?`<span class="srwhy${x.done?" srdone":""}">${srSnip(x.text,words)}</span>`:""}</button>`,
+    other:(x,i)=>`<button type="button" class="srrow" data-sri="other|${i}"><span class="srtop"><span class="srkind">${{todo:"To-do",wotodo:"To-do",nw:"Next time",proc:"Procedure",inv:"Inventory"}[x.kind]}</span><b class="srtool">${srMark(x.title,words)}</b></span>${x.text?`<span class="srwhy${x.done?" srdone":""}">${srSnip(x.text,words)}</span>`:""}</button>`,
     files:(x,i)=>{const f=x.f,media=isMediaF(f),d=srFileDest(x);
       const pic=media&&f.thumbnailLink?`<img src="${esc(thumbUrl(f,400))}" referrerpolicy="no-referrer" alt="" loading="lazy" draggable="false">`:`<span class="ext">${driveIcon(f.mimeType)}</span>`;
       const meta=[fileTaken(f)?fmtDate(fileTaken(f).slice(0,10)):"",fmtSize(f.size)].filter(Boolean).join(" · ");
@@ -6201,6 +6304,7 @@ $("#sr-results").addEventListener("click",async e=>{const t=e.target;
   else if(k==="upd"){if(x.inbox)goPage("inbox");else if(x.mould)openMould(x.mould.id);else startEdit(x.l.id,x.sub||undefined)}
   else if(k==="moulds")openMould(x.m.id);
   else if(x.kind==="wotodo")startEdit(x.l.id);
+  else if(x.kind==="nw")openMould(x.m.id);
   else if(x.kind==="proc")openProc(x.p.id);
   else if(x.kind==="inv"){await goPage("inv");$("#inv-q").value=x.it.name||"";renderInv()}
   else if(x.kind==="todo"){await goTab("open");const card=document.querySelector(`#todolists .tdcard[data-id="${CSS.escape(x.list)}"]`);
@@ -6877,7 +6981,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.29-143";
+const APP_VERSION="2026.10.30-144";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -6910,8 +7014,8 @@ function dataError(err){
 }
 function startData(){
   stopData();
-  unsubs.push(db.collection("moulds").onSnapshot(s=>{moulds=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>mlabel(a).localeCompare(mlabel(b),undefined,{numeric:true,sensitivity:"base"}));loaded.m=true;renderAll();renderImportHint()},e=>{loaded.m=true;renderAll();dataError(e)}));
-  unsubs.push(db.collection("logs").onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint();formRemoteCheck()},e=>dataError(e)));
+  unsubs.push(db.collection("moulds").onSnapshot(s=>{moulds=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>mlabel(a).localeCompare(mlabel(b),undefined,{numeric:true,sensitivity:"base"}));loaded.m=true;renderAll();renderImportHint();nwSyncSoon()},e=>{loaded.m=true;renderAll();dataError(e)}));
+  unsubs.push(db.collection("logs").onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint();formRemoteCheck();nwSyncSoon()},e=>dataError(e)));
   unsubs.push(db.collection("procedures").onSnapshot(s=>{procedures=s.docs.map(d=>({id:d.id,...d.data()}));renderProcLists();renderProc();renderList();ensureServiceProc()},e=>dataError(e)));
   unsubs.push(db.collection("hours").onSnapshot(s=>{hoursList=s.docs.map(d=>({id:d.id,...d.data()}));renderHours();renderFormHours()},e=>dataError(e)));
   unsubs.push(db.collection("inventory").onSnapshot(s=>{inventory=s.docs.map(d=>({id:d.id,...d.data()}));loaded.inv=true;renderInv();plStockRefresh();renderInvBadge();if(!$("#v-hist").hidden)renderHistParts();if(!$("#invsheet").hidden&&ivEdit)ivUsed()},e=>dataError(e)));
