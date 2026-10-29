@@ -4437,10 +4437,13 @@ async function driveLoad(key,more){
   // a folder already shown (or saved on this device) stays on screen while it refreshes
   if(more||!st.items)st.status=more?"ready":"loading";st.loadingMore=!!more;renderAttViews();
   try{
-    if(!st.stack.length){
+    // the folder for this number is looked up again each time (not taken from the saved copy): a temporary job's number
+    // is used again once that job has joined a work order, and its old folder (and photos) went with it
+    if(st.stack.length<=1&&!more){
       let f=await findWoFolder(num);
       if(f&&sub){st.parent={id:f.id,name:f.name,url:f.webViewLink};f=await findSubFolder(num,f.id,sub)}
-      if(!f){st.status="nofolder";st.loadingMore=false;renderAttViews();return}
+      if(!f){st.stack=[];st.items=null;dcForget(key);st.status="nofolder";st.loadingMore=false;renderAttViews();return}
+      if(st.stack.length&&st.stack[0].id!==f.id){st.items=null;st.status="loading";renderAttViews()} // a different folder now: the old list goes
       st.stack=[{id:f.id,name:f.name,url:f.webViewLink}];
     }
     const cur=st.stack[st.stack.length-1];
@@ -4451,9 +4454,11 @@ async function driveLoad(key,more){
     st.next=p.nextPageToken||null;st.status="ready";st.cached=false;st.offline=false;st.loadedAt=Date.now();
     if(st.stack.length===1)dcSave(key,st);
   }catch(err){
+    // the folder's gone (deleted, or emptied out of the bin): look it up again from scratch, once
+    if(err&&err.status===404&&!st.retried){st.retried=true;st.stack=[];st.items=null;delete folderCache[num];delete subCache[num+"/"+sub];dcForget(key);return driveLoad(key)}
     const code=err&&(err.code==="needs_token"||err.code==="needs_scope")?err.code:"error";
     if(st.items&&st.items.length&&code!=="needs_scope"){st.status="ready";st.offline=true}else{st.status=code;st.err=err}}
-  st.loadingMore=false;renderAttViews();
+  st.retried=false;st.loadingMore=false;renderAttViews();
 }
 // ---- Offline copies of Drive folders: each folder's file list is kept on this device (small), and the photo
 // thumbnails are kept by the service worker, so a work order's photos still show with no signal ----
@@ -4462,6 +4467,7 @@ function dcDb(){return dcDb.p||(dcDb.p=new Promise((res,rej)=>{try{const r=index
 const dcSlim=f=>({id:f.id,name:f.name,mimeType:f.mimeType,size:f.size,modifiedTime:f.modifiedTime,createdTime:f.createdTime,webViewLink:f.webViewLink,thumbnailLink:f.thumbnailLink,...(f.imageMediaMetadata?{imageMediaMetadata:f.imageMediaMetadata}:{}),...(f.videoMediaMetadata?{videoMediaMetadata:f.videoMediaMetadata}:{})});
 async function dcSave(key,st){const rec={stack:st.stack.slice(0,1),parent:st.parent||null,items:(st.items||[]).map(dcSlim),label:st.label||"",num:st.num||key,sub:st.sub||"",at:Date.now()};dcMem.set(key,rec);
   try{const d=await dcDb();d.transaction("lists","readwrite").objectStore("lists").put(rec,key)}catch(e){}}
+function dcForget(key){dcMem.delete(key);dcDb().then(d=>d.transaction("lists","readwrite").objectStore("lists").delete(key)).catch(()=>{})}
 async function dcLoadAll(){try{const d=await dcDb();await new Promise(res=>{const t=d.transaction("lists"),os=t.objectStore("lists"),rq=os.openCursor();
   rq.onsuccess=()=>{const c=rq.result;if(c){dcMem.set(c.key,c.value);c.continue()}else res()};rq.onerror=()=>res()})}catch(e){}renderAttViews()}
 dcLoadAll();
@@ -6475,6 +6481,7 @@ const dPatch=(id,q,body)=>driveFetch(DAPI+"files/"+encodeURIComponent(id)+"?supp
 async function dChildren(id){let out=[],tok;do{const r=await dList(`'${dq(id)}' in parents and trashed=false`,tok);out=out.concat(r.files||[]);tok=r.nextPageToken}while(tok);return out}
 function forgetWoDrive(num){delete folderCache[num];delete backupFileIds[num];
   for(const k of Object.keys(driveState))if(k===num||k.startsWith(num+"/"))delete driveState[k];
+  for(const k of [...dcMem.keys()])if(k===num||String(k).startsWith(num+"/"))dcForget(k); // its saved copy on this device too
   for(const k of Object.keys(subCache))if(k.startsWith(num+"/"))delete subCache[k]}
 // Moves everything from one folder into another; same-named subfolders (one per mould) are merged
 async function mergeFolder(fromId,toId){
@@ -6870,7 +6877,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.10.29-141";
+const APP_VERSION="2026.10.29-142";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
