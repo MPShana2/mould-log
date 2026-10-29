@@ -45,7 +45,7 @@ function reportModel(l,onlyId){
   if(sub&&rptHas(sub.description)){B.push({t:"h",text:"Description"});B.push({t:"field",text:sub.description});if(rptHas(l.description))B.push({t:"field",label:"Work order #"+(l.wo||""),text:l.description})}
   else if(rptHas(l.description)){B.push({t:"h",text:"Description"});B.push({t:"field",text:l.description})}
   if(rptHas(l.woNotes)){B.push({t:"h",text:sub?"Work order notes":"Notes"});B.push({t:"field",text:l.woNotes})}
-  if(!onlyId&&(l.todos||[]).length){B.push({t:"h",text:"To-do"});B.push({t:"todo",items:l.todos})}
+  // the to-do list stays in the app; it isn't part of a report
   if(single){const f=showFields(single).filter(x=>x.label!=="Shot count"),insp=f.find(x=>x.label==="Inspection / faults found"),tbl=f.find(x=>x.insp),rest=f.filter(x=>x!==insp&&x!==tbl);
     if(insp||tbl){B.push({t:"h",text:"Inspection / faults found"});if(insp)B.push({t:"field",text:insp.text});if(tbl)B.push(tbl)}
     if(rest.length){B.push({t:"h",text:"Work carried out"});B.push(...rest)}}
