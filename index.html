@@ -337,6 +337,8 @@ textarea.autogrow{resize:none;overflow:hidden}
 .hreditlist{display:flex;flex-direction:column;gap:6px}
 .hreditz{display:grid;grid-template-columns:34px minmax(0,1.3fr) minmax(0,.8fr) minmax(0,.8fr) 70px;gap:6px;align-items:center}
 .hreditz input{min-width:0;padding:8px}.hreditz .hr-x{color:var(--muted);font-family:var(--mono);font-size:12px}
+.updfill{display:block;margin:6px 0 0;font-size:13px;color:var(--muted)}
+.updfillask{margin-top:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--sunk)}
 .starb{position:absolute;top:5px;right:5px;z-index:1;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.55);color:#ffc533;font-size:15px;line-height:24px;text-align:center;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .starfilt{margin:8px 0 10px}.starfilt button{font-size:13px;padding:6px 11px}
 .lb button#lb-star[aria-pressed="true"]{color:#ffc533}
@@ -5285,6 +5287,28 @@ const updHealT={};
 function updHeal(key,missing){const h=updHealT[key]||(updHealT[key]={n:0,t:0});
   if(!missing){clearTimeout(h.t);delete updHealT[key];return}
   if(h.t||h.n>=5)return;h.t=setTimeout(()=>{h.t=0;h.n++;if(driveState[key])driveRefresh(key)},[3000,6000,15000,30000,60000][h.n])}
+// ---- Fill updates from photo dates (for catching up on old work orders): the job's photos that aren't on any update
+// yet are put on an update for the day each was taken; an update already on that day gets them added. Text is left
+// for you to write. Only offered while there are such photos ----
+let updFillAsk=null;
+function updFillPhotos(p){if(p==="m")return null;const t=updTarget(p),st=t&&driveState[dkey(t)];if(!st||st.status!=="ready"||!st.items)return null;
+  const used=new Set(updList(p).flatMap(u=>u.files||[]));if(updOpen&&updOpen.p===p)(updOpen.files||[]).forEach(n=>used.add(n));
+  const by={};for(const f of st.items){if(!isMediaF(f)||used.has(f.name))continue;const d=(fileTaken(f)||"").slice(0,10);if(!validDay(d))continue;(by[d]=by[d]||[]).push(f.name)}
+  const days=Object.keys(by).sort();return days.length?{by,days,n:days.reduce((a,d)=>a+by[d].length,0)}:null}
+function updFillHtml(p){const x=updFillPhotos(p);if(!x){if(updFillAsk===p)updFillAsk=null;return ""}
+  if(updFillAsk!==p)return `<button type="button" class="linkish updfill" data-updfill="${p}">Fill in from photo dates</button>`;
+  const have=new Set(updList(p).map(u=>u.date)),newD=x.days.filter(d=>!have.has(d)).length;
+  return `<div class="updfillask small"><div>Put <b>${x.n} photo${x.n===1?"":"s"}</b> that ${x.n===1?"isn't":"aren't"} on an update yet onto updates for the day${x.days.length===1?"":"s"} they were taken: <b>${x.days.length===1?esc(fmtDate(x.days[0])):esc(fmtDate(x.days[0]))+" – "+esc(fmtDate(x.days[x.days.length-1]))}</b> (${x.days.length} day${x.days.length===1?"":"s"}${newD<x.days.length?`, ${x.days.length-newD} already with an update`:""}). You add the text after.</div>
+    <div class="attbtns" style="margin:6px 0 0"><button type="button" class="btn" data-updfillgo="${p}">Add them</button><button type="button" class="btn ghost" data-updfillx="1">Cancel</button></div></div>`}
+document.addEventListener("click",e=>{const t=e.target;
+  const a=t.closest("[data-updfill]");if(a){updFillAsk=a.dataset.updfill;renderUpd(updFillAsk);return}
+  if(t.closest("[data-updfillx]")){const p=updFillAsk;updFillAsk=null;if(p)renderUpd(p);return}
+  const g=t.closest("[data-updfillgo]");if(g){const p=g.dataset.updfillgo,x=updFillPhotos(p);updFillAsk=null;if(!x){renderUpd(p);return}
+    const L=updList(p),before=new Set(L.map(u=>u.date));
+    for(const d of x.days)L.push({id:updNewId(),date:d,text:"",files:x.by[d].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))});
+    {const M=updClean(L);L.length=0;L.push(...M)}
+    renderUpd(p);updDirty(p,250,true);const nNew=x.days.filter(d=>!before.has(d)).length;
+    toast(`${x.n} photo${x.n===1?"":"s"} put on ${x.days.length} update${x.days.length===1?"":"s"}${nNew<x.days.length?` (${nNew} new)`:""}. Tap Edit on each to add the text.`)}});
 // An update's hot runner readings: folded to a one-line summary, open for the table (stays open across redraws)
 const updHrzOpen=new Set();
 function updHrzView(p,u){const v=u&&u.hrz;if(!hrzHasData(v))return "";const k=p+"|"+u.id;
@@ -5299,7 +5323,7 @@ function renderUpd(p){
   const selOn=updSel&&updSel.p===p&&!open;if(updSel&&updSel.p===p)updSel.ids.forEach(id=>{if(!list.some(u=>u.id===id))updSel.ids.delete(id)});
   el.querySelector(".updlistw").innerHTML=list.length?(selOn?updSelBar(p):"")+`<div class="updlist">${list.map(u=>open&&open.id===u.id?"":`<div class="upditem${selOn&&updSel.ids.has(u.id)?" picked":""}"><div class="updhead">${selOn?`<label class="updpick"><input type="checkbox" data-updpick="${p}|${esc(u.id)}"${updSel.ids.has(u.id)?" checked":""} aria-label="Select this update"></label>`:""}<span class="upddate">${esc(fmtDate(u.date))}</span><span class="updacts">${selOn?"":`<button type="button" class="linkish" data-updedit="${p}|${esc(u.id)}">Edit</button> · ${p==="m"?"":`<button type="button" class="linkish" data-updmv="${p}|${esc(u.id)}">Move</button> · `}<button type="button" class="linkish" data-upddel="${p}|${esc(u.id)}">Delete</button>`}</span></div>${u.text?`<div class="updtext">${esc(u.text)}</div>`:""}${updHrzView(p,u)}${updThumbs(p,u.files,false)}</div>`).join("")}</div>`:"";
   const comp=el.querySelector(".updcomp");
-  if(!open){if(dict&&dict.p==="u"+p)dictStop();comp.dataset.for="";comp.innerHTML=`<button type="button" class="addmould" data-updadd="${p}">+ Add an update</button>`;return}
+  if(!open){if(dict&&dict.p==="u"+p)dictStop();comp.dataset.for="";comp.innerHTML=`<button type="button" class="addmould" data-updadd="${p}">+ Add an update</button>`+updFillHtml(p);return}
   if(comp.dataset.for!==open.draft){ // build the box once; later refreshes only redraw its photos
     comp.dataset.for=open.draft;
     const ed=open.id?updList(p).find(u=>u.id===open.id):null,st=p==="f"?segVal("#f-status"):p==="b"?segVal("#b-status"):"",t=updTarget(p);
@@ -7226,7 +7250,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.03-147";
+const APP_VERSION="2026.11.03-148";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
