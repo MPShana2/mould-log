@@ -25,13 +25,16 @@ function reportModel(l,onlyId){
   if(sm&&!isGen(sm)){g("Part / product",sm.part);g("Cavities",sm.cavities);g("Material",sm.material)}
   if(sm&&isGen(sm)&&!isClient(sm))g("Area",sm.area);
   g("Job type",sub?sub.type:l.type);
+  if(typeof schedOf==="function"&&(single||onlyId))g("Mould stop",schedOf(l,onlyId||single)==="u"?"Unscheduled":"Scheduled");
   const d0=sub?sub.date:l.date,d1=sub?sub.dateCompleted:l.dateCompleted;
   g("Date started",d0?fmtDate(d0):"");g("Date completed",d1?fmtDate(d1):"");
   const showFields=id=>{const v=pmVal(l,id),m=mOf(id),out=[];
     if(!(m&&isGen(m))&&rptHas(v.shots))out.push({t:"field",label:"Shot count",text:fmtNum(v.shots)});
     if(rptHas(v.faults))out.push({t:"field",label:"Inspection / faults found",text:v.faults});
+    if((v.defects||[]).length)out.push({t:"field",label:"Defects",text:v.defects.join(", "),tags:true});
     {const hz=hrzClean(v.hrz);if(hrzHasData(hz))out.push({t:"table",label:"Hot runner readings",cols:hrzCols(hz),rows:hrzRows(hz),flagged:hrzFlagged(hz),insp:true})}
     if(rptHas(v.work))out.push({t:"field",label:"Work done",text:v.work});
+    if((v.actions||[]).length)out.push({t:"field",label:"Actions",text:v.actions.join(", "),tags:true});
     // Updates: each one dated, its text with its own line breaks, a photo count (the photos themselves are in
     // "Photos & files"), and any hot runner readings taken with it straight underneath
     updClean(v.updates).forEach((x,i)=>{out.push({t:"upd",label:i?"":"Updates",date:fmtDate(x.date),text:x.text||"",n:(x.files||[]).length});
@@ -46,8 +49,8 @@ function reportModel(l,onlyId){
   else if(rptHas(l.description)){B.push({t:"h",text:"Description"});B.push({t:"field",text:l.description})}
   if(rptHas(l.woNotes)){B.push({t:"h",text:sub?"Work order notes":"Notes"});B.push({t:"field",text:l.woNotes})}
   // the to-do list stays in the app; it isn't part of a report
-  if(single){const f=showFields(single).filter(x=>x.label!=="Shot count"),insp=f.find(x=>x.label==="Inspection / faults found"),tbl=f.find(x=>x.insp),rest=f.filter(x=>x!==insp&&x!==tbl);
-    if(insp||tbl){B.push({t:"h",text:"Inspection / faults found"});if(insp)B.push({t:"field",text:insp.text});if(tbl)B.push(tbl)}
+  if(single){const f=showFields(single).filter(x=>x.label!=="Shot count"),insp=f.find(x=>x.label==="Inspection / faults found"),dfx=f.find(x=>x.label==="Defects"),tbl=f.find(x=>x.insp),rest=f.filter(x=>x!==insp&&x!==tbl&&x!==dfx);
+    if(insp||tbl||dfx){B.push({t:"h",text:"Inspection / faults found"});if(insp)B.push({t:"field",text:insp.text});if(dfx)B.push(dfx);if(tbl)B.push(tbl)}
     if(rest.length){B.push({t:"h",text:"Work carried out"});B.push(...rest)}}
   else{
     B.push({t:"h",text:"Moulds & jobs"});

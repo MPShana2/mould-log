@@ -1,8 +1,8 @@
 // GT Hub service worker: lets the app open offline and install as an app.
-const VERSION="mould-log-v168";
+const VERSION="mould-log-v169";
 const LIBS="mould-log-libs"; // Firebase and fonts: kept across app versions (their addresses change when they do)
 const THUMBS="gt-thumbs";    // small copies of Drive photo thumbnails, kept across app versions for offline use
-const THUMB_MAX=5000;
+const THUMB_MAX=15000; // thumbnails (about 30 KB each): room for completed jobs too
 const SHELL=["./","index.html","report.js","diarium.js","config.js","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","icons/favicon.svg","icons/favicon-32.png","icons/apple-touch-icon.png","icons/badge-96.png"];
 // Each release changes VERSION, so the browser installs this worker afresh and it downloads the new app files here
 // (bypassing the browser's HTTP cache). Opening the app then never waits on the network.

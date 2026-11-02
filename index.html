@@ -297,6 +297,46 @@ textarea.autogrow{resize:none;overflow:hidden}
 .attgrid:empty{display:none}
 .thumb{position:relative;width:100%;aspect-ratio:1;max-width:100%;border-radius:8px;overflow:hidden;background:var(--sunk);border:1px solid var(--line);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;font:inherit;color:var(--muted)}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.tagin{margin-top:6px}
+.tagrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tagchips{display:flex;flex-wrap:wrap;gap:6px}
+.tagc{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:4px 10px;font-size:13px;font-weight:600;line-height:1.3;border:1px solid transparent;font-family:inherit}
+.tagc button{border:0;background:none;color:inherit;font-size:16px;line-height:1;padding:0 0 0 2px;cursor:pointer;opacity:.7}
+.tag-d{background:#fbe3dc;color:#8a2a12}.tag-a{background:#dcefe2;color:#1d5c34}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tag-d{background:#4a2219;color:#ffc7b6}:root:not([data-theme="light"]) .tag-a{background:#1c3a26;color:#b8ebc8}}
+:root[data-theme="dark"] .tag-d{background:#4a2219;color:#ffc7b6}:root[data-theme="dark"] .tag-a{background:#1c3a26;color:#b8ebc8}
+.tagc small{font-weight:500;opacity:.75}
+.tagbtn{cursor:pointer}.tagbtn.on{border-color:currentColor}
+.tagq{flex:1;min-width:120px;border:1px dashed var(--line);border-radius:999px;background:transparent;font:inherit;font-size:13.5px;padding:5px 12px;color:var(--fg)}
+.tagq:focus{outline:none;border-style:solid;border-color:var(--accent)}
+.tagsug{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tagsug[hidden]{display:none}
+.tagopt{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:6px 11px;font:inherit;font-size:13px;cursor:pointer}
+.tagopt small{margin-left:5px;color:var(--muted)}.tagopt.add{border-color:var(--accent);font-weight:600}
+.etags{margin:6px 0 2px}.etags .tagc{font-size:12px;padding:2px 8px}
+.unsched{display:inline-block;margin-left:8px;font-size:11.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:#a3281b;border:1px solid currentColor;border-radius:999px;padding:1px 7px;vertical-align:2px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .unsched{color:#ff9d8f}}:root[data-theme="dark"] .unsched{color:#ff9d8f}
+.seg.sched button[data-v="u"][aria-pressed="true"]{background:#a3281b;border-color:#a3281b;color:#fff}
+.schedhint:empty{display:none}
+.stopfacts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stopfacts>div{background:var(--sunk);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column}
+.stopfacts span{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}.stopfacts b{font-size:18px}.stopfacts small{color:var(--muted);font-size:12px}
+.histtagnote{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;background:var(--sunk);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:14px}
+.hrhead{font-weight:600}.hrnotes{white-space:pre-wrap}.hrbad{color:var(--bad)}
+.hrzlist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.hrzrow{border-top:1px solid var(--line)}.hrzrow:first-child{border-top:0}
+.hrzrow.bad{box-shadow:inset 3px 0 0 var(--bad)}
+.hrztop{display:grid;grid-template-columns:minmax(0,1fr) 96px minmax(84px,auto);gap:10px;align-items:center;width:100%;padding:9px 12px;border:0;background:none;font:inherit;color:var(--fg);text-align:left;cursor:pointer}
+.hrzn{font-weight:700;font-family:var(--mono);font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hrzn small{font-family:inherit;font-weight:500;color:var(--muted);margin-left:4px}
+.hrzv{display:flex;flex-direction:column;align-items:flex-end;text-align:right}.hrzv b{font-family:var(--mono);font-size:14px}.hrzv small{color:var(--muted);font-size:11.5px;white-space:nowrap}
+.hrspark{display:block;color:var(--steel)}.hrspark polyline{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}.hrspark circle{fill:var(--accent)}.hrspark .exp{stroke:var(--muted);stroke-dasharray:3 3;stroke-width:1}
+.hrzrow.bad .hrspark circle{fill:var(--bad)}
+.hrzflags{display:flex;flex-direction:column;gap:2px;padding:0 12px 8px;font-size:12.5px;color:var(--bad);font-weight:600}
+.hrzhist{padding:0 12px 10px;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.hrzhist>div{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.hrzhist>div>span:first-child{min-width:92px;color:var(--muted)}.hrzhist>div>span:nth-child(n+3){font-family:var(--mono)}
+.hreditlist{display:flex;flex-direction:column;gap:6px}
+.hreditz{display:grid;grid-template-columns:34px minmax(0,1.3fr) minmax(0,.8fr) minmax(0,.8fr) 70px;gap:6px;align-items:center}
+.hreditz input{min-width:0;padding:8px}.hreditz .hr-x{color:var(--muted);font-family:var(--mono);font-size:12px}
 .starb{position:absolute;top:5px;right:5px;z-index:1;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.55);color:#ffc533;font-size:15px;line-height:24px;text-align:center;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .starfilt{margin:8px 0 10px}.starfilt button{font-size:13px;padding:6px 11px}
 .lb button#lb-star[aria-pressed="true"]{color:#ffc533}
@@ -1291,6 +1331,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <div class="fduerow"><input id="f-due" type="date"><span class="fdueq" id="f-dueq"><button type="button" data-fdue="0">Today</button><button type="button" data-fdue="1">Tomorrow</button><button type="button" data-fdue="7">+1 week</button><button type="button" data-fdue="">Clear</button></span></div>
         <div class="fduehint" id="f-duehint"></div></div>
       <div class="field"><label class="label" for="f-type">Job type</label><select id="f-type" required></select></div>
+      <div class="field"><span class="label">Mould stop</span><div class="seg sched" id="f-sched" role="group" aria-label="Scheduled or unscheduled"><button type="button" data-v="s" aria-pressed="true">Scheduled</button><button type="button" data-v="u" aria-pressed="false">Unscheduled</button></div><div class="hint schedhint" id="f-schedhint"></div></div>
       <div class="field">
         <label class="label" for="f-desc">Description</label>
         <textarea id="f-desc" class="autogrow" rows="1" placeholder="e.g. Short shots on cavity 3, flash on parting line"></textarea>
@@ -1306,11 +1347,13 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <div class="field">
         <label class="label" for="f-faults">Inspection / faults found</label>
         <textarea id="f-faults" class="autogrow" rows="2" placeholder="e.g. Worn ejector pin on cavity 3, blocked vent, water leak at B-side manifold"></textarea>
+        <div class="tagin" id="f-dtags" data-p="f" data-k="d"></div>
         <div class="hrz" id="f-hrz"></div>
       </div>
       <div class="field">
         <label class="label" for="f-work">Work done</label>
         <textarea id="f-work" class="autogrow" rows="2" placeholder="e.g. Replaced ejector pin on cavity 3, cleaned vents, flushed water lines"></textarea>
+        <div class="tagin" id="f-atags" data-p="f" data-k="a"></div>
       </div>
       <div class="field">
         <label class="label" for="f-notes">Notes</label>
@@ -1358,6 +1401,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
               <div class="field"><label class="label" for="b-done">Date completed</label><input id="b-done" type="date"></div>
             </div>
             <div class="field"><label class="label" for="b-type">Job type</label><select id="b-type"></select></div>
+            <div class="field"><span class="label">Mould stop</span><div class="seg sched" id="b-sched" role="group" aria-label="Scheduled or unscheduled"><button type="button" data-v="s" aria-pressed="true">Scheduled</button><button type="button" data-v="u" aria-pressed="false">Unscheduled</button></div><div class="hint schedhint" id="b-schedhint"></div></div>
             <div class="field"><label class="label" for="b-desc">Description</label><textarea id="b-desc" class="autogrow" rows="1" placeholder="What this mould needs on this work order"></textarea></div>
             <div class="submove"><button type="button" class="linkish" id="b-move">Move this sub-job to another work order…</button></div>
           </div>
@@ -1365,8 +1409,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
             <div class="field" id="b-shots-field"><label class="label" for="b-shots">Shot count</label><input id="b-shots" class="mono" type="number" inputmode="numeric" min="0" placeholder="e.g. 412500"></div>
             <div class="field updfield"><span class="label">Updates</span><div class="upd" id="b-upd"></div></div>
             <div class="sumhead"><span>Report summary</span><small>Fill in at the end of the job, condensed from the updates</small><button type="button" class="aibtn" data-aisum="b" hidden>✦ Draft from updates</button></div><div class="aidraft" id="aid-b" hidden></div>
-            <div class="field"><label class="label" for="b-faults">Inspection / faults found</label><textarea id="b-faults" class="autogrow" rows="2" placeholder="e.g. Worn ejector pin on cavity 3, blocked vent"></textarea><div class="hrz" id="b-hrz"></div></div>
-            <div class="field"><label class="label" for="b-work">Work done</label><textarea id="b-work" class="autogrow" rows="2" placeholder="e.g. Replaced ejector pin, cleaned vents"></textarea></div>
+            <div class="field"><label class="label" for="b-faults">Inspection / faults found</label><textarea id="b-faults" class="autogrow" rows="2" placeholder="e.g. Worn ejector pin on cavity 3, blocked vent"></textarea><div class="tagin" id="b-dtags" data-p="b" data-k="d"></div><div class="hrz" id="b-hrz"></div></div>
+            <div class="field"><label class="label" for="b-work">Work done</label><textarea id="b-work" class="autogrow" rows="2" placeholder="e.g. Replaced ejector pin, cleaned vents"></textarea><div class="tagin" id="b-atags" data-p="b" data-k="a"></div></div>
             <div class="field"><label class="label" for="b-notes">Notes</label><textarea id="b-notes" class="autogrow" placeholder="Extra detail, findings or measurements"></textarea></div>
             <div class="field nwbox" id="b-nwbox" hidden></div>
           </div>
@@ -1453,8 +1497,9 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <div class="panel stackcol">
       <span class="label" style="margin:0">Photos offline</span>
       <label class="rptchk" style="margin:0"><input type="checkbox" id="off-on"><span>Keep open jobs' photos on this phone<small>Copies of the photos in each open work order's Drive folder are saved while you're on Wi-Fi: thumbnails, plus a screen-sized copy for the photo viewer (not the full original). They still show with no signal. Photos you open anywhere in the app are kept too.</small></span></label>
+      <label class="rptchk" style="margin:0"><input type="checkbox" id="off-done"><span>Completed work orders too<small>Thumbnails of every completed work order's photos, plus a screen-sized copy of the starred ones, so old jobs still show with no signal. They're saved a few hundred at a time in the background, so it takes a while the first time. Completed jobs' folders are checked again every two weeks.</small></span></label>
       <div class="hint" style="margin:0" id="off-stat">Checking…</div>
-      <div class="attbtns" style="margin:0"><button class="btn ghost" type="button" id="off-now">Save open jobs' photos now</button><button class="btn ghost" type="button" id="off-clear">Clear saved photos</button></div>
+      <div class="attbtns" style="margin:0"><button class="btn ghost" type="button" id="off-now">Save photos now</button><button class="btn ghost" type="button" id="off-clear">Clear saved photos</button></div>
     </div>
   </section>
   <section id="v-cal" class="stackcol page" hidden>
@@ -1695,6 +1740,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <div class="hside">
     <div class="panel" id="histhead"></div>
     <div class="panel stackcol nwsec" id="h-nw"></div>
+    <div class="panel stackcol" id="h-stats" hidden></div>
+    <div class="panel stackcol" id="h-hr" hidden></div>
     <div class="panel stackcol" id="histproc"></div>
     <div class="panel stackcol" id="histparts"></div>
     <form class="panel" id="mouldedit" hidden autocomplete="off">
@@ -2376,6 +2423,150 @@ function fDueHint(){const v=$("#f-due").value,h=$("#f-duehint");if(!h)return;
 $("#f-due").addEventListener("input",fDueHint);$("#f-due").addEventListener("change",fDueHint);
 $("#f-dueq").addEventListener("click",e=>{const b=e.target.closest("[data-fdue]");if(!b)return;const v=b.dataset.fdue;
   $("#f-due").value=v===""?"":dayAdd(today(),+v);fDueHint();markDirty(150)});
+// ---- Scheduled or unscheduled stop: was the mould pulled as planned (PM, service, clean…) or because something went
+// wrong? Follows the job type (Repair = unscheduled) unless you pick; kept as "s"/"u" on the work order (l.sched) or
+// sub-job (subs[id].sched), "" when it follows the job type ----
+const schedDef=type=>type==="Repair"?"u":"s";
+function schedOf(l,id){const lead=id?leadOf(l,id):l.mouldId,tabs=tabIdsFor(l.mouldId,l.extraMouldIds);
+  if(lead&&tabs.includes(lead)){const s=(l.subs||{})[lead]||{};return s.sched||schedDef(subMeta(l,lead).type)}
+  return l.sched||schedDef(l.type)}
+const schedState={f:"",b:""};
+function schedRender(p){const seg=$(`#${p}-sched`);if(!seg)return;const type=$(`#${p}-type`).value,st=schedState[p],v=st||schedDef(type);
+  seg.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===v)));
+  $(`#${p}-schedhint`).textContent=st?"":`Set by the job type (${type}). Tap to change.`}
+["f","b"].forEach(p=>{$(`#${p}-sched`).addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(!b)return;
+    const v=b.dataset.v;schedState[p]=v===schedDef($(`#${p}-type`).value)?"":v;schedRender(p);markDirty(250)});
+  $(`#${p}-type`).addEventListener("change",()=>schedRender(p))});
+
+// ---- Defect and action tags: short standard terms ("Flash", "Water leak" / "Replaced", "Polished") alongside the
+// written summary, so they can be counted per mould. Kept per mould as defects:[…] and actions:[…] ----
+const TAG_SEED={d:["Flash","Short shot","Burn marks","Sink marks","Sticking","Ejection problem","Drag marks","Water leak","Oil leak","Air leak","Heater fault","Thermocouple fault","Valve pin stuck","Gate vestige","Stringing","Blocked vent","Broken ejector pin","Worn ejector pin","Cracked insert","Damaged parting line","Galling","Rust","Contamination","Dimensional issue"],
+  a:["Cleaned","Polished","Replaced","Welded","Reworked","Adjusted","Lubricated","Replaced O-rings","Cleaned vents","Stoned","Tightened","Flushed water lines","Replaced heater","Replaced thermocouple","Tested"]};
+const tagNorm=t=>{t=String(t||"").replace(/\s+/g," ").trim();return t?t[0].toUpperCase()+t.slice(1):""};
+const tagsClean=a=>{const out=[],seen=new Set();for(const x of (Array.isArray(a)?a:[])){const t=tagNorm(x),k=t.toLowerCase();if(t&&!seen.has(k)){seen.add(k);out.push(t)}}return out};
+const tagState={f:{d:[],a:[]},b:{d:[],a:[]}};
+const tagsGet=(p,k)=>tagState[p]?tagState[p][k].slice():[];
+function tagsSet(p,k,list){if(!tagState[p])return;tagState[p][k]=tagsClean(list);tagsRender(p,k)}
+// every term used so far, most used first, then the starter list
+function tagFreq(k){const field=k==="d"?"defects":"actions",f=new Map();
+  const add=t=>{const n=tagNorm(t),key=n.toLowerCase();if(!n)return;const e=f.get(key)||{t:n,n:0};e.n++;f.set(key,e)};
+  for(const l of logs)for(const id of jobIds(l))(pmVal(l,id)[field]||[]).forEach(add);
+  const list=[...f.values()].sort((a,b)=>b.n-a.n||a.t.localeCompare(b.t));
+  for(const t of TAG_SEED[k])if(!f.has(t.toLowerCase()))list.push({t,n:0});return list}
+function tagsRender(p,k){const el=$(`#${p}-${k}tags`);if(!el)return;
+  if(!el.firstChild)el.innerHTML=`<div class="tagrow"><span class="tagchips"></span><input class="tagq" type="text" autocomplete="off" enterkeyhint="done" placeholder="${k==="d"?"+ Defect tag":"+ Action tag"}" aria-label="${k==="d"?"Add a defect tag":"Add an action tag"}"></div><div class="tagsug" hidden></div>`;
+  el.querySelector(".tagchips").innerHTML=tagState[p][k].map((t,i)=>`<span class="tagc tag-${k}">${esc(t)}<button type="button" data-tagx="${i}" aria-label="Remove ${esc(t)}">×</button></span>`).join("");
+  if(!el.querySelector(".tagsug").hidden)tagsSug(el)}
+function tagsSug(el){const p=el.dataset.p,k=el.dataset.k,q=el.querySelector(".tagq").value.trim().toLowerCase(),have=new Set(tagState[p][k].map(t=>t.toLowerCase()));
+  let list=tagFreq(k).filter(x=>!have.has(x.t.toLowerCase())&&(!q||x.t.toLowerCase().includes(q)));
+  list=q?list.sort((a,b)=>(b.t.toLowerCase().startsWith(q)-a.t.toLowerCase().startsWith(q))||b.n-a.n).slice(0,8):list.slice(0,10);
+  const exact=q&&(have.has(q)||list.some(x=>x.t.toLowerCase()===q));
+  el.querySelector(".tagsug").innerHTML=(q&&!exact?`<button type="button" class="tagopt add" data-tagadd="${esc(tagNorm(q))}">Add “${esc(tagNorm(q))}”</button>`:"")+
+    list.map(x=>`<button type="button" class="tagopt" data-tagadd="${esc(x.t)}">${esc(x.t)}${x.n?`<small>${x.n}</small>`:""}</button>`).join("")}
+function tagsAdd(el,t){const p=el.dataset.p,k=el.dataset.k;t=tagNorm(t);if(!t)return;
+  if(!tagState[p][k].some(x=>x.toLowerCase()===t.toLowerCase())){tagState[p][k].push(t);tagsRender(p,k);markDirty(400)}}
+document.addEventListener("pointerdown",e=>{if(e.target.closest(".tagsug .tagopt"))e.preventDefault()}); // keeps the typing box open
+document.addEventListener("click",e=>{const el=e.target.closest(".tagin");if(!el)return;const p=el.dataset.p,k=el.dataset.k;
+  const x=e.target.closest("[data-tagx]");if(x){tagState[p][k].splice(+x.dataset.tagx,1);tagsRender(p,k);markDirty(400);return}
+  const a=e.target.closest("[data-tagadd]");if(a){tagsAdd(el,a.dataset.tagadd);const q=el.querySelector(".tagq");q.value="";tagsSug(el);q.focus();return}
+  if(!e.target.closest(".tagsug"))el.querySelector(".tagq").focus()});
+document.addEventListener("focusin",e=>{const q=e.target.closest&&e.target.closest(".tagq");if(!q)return;const el=q.closest(".tagin"),sg=el.querySelector(".tagsug");sg.hidden=false;tagsSug(el)});
+document.addEventListener("focusout",e=>{const q=e.target.closest&&e.target.closest(".tagq");if(!q)return;const el=q.closest(".tagin");
+  setTimeout(()=>{if(el.contains(document.activeElement))return;if(q.value.trim()){tagsAdd(el,q.value);q.value=""}el.querySelector(".tagsug").hidden=true},150)});
+document.addEventListener("input",e=>{const q=e.target.closest&&e.target.closest(".tagq");if(!q)return;e.stopPropagation();const el=q.closest(".tagin");
+  if(/,/.test(q.value)){const parts=q.value.split(",");q.value=parts.pop();parts.forEach(t=>tagsAdd(el,t))}tagsSug(el)},true);
+document.addEventListener("keydown",e=>{const q=e.target.closest&&e.target.closest(".tagq");if(!q||e.key!=="Enter")return;e.preventDefault();e.stopPropagation();
+  const el=q.closest(".tagin");if(q.value.trim()){tagsAdd(el,q.value);q.value="";tagsSug(el)}else q.blur()},true);
+["f","b"].forEach(p=>["d","a"].forEach(k=>tagsRender(p,k)));
+
+// ---- On the mould's page: how often it comes in unscheduled, and what's found and done most ----
+let histTag=null; // the timeline shows only jobs with this tag: {k:"d"|"a", t}
+const mouldJobs=m=>logsFor(m.id);
+function renderHistStats(m){const el=$("#h-stats");if(!el)return;const jobs=mouldJobs(m);
+  if(!jobs.length){el.hidden=true;el.innerHTML="";return}el.hidden=false;
+  const yr=dayAdd(today(),-365),recent=jobs.filter(l=>(subMeta(l,m.id).date||l.date||"")>=yr),un=x=>x.filter(l=>schedOf(l,m.id)==="u").length;
+  const count=k=>{const f=new Map();for(const l of jobs)for(const t of (pmVal(l,m.id)[k==="d"?"defects":"actions"]||[])){const n=tagNorm(t),key=n.toLowerCase();const e=f.get(key)||{t:n,n:0};e.n++;f.set(key,e)}
+    return [...f.values()].sort((a,b)=>b.n-a.n||a.t.localeCompare(b.t))};
+  const chips=k=>count(k).slice(0,12).map(x=>`<button type="button" class="tagc tag-${k} tagbtn${histTag&&histTag.k===k&&histTag.t.toLowerCase()===x.t.toLowerCase()?" on":""}" data-histtag="${k}|${esc(x.t)}">${esc(x.t)} <small>×${x.n}</small></button>`).join("");
+  const dc=chips("d"),ac=chips("a"),pct=(a,b)=>b?Math.round(100*a/b)+"%":"–";
+  el.innerHTML=`<span class="label" style="margin:0">Stops &amp; defects</span>
+    <div class="stopfacts"><div><span>Unscheduled</span><b>${un(jobs)} of ${jobs.length}</b><small>${pct(un(jobs),jobs.length)} of all jobs</small></div><div><span>Last 12 months</span><b>${un(recent)} of ${recent.length}</b><small>${recent.length?pct(un(recent),recent.length)+" unscheduled":"no jobs"}</small></div></div>
+    ${dc?`<div class="small">Defects found</div><div class="tagchips">${dc}</div>`:""}${ac?`<div class="small">Actions taken</div><div class="tagchips">${ac}</div>`:""}
+    ${!dc&&!ac?`<div class="small">Add defect and action tags under “Inspection / faults found” and “Work done” on its jobs to see what comes up most.</div>`:`<div class="small">Tap a tag to show only those jobs below.</div>`}`}
+$("#h-stats").addEventListener("click",e=>{const b=e.target.closest("[data-histtag]");if(!b)return;const [k,...t]=b.dataset.histtag.split("|"),tt=t.join("|");
+  histTag=histTag&&histTag.k===k&&histTag.t===tt?null:{k,t:tt,m:current};renderHist();if(histTag)$("#timeline").scrollIntoView({behavior:"smooth",block:"start"})});
+const histTagHit=(l,id)=>!histTag||(pmVal(l,id)[histTag.k==="d"?"defects":"actions"]||[]).some(x=>tagNorm(x).toLowerCase()===histTag.t.toLowerCase());
+
+// ---- Hot runner on the mould: its zones (label, volts, watts → expected heater Ω = V²/W), and every reading taken on
+// it (work orders, their updates, the mould's own updates) as a trend per zone. Kept as moulds/{id}.hr ----
+const hrNum=x=>{const n=parseFloat(String(x??"").replace(",","."));return isFinite(n)?n:null};
+const hrExp=z=>{const v=hrNum(z&&z.v),w=hrNum(z&&z.w);return v&&w?v*v/w:null};
+const hrFmt=n=>n==null?"–":(n>=100?Math.round(n):Math.round(n*10)/10).toLocaleString();
+function hrReadings(m){const out=[],push=(v,date,src)=>{v=hrzClean(v);if(hrzHasData(v)&&date)out.push({date,v,src})};
+  for(const l of logs){if(leadOf(l,m.id)!==m.id||!jobIds(l).includes(m.id))continue;const pv=pmVal(l,m.id),sm=subMeta(l,m.id),lab="#"+subLabel(l,m.id);
+    push(pv.hrz,sm.dateCompleted||sm.date||l.date,{id:l.id,sub:sm.no?m.id:"",lab});
+    for(const u of updClean(pv.updates))if(u.hrz)push(u.hrz,u.date,{id:l.id,sub:sm.no?m.id:"",lab:lab+" update"})}
+  for(const u of updClean(m.updates))if(u.hrz)push(u.hrz,u.date,{lab:"Mould update"});
+  return out.sort((a,b)=>String(a.date).localeCompare(String(b.date)))}
+// per zone: its readings in date order, and what stands out (rules, not guesses)
+function hrZones(m){const spec=(m.hr&&m.hr.zones)||[],rs=hrReadings(m),n=Math.max(spec.length,0,...rs.map(r=>r.v.n));
+  return Array.from({length:n},(_,i)=>{const s=spec[i]||{},pts=rs.map(r=>({date:r.date,src:r.src,z:r.v.z[i]})).filter(x=>x.z&&(x.z.h||x.z.t||x.z.ho||x.z.to));
+    const label=(s.l||"").trim()||[...pts].reverse().map(x=>x.z.l).find(Boolean)||"",exp=hrExp(s);
+    const hs=pts.filter(x=>hrNum(x.z.h)!=null&&!x.z.ho),ts=pts.filter(x=>hrNum(x.z.t)!=null&&!x.z.to),last=pts[pts.length-1],flags=[];
+    if(last){const h=hrNum(last.z.h),t=hrNum(last.z.t);
+      if(last.z.ho)flags.push("Heater open (OL)");
+      else if(h!=null&&exp&&Math.abs(h-exp)/exp>.1)flags.push(`Heater ${Math.round(100*Math.abs(h-exp)/exp)}% ${h>exp?"above":"below"} expected`);
+      if(!last.z.ho&&h!=null&&hs.length>1){const b=hrNum(hs[0].z.h);if(b&&(h-b)/b>.1)flags.push(`Heater up ${Math.round(100*(h-b)/b)}% since ${nwWhen(hs[0].date)}`)}
+      if(last.z.to)flags.push("T/C open (OL)");
+      else if(t!=null&&ts.length>1){const b=hrNum(ts[0].z.t);if(b&&t-b>1&&(t-b)/b>.5)flags.push(`T/C up ${Math.round(100*(t-b)/b)}% since ${nwWhen(ts[0].date)}`)}
+      if(last.z.f)flags.push("Flagged on the last reading")}
+    return {i,label,exp,pts,hs,last,flags}})}
+function hrSpark(z){const vals=z.hs.map(x=>hrNum(x.z.h));if(!vals.length)return `<span class="hrspark none"></span>`;
+  const all=z.exp?[...vals,z.exp]:vals,lo=Math.min(...all),hi=Math.max(...all),W=96,H=26,pad=3,rng=hi-lo||Math.max(1,hi*.05);
+  const X=i=>vals.length<2?W/2:pad+i*(W-2*pad)/(vals.length-1),Y=v=>H-pad-(v-lo)*(H-2*pad)/rng;
+  return `<svg class="hrspark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true">${z.exp?`<line x1="0" x2="${W}" y1="${Y(z.exp).toFixed(1)}" y2="${Y(z.exp).toFixed(1)}" class="exp"/>`:""}${vals.length>1?`<polyline points="${vals.map((v,i)=>X(i).toFixed(1)+","+Y(v).toFixed(1)).join(" ")}"/>`:""}<circle cx="${X(vals.length-1).toFixed(1)}" cy="${Y(vals[vals.length-1]).toFixed(1)}" r="2.6"/></svg>`}
+let hrEdit=null,hrOpenZ=new Set(),hrFor=null;
+function renderHistHr(m){const el=$("#h-hr");if(!el)return;
+  if(hrFor!==m.id){hrFor=m.id;hrEdit=null;hrOpenZ.clear()}
+  if(isGen(m)){el.hidden=true;el.innerHTML="";return}
+  if(hrEdit&&el.dataset.mode==="edit")return; // not while its details are being edited
+  const hr=m.hr||{},zs=hrZones(m),rs=hrReadings(m);el.hidden=false;el.dataset.mode="";
+  if(!zs.length&&!hr.make&&!hr.notes){el.innerHTML=`<div class="row"><span class="label" style="margin:0">Hot runner</span><button type="button" class="linkish" data-hredit="1">+ Add hot runner details</button></div>`;return}
+  const head=[hr.make,hr.tc?hr.tc+" type T/C":"",zs.length?zs.length+" zone"+(zs.length===1?"":"s"):""].filter(Boolean).join(" · ");
+  const nflag=zs.filter(z=>z.flags.length).length;
+  el.innerHTML=`<div class="row"><span class="label" style="margin:0">Hot runner</span><button type="button" class="linkish" data-hredit="1">Edit details</button></div>
+    ${head?`<div class="hrhead">${esc(head)}</div>`:""}${hr.notes?`<div class="small hrnotes">${esc(hr.notes)}</div>`:""}
+    <div class="small">${rs.length?`${rs.length} set${rs.length===1?"":"s"} of readings · last ${esc(nwWhen(rs[rs.length-1].date))}${nflag?` · <b class="hrbad">${nflag} zone${nflag===1?"":"s"} to look at</b>`:""}`:"No readings yet. Readings taken on its work orders and updates show here."}</div>
+    ${zs.length?`<div class="hrzlist">${zs.map(z=>{const h=z.last&&(z.last.z.ho?"OL":hrNum(z.last.z.h)!=null?hrFmt(hrNum(z.last.z.h))+" Ω":"–"),t=z.last&&(z.last.z.to?"OL":hrNum(z.last.z.t)!=null?hrFmt(hrNum(z.last.z.t))+" Ω":"");const open=hrOpenZ.has(z.i);
+      return `<div class="hrzrow${z.flags.length?" bad":""}"><button type="button" class="hrztop" data-hrz-open="${z.i}" aria-expanded="${open}"><span class="hrzn">Z${z.i+1}${z.label?` <small>${esc(z.label)}</small>`:""}</span>${hrSpark(z)}<span class="hrzv"><b>${z.last?esc(h):"–"}</b><small>${z.exp?`exp ${hrFmt(z.exp)} Ω`:""}${t?`${z.exp?" · ":""}T/C ${esc(t)}`:""}</small></span></button>
+        ${z.flags.length?`<div class="hrzflags">${z.flags.map(f=>`<span>⚑ ${esc(f)}</span>`).join("")}</div>`:""}
+        ${open?`<div class="hrzhist">${z.pts.length?[...z.pts].reverse().map(x=>`<div><span>${esc(fmtDate(x.date))}</span><span>${x.src.id?`<button type="button" class="linkish" data-hrz-go="${esc(x.src.id)}|${esc(x.src.sub||"")}">${esc(x.src.lab)}</button>`:esc(x.src.lab)}</span><span>H ${esc(x.z.ho?"OL":hrFmt(hrNum(x.z.h)))}</span><span>T/C ${esc(x.z.to?"OL":hrFmt(hrNum(x.z.t)))}</span>${x.z.f?"<span>⚑</span>":""}</div>`).join(""):`<div class="small">No readings for this zone yet.</div>`}</div>`:""}</div>`}).join("")}</div>`:""}`}
+function hrEditHtml(m){const hr=JSON.parse(JSON.stringify(m.hr||{})),zs=hr.zones||[];const n=Math.max(zs.length,hrZones(m).length,1);
+  const row=(z,i)=>`<div class="hreditz" data-i="${i}"><span class="hrzn">Z${i+1}</span><input class="hr-l" value="${esc(z.l||"")}" placeholder="Label" aria-label="Zone ${i+1} label" autocapitalize="characters"><input class="hr-v mono" value="${esc(z.v||"")}" inputmode="decimal" placeholder="V" aria-label="Zone ${i+1} volts"><input class="hr-w mono" value="${esc(z.w||"")}" inputmode="decimal" placeholder="W" aria-label="Zone ${i+1} watts"><span class="hr-x small">${hrExp(z)?"≈ "+hrFmt(hrExp(z))+" Ω":""}</span></div>`;
+  return `<div class="row"><span class="label" style="margin:0">Hot runner details</span></div>
+    <div class="grid2"><div class="field"><label class="label" for="hr-make">Make / model</label><input id="hr-make" value="${esc(hr.make||"")}" placeholder="e.g. YUDO valve gate, 8 drops"></div>
+    <div class="field"><label class="label" for="hr-tc">Thermocouple type</label><input id="hr-tc" value="${esc(hr.tc||"")}" placeholder="e.g. J" autocapitalize="characters"></div></div>
+    <div class="field"><label class="label" for="hr-notes">Notes</label><textarea id="hr-notes" class="autogrow" rows="2" placeholder="Controller, plugs and wiring, spare parts, part numbers…">${esc(hr.notes||"")}</textarea></div>
+    <div class="field"><span class="label">Zones</span><div class="hint" style="margin:0 0 6px">Volts and watts from the heater tags give each zone's expected heater resistance (V² ÷ W). Readings more than 10% off it are flagged.</div>
+      <div class="hreditlist">${Array.from({length:n},(_,i)=>row(zs[i]||{},i)).join("")}</div>
+      <div class="attbtns" style="margin:6px 0 0"><button type="button" class="btn ghost" data-hrzn="1">+ Zone</button><button type="button" class="btn ghost" data-hrzn="-1">− Zone</button></div></div>
+    <div class="attbtns" style="margin:4px 0 0"><button type="button" class="btn" data-hrsave="1">Save</button><button type="button" class="btn ghost" data-hrcancel="1">Cancel</button></div>`}
+function hrEditRead(){const el=$("#h-hr");return {make:$("#hr-make").value.trim(),tc:$("#hr-tc").value.trim().toUpperCase(),notes:$("#hr-notes").value.trim(),
+  zones:[...el.querySelectorAll(".hreditz")].map(r=>({l:r.querySelector(".hr-l").value.trim().toUpperCase(),v:r.querySelector(".hr-v").value.trim(),w:r.querySelector(".hr-w").value.trim()}))}}
+$("#h-hr").addEventListener("click",async e=>{const el=$("#h-hr"),m=moulds.find(x=>x.id===current);if(!m)return;
+  const o=e.target.closest("[data-hrz-open]");if(o){const i=+o.dataset.hrzOpen;if(hrOpenZ.has(i))hrOpenZ.delete(i);else hrOpenZ.add(i);renderHistHr(m);return}
+  const g=e.target.closest("[data-hrz-go]");if(g){const [id,sub]=g.dataset.hrzGo.split("|");startEdit(id,sub||undefined);return}
+  if(e.target.closest("[data-hredit]")){hrEdit=true;el.dataset.mode="edit";el.innerHTML=hrEditHtml(m);growMany(el.querySelectorAll("textarea"));return}
+  const zn=e.target.closest("[data-hrzn]");if(zn){const cur=hrEditRead(),n=Math.max(1,Math.min(64,cur.zones.length+ +zn.dataset.hrzn));
+    cur.zones=Array.from({length:n},(_,i)=>cur.zones[i]||{});el.innerHTML=hrEditHtml({...m,hr:cur});growMany(el.querySelectorAll("textarea"));return}
+  if(e.target.closest("[data-hrcancel]")){hrEdit=null;el.dataset.mode="";renderHistHr(m);return}
+  const sv=e.target.closest("[data-hrsave]");if(sv){const hr=hrEditRead();while(hr.zones.length&&!hr.zones[hr.zones.length-1].l&&!hr.zones[hr.zones.length-1].v&&!hr.zones[hr.zones.length-1].w&&hr.zones.length>hrZones({...m,hr:{}}).length)hr.zones.pop();
+    sv.disabled=true;try{await db.collection("moulds").doc(m.id).update({hr,updatedAt:new Date().toISOString()});hrEdit=null;el.dataset.mode="";toast("Hot runner details saved")}
+    catch(err){sv.disabled=false;toast("Couldn't save: "+((err&&err.message)||err))}}});
+$("#h-hr").addEventListener("input",e=>{const r=e.target.closest(".hreditz");if(!r)return;const x=hrExp({v:r.querySelector(".hr-v").value,w:r.querySelector(".hr-w").value});r.querySelector(".hr-x").textContent=x?"≈ "+hrFmt(x)+" Ω":""});
+// a mould's zone labels, for a new set of readings that has none to copy
+function hrSpecLabels(p){const id=p==="f"?(mainFor||$("#f-mould").value):p==="b"?boxFor:p==="m"?mUpdFor:null,m=id&&id!==FORCE&&moulds.find(x=>x.id===id),zs=m&&m.hr&&m.hr.zones;
+  return zs&&zs.length?zs.map(z=>({l:z.l||""})):null}
 // ---- To-do tab: your own lists plus every work order's to-do list ----
 let todoLists=[], todoStale=false, todoFocusTitle=null;
 const tdTimers={};
@@ -2811,31 +3002,48 @@ swipePager({on:()=>TABS.includes(currentView()),el:()=>$("#v-"+currentView()),pr
 // Runs in the background on Wi-Fi (never on mobile data or Data Saver), at most every half hour.
 const OFF_KEY="ml_offphotos";var offTimer=null;let offRunning=false,offLast=0,offProgress="";
 const offOn=()=>{try{return localStorage.getItem(OFF_KEY)!=="0"}catch(e){return true}};
+const OFF_DONE_KEY="ml_offdone",offDoneOn=()=>{try{return localStorage.getItem(OFF_DONE_KEY)==="1"}catch(e){return false}};
 function offNetOk(force){const c=navigator.connection;if(!navigator.onLine)return false;if(force)return true;
   return !(c&&(c.saveData||/(^|-)2g$/.test(c.effectiveType||"")||c.type==="cellular"))}
-function offTargets(){const out=[];
+// open work orders' folders first; then, if asked for, completed ones (newest first)
+function offTargets(){const open=[],done=[];
   for(const l of logs){const n=woNum(l.wo);if(!n)continue;const tabs=tabIdsFor(l.mouldId,l.extraMouldIds);
-    if(isDone(l.status)&&!tabs.some(id=>!isDone(subMeta(l,id).status)))continue;
-    out.push({num:n,label:jobTool(l),sub:""});for(const id of [...(l.extraMouldIds||[]),...joinedAll(l)])out.push({num:n,label:jobTool(l),sub:subName(id)})}
-  return out}
+    const fin=isDone(l.status)&&!tabs.some(id=>!isDone(subMeta(l,id).status));if(fin&&!offDoneOn())continue;
+    const list=fin?done:open,add=sub=>list.push({num:n,label:jobTool(l),sub,done:fin,date:l.dateCompleted||l.date||""});
+    add("");for(const id of [...(l.extraMouldIds||[]),...joinedAll(l)])add(subName(id))}
+  done.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  return open.concat(done)}
+const OFF_RELIST=14*864e5; // a completed job's folder is listed again after two weeks
 async function offPrefetch(force){
   if(offRunning||(!force&&(!offOn()||Date.now()-offLast<30*60e3))||!swOn()||!driveRoot||!hasToken()||!offNetOk(force))return;
-  offRunning=true;offLast=Date.now();let done=0,tot=0;
+  offRunning=true;offLast=Date.now();let done=0,tot=0,listed=0;
+  // what's already saved isn't downloaded again; only new downloads count towards each run's limit
+  let tc=null;try{tc=await caches.open("gt-thumbs")}catch(e){}
+  const have=async(f,mid)=>{if(!tc)return false;try{return !!(await tc.match(new URL("gtthumb/"+encodeURIComponent(f.id)+(mid?"/m":""),location.href).href))}catch(e){return false}};
   try{
-    for(const t of offTargets()){if(!offNetOk(force)||!hasToken())break;const key=dkey(t);let st=driveState[key];
-      if(!st||st.cached||st.status!=="ready"){if(!st)st=dsEnsure(key,t,()=>{});if(!st)continue;if(st.status!=="loading"||!st.items)await driveLoad(key)}
-      st=driveState[key];if(!st||st.status!=="ready")continue;
-      const fs=(st.items||[]).filter(f=>isMediaF(f)&&f.thumbnailLink);tot+=fs.length;
-      for(const f of fs){if(done>=800||!offNetOk(force))break;try{await fetch(thumbUrl(f,240));if(String(f.mimeType).startsWith("image/"))await fetch(thumbUrl(f,1600))}catch(e){}done++;
-        if(force&&!$("#v-settings").hidden&&done%10===0)$("#off-stat").textContent=`Saving… ${done} of ${tot}+ photos`}}
-  }finally{offRunning=false;if(!$("#v-settings").hidden)offStat()}}
-function offStat(){const el=$("#off-stat");$("#off-on").checked=offOn();
+    for(const t of offTargets()){if(!offNetOk(force)||!hasToken()||done>=800)break;const key=dkey(t);let st=driveState[key],items=null;
+      const saved=dcMem.get(key);
+      if(t.done&&!st&&saved&&saved.items&&Date.now()-(saved.at||0)<OFF_RELIST)items=saved.items; // finished jobs rarely change
+      else{if(t.done&&!st&&listed>=60)continue;listed+=t.done&&!st?1:0;
+        if(!st||st.cached||st.status!=="ready"){if(!st)st=dsEnsure(key,t,()=>{});if(!st)continue;if(st.status!=="loading"||!st.items)await driveLoad(key)}
+        st=driveState[key];if(!st||st.status!=="ready")continue;items=st.items||[]}
+      const fs=items.filter(f=>isMediaF(f)&&f.thumbnailLink);tot+=fs.length;
+      for(const f of fs){if(done>=800||!offNetOk(force))break;
+        try{if(!(await have(f))){await fetch(thumbUrl(f,240));done++}
+          // screen-sized copies: every photo of an open job, only the starred ones of a finished job
+          if(String(f.mimeType).startsWith("image/")&&(!t.done||f.starred)&&!(await have(f,true))){await fetch(thumbUrl(f,1600));done++}}catch(e){}
+        if(force&&!$("#v-settings").hidden&&done&&done%10===0)$("#off-stat").textContent=`Saving… ${done} new copies so far`}}
+  }finally{offRunning=false;if(!$("#v-settings").hidden)offStat();
+    if(done>=800&&offOn())setTimeout(()=>{offLast=0;offPrefetch()},5*60e3)}} // more to do: carry on shortly
+function offStat(){const el=$("#off-stat");$("#off-on").checked=offOn();$("#off-done").checked=offDoneOn();$("#off-done").disabled=!offOn();
   if(!swOn()){el.textContent="Available once the app is installed and has opened once.";return}
   navigator.serviceWorker.controller.postMessage({type:"thumbs-count"})}
 navigator.serviceWorker&&navigator.serviceWorker.addEventListener("message",async e=>{const d=e.data||{};if(d.type!=="thumbs-count")return;
   let mb="";try{const est=await navigator.storage.estimate();if(est&&est.usage)mb=` · the app is using ${(est.usage/1048576).toFixed(est.usage>1e8?0:1)} MB on this phone`}catch(err){}
   const el=$("#off-stat");if(el)el.textContent=(offRunning?"Saving now… ":"")+`${d.n} photo${d.n===1?"":"s"} saved for offline${d.m?` (${d.m} full-screen)`:""}${mb}.`});
-$("#off-on").addEventListener("change",e=>{try{localStorage.setItem(OFF_KEY,e.target.checked?"1":"0")}catch(err){}
+$("#off-done").addEventListener("change",e=>{try{localStorage.setItem(OFF_DONE_KEY,e.target.checked?"1":"0")}catch(err){}
+  if(e.target.checked){try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(err){}offPrefetch(true)}});
+$("#off-on").addEventListener("change",e=>{try{localStorage.setItem(OFF_KEY,e.target.checked?"1":"0")}catch(err){}$("#off-done").disabled=!e.target.checked;
   if(e.target.checked){try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(err){}offPrefetch(true)}});
 $("#off-now").onclick=()=>{if(!navigator.onLine){toast("You're offline");return}if(!hasToken()){toast("Connect Google Drive first");return}
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(err){}$("#off-stat").textContent="Saving…";offPrefetch(true)};
@@ -2965,7 +3173,7 @@ function jobNames(l){return jobIds(l).map((id,i)=>{const m=moulds.find(x=>x.id==
   const mem=joinedOf(l,id);return mem.length?[base,...mem.map(mName)].join(" + "):base})}
 function jobTool(l){const n=jobNames(l);return n.length?n.join(", "):(l.mouldName||l.mouldNumber||(l.mouldId?"Unknown mould":"Mould not set"))}
 // Per-mould values on a work order: the main mould's are stored at the top level, extra moulds' in perMould
-function pmVal(l,id){id=id&&leadOf(l,id);if(!id||id===l.mouldId)return {shots:l.shots,faults:l.faults,work:l.work,notes:l.notes,parts:l.parts,partsList:l.partsList,checklist:l.checklist,procs:l.procs,updates:l.updates,hrz:l.hrz};return (l.perMould&&l.perMould[id])||{}}
+function pmVal(l,id){id=id&&leadOf(l,id);if(!id||id===l.mouldId)return {shots:l.shots,faults:l.faults,work:l.work,notes:l.notes,parts:l.parts,partsList:l.partsList,checklist:l.checklist,procs:l.procs,updates:l.updates,hrz:l.hrz,defects:l.defects,actions:l.actions};return (l.perMould&&l.perMould[id])||{}}
 function subName(id){const m=moulds.find(x=>x.id===id);return String(m?mlabel(m):"Mould").replace(/[\\/|]/g,"-").trim().slice(0,100)||"Mould"}
 // Which moulds get a tab: every mould when the main one is a mould; only the added ones when the main one is a general job
 function tabIdsFor(prim,extras){const all=[...new Set([prim,...(extras||[])].filter(Boolean))];if(all.length<2)return [];const pm=moulds.find(x=>x.id===prim);return pm&&isGen(pm)?all.filter(x=>x!==prim):all}
@@ -2987,18 +3195,18 @@ let subPage=null; // the sub-job shown as its own page, if any
 let formPM={}, mainFor=null, boxFor=null, boxActive=null, lastPrimary="";
 let formSubNo={}; // mould id -> sub-job number on this work order
 let formJoined={}; // sub-job mould id -> moulds that joined it
-function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,partsList:plRead(p),procs:wpList(p).map(x=>procSnap(x,x.st)),updates:updClean(updWithDraft(p)),hrz:hrzClean(hrzList(p))};
-  if(p==="b"){v.status=segVal("#b-status");v.date=$("#b-date").value;v.done=$("#b-done").value;v.type=$("#b-type").value;v.desc=$("#b-desc").value}
+function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,partsList:plRead(p),procs:wpList(p).map(x=>procSnap(x,x.st)),updates:updClean(updWithDraft(p)),hrz:hrzClean(hrzList(p)),defects:tagsGet(p,"d"),actions:tagsGet(p,"a")};
+  if(p==="b"){v.status=segVal("#b-status");v.date=$("#b-date").value;v.done=$("#b-done").value;v.type=$("#b-type").value;v.desc=$("#b-desc").value;v.sched=schedState.b}
   return v}
 function writeSet(p,id){const v=formPM[id]||{};if(typeof aiClear==="function")aiClear(p);
-  $(`#${p}-shots`).value=v.shots??"";$(`#${p}-faults`).value=v.faults||"";$(`#${p}-work`).value=v.work||"";$(`#${p}-notes`).value=v.notes||"";plWrite(p,v.partsList||partsFromText(v.parts));
+  $(`#${p}-shots`).value=v.shots??"";$(`#${p}-faults`).value=v.faults||"";$(`#${p}-work`).value=v.work||"";$(`#${p}-notes`).value=v.notes||"";plWrite(p,v.partsList||partsFromText(v.parts));tagsSet(p,"d",v.defects);tagsSet(p,"a",v.actions);
   if(updOpen&&updOpen.p===p)updOpen=null;
   hrzSet(p,hrzClean(v.hrz));hrzOpen[p]=false;renderHrz(p,true);
   if(p==="f"){fProcs=(v.procs||[]).map(x=>procSnap(x,x.st));renderWoProcs("f");fUpds=updClean(v.updates);renderUpd("f")}else{bProcs=(v.procs||[]).map(x=>procSnap(x,x.st));renderWoProcs("b");bUpds=updClean(v.updates);renderUpd("b");
     // a new sub-job starts with the work order's status and start date
     segSet("#b-status",v.status||segVal("#f-status")||"Pending");$("#b-date").value=v.date??$("#f-date").value;$("#b-done").value=v.done||"";
     // …and the work order's job type; the description is its own
-    $("#b-type").value=JOBTYPES.includes(v.type)?v.type:$("#f-type").value;$("#b-desc").value=v.desc||""}}
+    $("#b-type").value=JOBTYPES.includes(v.type)?v.type:$("#f-type").value;$("#b-desc").value=v.desc||"";schedState.b=v.sched||"";schedRender("b")}}
 const FORCE="\u0000"; // marks a field set that must be reloaded
 function stashPM(){if(mainFor&&mainFor!==FORCE)formPM[mainFor]=readSet("f");if(boxFor&&boxFor!==FORCE)formPM[boxFor]=readSet("b")}
 const pmIds=()=>[...new Set([$("#f-mould").value||lastPrimary,...extraIds].filter(Boolean))];
@@ -3360,6 +3568,7 @@ function renderHist(){
   if(mUpdFor!==m.id){mUpdFor=m.id;mUpdDel.clear();if(updOpen&&updOpen.p==="m")updOpen=null;$("#m-upd").innerHTML=""}
   if(!(updOpen&&updOpen.p==="m"))mUpds=updClean(m.updates);
   $("#mupd-kind").textContent=isGen(m)?"job":"mould";renderUpd("m");renderNwHist(m);
+  if(histTag&&histTag.m!==m.id)histTag=null;renderHistStats(m);renderHistHr(m);
   const s=summary(m);
   $("#histhead").innerHTML=`<div class="row"><div><div style="font-family:var(--display);font-size:22px;font-weight:700">${esc(mlabel(m))}</div><div style="color:var(--muted)">${isClient(m)?"Client work"+(m.company?" · "+esc(m.company):""):isGen(m)?"General job"+(m.area?" · "+esc(m.area):"")+(m.company?" · "+esc(m.company):""):esc(m.part||"No part recorded")}</div></div><span class="stpill ${s.open?"st-Inprogress":s.count?"st-Complete":"none"}">${s.open?s.open+" open job"+(s.open===1?"":"s"):s.count?"All complete":"No jobs"}</span></div>
    <div style="margin-top:10px"><button type="button" class="btn ghost" id="meditbtn">Edit details</button></div>
@@ -3367,12 +3576,13 @@ function renderHist(){
    `${m.company?`<div><span>Company</span><b>${esc(m.company)}</b></div>`:""}<div><span>Cavities</span><b>${esc(m.cavities||"—")}</b></div><div><span>Material</span><b>${esc(m.material||"—")}</b></div><div><span>Entries</span><b>${s.count}</b></div>
    <div><span>Latest shots</span><b>${fmtNum(s.shots)}</b></div><div><span>Last job</span><b>${s.last?fmtDate(s.last.date):"—"}</b></div>${(m.dateStamps||[]).length?`<div class="wide"><span>Date stamps</span><b class="dsfacts">${m.dateStamps.map(dsChip).join("")}</b></div>`:""}`}</div>`;
   $("#histhead").insertAdjacentHTML("beforeend",mpHtml(m));
-  const ml=logsFor(m.id).slice();
+  const all=logsFor(m.id),ml=all.filter(l=>histTagHit(l,m.id));
   const lastUpd=l=>{const u=updClean(pmVal(l,m.id).updates);if(!u.length)return "";const x=u[u.length-1],tx=x.text||(x.hrz?"Hot runner readings: "+hrzSummary(x.hrz):"");return `<div class="lastupd"><b>Update ${esc(fmtDate(x.date))}</b> ${esc(tx.length>110?tx.slice(0,110)+"…":tx)}${u.length>1?` <span>(${u.length} updates)</span>`:""}</div>`};
   const alsoOn=l=>{const o=jobIds(l).map((id,i)=>[id,jobNames(l)[i]]).filter(([id])=>id!==m.id&&id!==leadOf(l,m.id)).map(x=>x[1]);return o.length?`<div class="alsoon">Also on: ${esc(o.join(", "))}</div>`:""};
-  $("#timeline").innerHTML=ml.length?ml.map(l=>{const sm=subMeta(l,m.id);return `<div class="entry e-${stClass(sm.status).slice(3)}">
+  const tagNote=histTag?`<div class="histtagnote"><span>Showing ${ml.length} of ${all.length} jobs with <b>${esc(histTag.t)}</b></span><button type="button" class="linkish" data-histtagx="1">Show all</button></div>`:"";
+  $("#timeline").innerHTML=tagNote+(ml.length?ml.map(l=>{const sm=subMeta(l,m.id),pv=pmVal(l,m.id),tg=[...(pv.defects||[]).map(t=>[t,"d"]),...(pv.actions||[]).map(t=>[t,"a"])];return `<div class="entry e-${stClass(sm.status).slice(3)}">
      <div class="ehead">
-       <div class="row"><div class="type">${l.wo?`<span class="wotag">${esc(subLabel(l,m.id))}</span>`:""}${esc(sm.type||l.type)}${l.orderNo?`<span class="ordtag">Order ${esc(l.orderNo)}</span>`:""}</div>${statusSel(l,m.id)}</div>
+       <div class="row"><div class="type">${l.wo?`<span class="wotag">${esc(subLabel(l,m.id))}</span>`:""}${esc(sm.type||l.type)}${l.orderNo?`<span class="ordtag">Order ${esc(l.orderNo)}</span>`:""}${schedOf(l,m.id)==="u"?`<span class="unsched">Unscheduled</span>`:""}</div>${statusSel(l,m.id)}</div>
        <div class="when">Started ${fmtDate(sm.date)}${sm.dateCompleted?" · Completed "+fmtDate(sm.dateCompleted):""}${pmVal(l,m.id).shots?" · "+fmtNum(pmVal(l,m.id).shots)+" shots":""}</div>${alsoOn(l)}
      </div>
      <div class="etabs" role="group" aria-label="Work order sections">
@@ -3381,15 +3591,17 @@ function renderHist(){
      </div>
      <div class="epanel">${entryTab[l.id]==="att"?attPanel(l,m.id):`
      ${(sm.description||l.description)?`<p class="edesc">${esc(sm.description||l.description)}</p>`:`<p class="edesc none">No description</p>`}
+     ${tg.length?`<div class="tagchips etags">${tg.map(([t,k])=>`<span class="tagc tag-${k}">${esc(t)}</span>`).join("")}</div>`:""}
      ${(l.todos||[]).length?`<div class="small">To-do: ${l.todos.filter(i=>i.done).length} of ${l.todos.length} ticked</div>`:""}`}</div>
      ${lastUpd(l)}
      <div class="small">${confirmDel===l.id?(allIds(l).length>1?`<button class="linkish" data-delsub="${esc(l.id)}" style="color:var(--bad)">Remove ${esc(subMeta(l,m.id).no?subLabel(l,m.id)+" ("+mName(m.id)+")":mName(m.id))} from #${esc(l.wo||"")}</button> · <button class="linkish" data-del="${esc(l.id)}" data-delall="1" style="color:var(--bad)">Delete all of #${esc(l.wo||"")} (${allIds(l).length} moulds/jobs)</button> · <button class="linkish" data-cancel="1">Keep</button>`
        :`<button class="linkish" data-del="${esc(l.id)}" style="color:var(--bad)">Confirm delete</button> · <button class="linkish" data-cancel="1">Keep</button>`):`<button class="linkish" data-edit="${esc(l.id)}"${subMeta(l,m.id).no?` data-editsub="${esc(m.id)}"`:""} style="color:var(--steel)">Edit</button> · <button class="linkish" data-ask="${esc(l.id)}">Delete</button>`}${woNum(l.wo)?` · ${backupNote(l.id)}`:""}${l.updatedAt?` · <span>edited ${fmtDate(l.updatedAt.slice(0,10))}</span>`:""}</div>
-   </div>`}).join(""):'<div class="empty"><strong>No history yet</strong>Log the first job on this mould and it will appear here, newest first.</div>';
+   </div>`}).join(""):(histTag?"":'<div class="empty"><strong>No history yet</strong>Log the first job on this mould and it will appear here, newest first.</div>'));
 }
 $("#timeline").addEventListener("click",async e=>{
   const t=e.target;
   const tab=t.closest("[data-etab]");if(tab){entryTab[tab.dataset.etab]=tab.dataset.t;renderHist();return}
+  if(t.closest("[data-histtagx]")){histTag=null;renderHist();return}
   if(t.dataset.edit){startEdit(t.dataset.edit,t.dataset.editsub)}
   else if(t.dataset.ask){confirmDel=t.dataset.ask;renderHist()}
   else if(t.dataset.cancel){confirmDel=null;renderHist()}
@@ -3448,7 +3660,7 @@ $("#f-wo").addEventListener("input",woHint);
 // ---- A temporary job becomes a sub-job of a real work order: type its number ("2552-3", or just "2552") ----
 // The app asks first. Then the job's mould joins that work order as a sub-job with everything on it (details,
 // updates, to-dos, parts, hot runner readings, procedures, logged hours, photos), and the temporary job goes.
-const PM_FIELDS=["shots","faults","work","notes","parts","partsList","procs","updates","hrz"];
+const PM_FIELDS=["shots","faults","work","notes","parts","partsList","procs","updates","hrz","defects","actions"];
 const WM_MSG="Confirm below to add it to the work order";
 // this job's own number (as saved), to go back to
 const wmOwnNo=()=>{const T=editingId&&logs.find(x=>x.id===editingId);return (T&&T.wo)||origWo||nextTempWO()};
@@ -3487,7 +3699,7 @@ function pmMerge(a,b){a=a||{};b=b||{};const txt=(x,y)=>{x=String(x||"").trim();y
   const sh=Math.max(Number(a.shots)||0,Number(b.shots)||0);
   const procs=[...(a.procs||[])];for(const p of (b.procs||[]))if(!procs.some(q=>q.id===p.id))procs.push(p);
   return {shots:sh||a.shots||b.shots||null,faults:txt(a.faults,b.faults),work:txt(a.work,b.work),notes:txt(a.notes,b.notes),partsList:pl,parts:partsText(pl),procs,
-    updates:updClean([...(a.updates||[]),...(b.updates||[])]),hrz:hrzHasData(hrzClean(a.hrz))?a.hrz:b.hrz||a.hrz||null}}
+    updates:updClean([...(a.updates||[]),...(b.updates||[])]),hrz:hrzHasData(hrzClean(a.hrz))?a.hrz:b.hrz||a.hrz||null,defects:tagsClean([...(a.defects||[]),...(b.defects||[])]),actions:tagsClean([...(a.actions||[]),...(b.actions||[])])}}
 const pmOf=(l,id)=>{const v=pmVal(l,id),o={};for(const f of PM_FIELDS)if(v[f]!==undefined)o[f]=v[f];return o};
 // Drive: move a folder's contents into another, renaming clashes ("photo (2).jpg"); returns {old name: new name}
 async function moveInto(fromId,toId,ren={}){const taken=new Set((await dChildren(toId)).map(x=>String(x.name).toLowerCase()));
@@ -3771,10 +3983,10 @@ function mountFormTodos(){if(clInst.form)clInst.form.pending=false;clMount("form
 mountFormTodos();
 function clearForm(){
   resetPM();setMould("");setExtras([]);
-  formTodos=[];mountFormTodos();formNwSkip=[];nwBanOff.clear();
+  formTodos=[];mountFormTodos();formNwSkip=[];nwBanOff.clear();schedState.f="";tagsSet("f","d",[]);tagsSet("f","a",[]);
   $("#f-shots").value="";$("#f-work").value="";$("#f-notes").value="";$("#f-wonotes").value="";$("#f-desc").value="";plWrite("f",[]);$("#f-done").value="";
   setExtras([]);
-  $("#f-type").selectedIndex=0;$("#f-faults").value="";segReset("#f-status");$("#f-date").value=today();$("#f-due").value="";fDueHint();
+  $("#f-type").selectedIndex=0;schedRender("f");$("#f-faults").value="";segReset("#f-status");$("#f-date").value=today();$("#f-due").value="";fDueHint();
   fProcs=[];bProcs=[];wpPicker=null;renderWoProcs("f");renderWoProcs("b");fUpds=[];bUpds=[];updOpen=null;renderUpd("f");renderUpd("b");fHrz=null;bHrz=null;renderHrz("f",true);renderHrz("b",true);
   suggestedWO=nextWO();$("#f-wo").value=suggestedWO;$("#f-order").value="";
   renderFormDrive();
@@ -3795,14 +4007,14 @@ async function startEdit(id,subId){
 // Fill the form from a work order (on opening it, or when another device has changed it)
 function fillForm(l){
   resetPM();
-  formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",partsList:l.partsList,procs:setProcs(l).map(x=>procSnap(x,x.st)),updates:updClean(l.updates),hrz:hrzClean(l.hrz)};
-  for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",partsList:v.partsList,procs:setProcs(v).map(x=>procSnap(x,x.st)),updates:updClean(v.updates),hrz:hrzClean(v.hrz)}}
+  formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",partsList:l.partsList,procs:setProcs(l).map(x=>procSnap(x,x.st)),updates:updClean(l.updates),hrz:hrzClean(l.hrz),defects:l.defects||[],actions:l.actions||[]};
+  for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",partsList:v.partsList,procs:setProcs(v).map(x=>procSnap(x,x.st)),updates:updClean(v.updates),hrz:hrzClean(v.hrz),defects:v.defects||[],actions:v.actions||[]}}
   formJoined=JSON.parse(JSON.stringify(l.joined||{}));
-  for(const [x,sm] of Object.entries(l.subs||{})){if(!sm||!formPM[x])continue;if(sm.no)formSubNo[x]=sm.no;Object.assign(formPM[x],{status:sm.status,date:sm.date,done:sm.dateCompleted||"",type:sm.type||"",desc:sm.description||""})}
+  for(const [x,sm] of Object.entries(l.subs||{})){if(!sm||!formPM[x])continue;if(sm.no)formSubNo[x]=sm.no;Object.assign(formPM[x],{status:sm.status,date:sm.date,done:sm.dateCompleted||"",type:sm.type||"",desc:sm.description||"",sched:sm.sched||""})}
   $("#f-wo").value=l.wo||"";$("#f-order").value=l.orderNo||"";setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);
-  formTodos=(l.todos||[]).map(i=>({...i}));mountFormTodos();formNwSkip=[...(l.nwSkip||[])];nwBanOff.clear();$("#f-date").value=l.date||today();
+  formTodos=(l.todos||[]).map(i=>({...i}));mountFormTodos();formNwSkip=[...(l.nwSkip||[])];nwBanOff.clear();schedState.f=l.sched||"";$("#f-date").value=l.date||today();
   $("#f-shots").value=l.shots??"";plWrite("f",l.partsList||partsFromText(l.parts));$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-due").value=validDay(l.due)?l.due:"";fDueHint();$("#f-desc").value=l.description||"";$("#f-wonotes").value=l.woNotes||"";
-  $("#f-type").value=JOBTYPES.includes(l.type)?l.type:JOBTYPES[0];
+  $("#f-type").value=JOBTYPES.includes(l.type)?l.type:JOBTYPES[0];schedRender("f");
   $("#f-work").value=l.work==="Other (see notes)"?"":(l.work||"");$("#f-notes").value=l.notes||"";
   segSet("#f-status",l.status||"Complete");
   fProcs=(formPM[l.mouldId].procs||[]).map(x=>procSnap(x,x.st));wpPicker=null;renderWoProcs("f");updOpen=null;fUpds=updClean(formPM[l.mouldId].updates);renderUpd("f");
@@ -3901,11 +4113,11 @@ function buildEntry(){
   if($("#f-done").value&&$("#f-done").value<$("#f-date").value)return {error:"date completed is before date started"};
   const m=moulds.find(x=>x.id===mouldId);
   stashPM();
-  const pmClean=id=>{const v=formPM[id]||(id===mouldId?readSet("f"):{});const sh=String(v.shots??"").trim();return {shots:sh===""?null:Number(sh),faults:String(v.faults||"").trim(),work:String(v.work||"").trim(),notes:String(v.notes||"").trim(),...(()=>{const pl=cleanParts(v.partsList||partsFromText(v.parts));return {parts:partsText(pl),partsList:pl}})(),procs:(v.procs||[]).map(x=>procSnap(x,x.st)),updates:updClean(v.updates),hrz:hrzClean(v.hrz)}};
+  const pmClean=id=>{const v=formPM[id]||(id===mouldId?readSet("f"):{});const sh=String(v.shots??"").trim();return {shots:sh===""?null:Number(sh),faults:String(v.faults||"").trim(),work:String(v.work||"").trim(),notes:String(v.notes||"").trim(),...(()=>{const pl=cleanParts(v.partsList||partsFromText(v.parts));return {parts:partsText(pl),partsList:pl}})(),procs:(v.procs||[]).map(x=>procSnap(x,x.st)),updates:updClean(v.updates),hrz:hrzClean(v.hrz),defects:tagsClean(v.defects),actions:tagsClean(v.actions)}};
   const main=pmClean(mouldId), extras=extraIds.filter(x=>x!==mouldId);
   const perMould={};for(const x of extras)perMould[x]=pmClean(x);
-  const subs={};for(const x of tabIdsFor(mouldId,extras)){const v=formPM[x]||{};subs[x]={no:formSubNo[x]||null,status:v.status||segVal("#f-status"),date:v.date??$("#f-date").value,dateCompleted:v.done||"",type:v.type||$("#f-type").value,description:String(v.desc||"").trim()}}
-  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),joined:joinedFor(mouldId,extraIds.filter(x=>x!==mouldId)),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",due:validDay($("#f-due").value)?$("#f-due").value:"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,procs:main.procs,updates:main.updates,hrz:main.hrz,todos:cleanItems(formTodos),subs,orderNo:$("#f-order").value.trim(),woNotes:$("#f-wonotes").value.trim(),...(formNwSkip.length?{nwSkip:formNwSkip.slice()}:{})}};
+  const subs={};for(const x of tabIdsFor(mouldId,extras)){const v=formPM[x]||{};subs[x]={no:formSubNo[x]||null,status:v.status||segVal("#f-status"),date:v.date??$("#f-date").value,dateCompleted:v.done||"",type:v.type||$("#f-type").value,description:String(v.desc||"").trim(),sched:v.sched||""}}
+  return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),joined:joinedFor(mouldId,extraIds.filter(x=>x!==mouldId)),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",due:validDay($("#f-due").value)?$("#f-due").value:"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,procs:main.procs,updates:main.updates,hrz:main.hrz,defects:main.defects,actions:main.actions,todos:cleanItems(formTodos),subs,orderNo:$("#f-order").value.trim(),woNotes:$("#f-wonotes").value.trim(),sched:schedState.f||"",...(formNwSkip.length?{nwSkip:formNwSkip.slice()}:{})}};
 }
 function markDirty(delay){
   if(!db)return;
@@ -5922,7 +6134,7 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 // Phone keyboards' Go / Next key can submit the form instead of sending Enter: treat that as "next cell" too
 document.addEventListener("submit",e=>{const a=document.activeElement;if(a&&a.dataset&&a.dataset.hrz&&e.target.id==="logform"){e.preventDefault();e.stopImmediatePropagation();hrzNext(a)}},true);
 updOn("click",e=>{const t=e.target;
-  const add=t.closest("[data-hrzadd]");if(add){const p=add.dataset.hrzadd,pv=hrzPrev(p);hrzSet(p,hrzClean({n:pv?pv.v.n:4,z:pv?pv.v.z.map(r=>({l:r.l})):[]}));hrzOpen[p]=true;renderHrz(p,true);hrzDirty(p,400);hrzUpdHint(p);
+  const add=t.closest("[data-hrzadd]");if(add){const p=add.dataset.hrzadd,pv=hrzPrev(p);const sl=!pv&&hrSpecLabels(p);hrzSet(p,hrzClean({n:pv?pv.v.n:sl?sl.length:4,z:pv?pv.v.z.map(r=>({l:r.l})):sl||[]}));hrzOpen[p]=true;renderHrz(p,true);hrzDirty(p,400);hrzUpdHint(p);
     const first=$(`[data-hrz="${p}|0|h"]`);if(first)first.focus();return}
   const st=t.closest("[data-hrzstep]");if(st){const[p,d]=st.dataset.hrzstep.split("|"),v=hrzList(p);if(v)hrzResize(p,Math.min(64,Math.max(1,v.n+ +d)));return}
   const ol=t.closest("[data-hrzol]");if(ol){const[p,i,c]=ol.dataset.hrzol.split("|"),v=hrzList(p);if(!v)return;const r=v.z[+i];r[c+"o"]=!r[c+"o"]; // the typed value is kept
@@ -6191,7 +6403,7 @@ function srLocal(q){const words=searchWords(q),qn=normWo(q),R={wo:[],upd:[],file
   const hit=t=>searchScore(t,q),num=/\d/.test(qn);
   for(const l of logs){const ids=jobIds(l),multi=ids.length>1,f=[["Description",l.description],["Order no.",l.orderNo],["Work order notes",l.woNotes]];
     ids.forEach((id,i)=>{const v=pmVal(l,i===0?null:id),pre=multi?mName(id)+" · ":"";
-      f.push([pre+"Faults",v.faults],[pre+"Work done",v.work],[pre+"Notes",v.notes],[pre+"Parts",v.parts||(v.partsList?partsText(v.partsList):"")]);
+      f.push([pre+"Faults",v.faults],[pre+"Work done",v.work],[pre+"Notes",v.notes],[pre+"Tags",[...(v.defects||[]),...(v.actions||[])].join(", ")],[pre+"Parts",v.parts||(v.partsList?partsText(v.partsList):"")]);
       const sm=subMeta(l,id);if(sm.no&&sm.description)f.push([pre+"Sub-job",sm.description])});
     const sc=(num&&woKeys(l).some(k=>k.startsWith(qn))?3:0)||hit([l.wo,jobTool(l),jobAlias(l),l.type,...f.map(x=>x[1]||"")].join(" "));
     if(sc)R.wo.push({sc,date:l.date||"",l,why:srBest(f,words)})}
@@ -6660,7 +6872,7 @@ function workOrderMarkdown(l){
   const name=jobTool(l);
   const rows=[
     ["Work order",l.wo],...(l.orderNo?[["Client order no.",l.orderNo]]:[]),["Status",l.status||"Complete"],[jobIds(l).length>1?"Moulds / jobs":"Mould / job",name],["Category",kindTitle(m)],
-    ...(isClient(m)?[["Client",m.company||""],["Contact",[m.contact,m.phone,m.email].filter(Boolean).join(" · ")]]:[[isGen(m)?"Area":"Part / product",m.part||m.area||""]]),["Job type",l.type],["Date started",l.date?fmtDate(l.date):""],
+    ...(isClient(m)?[["Client",m.company||""],["Contact",[m.contact,m.phone,m.email].filter(Boolean).join(" · ")]]:[[isGen(m)?"Area":"Part / product",m.part||m.area||""]]),["Job type",l.type],...(jobIds(l).length>1?[]:[["Stop",schedOf(l,l.mouldId)==="u"?"Unscheduled":"Scheduled"]]),["Date started",l.date?fmtDate(l.date):""],
     ["Date completed",l.dateCompleted?fmtDate(l.dateCompleted):""],...(jobIds(l).length>1||isGen(m)?[]:[["Shot count",l.shots!=null&&l.shots!==""?fmtNum(l.shots):""]]),
     ["Created",l.createdAt?new Date(l.createdAt).toLocaleString():""],["Last updated",l.updatedAt?new Date(l.updatedAt).toLocaleString():""]
   ];
@@ -6672,12 +6884,12 @@ function workOrderMarkdown(l){
     const names=jobNames(l);
     jobIds(l).forEach((id,i)=>{const v=pmVal(l,id),mm=moulds.find(x=>x.id===id),sm=subMeta(l,id);
       md+=`\n## ${sm.no?subLabel(l,id)+" · ":""}${names[i]}\n`;
-      if(sm.no)md+=`\n**Status:** ${sm.status} · **Job type:** ${sm.type||"–"} · **Started:** ${sm.date?fmtDate(sm.date):"–"} · **Completed:** ${sm.dateCompleted?fmtDate(sm.dateCompleted):"–"}\n`+(sm.description?`\n### Description\n\n${mdBlock(sm.description)}\n`:"");
+      if(sm.no)md+=`\n**Status:** ${sm.status} · **Job type:** ${sm.type||"–"} · **Started:** ${sm.date?fmtDate(sm.date):"–"} · **Completed:** ${sm.dateCompleted?fmtDate(sm.dateCompleted):"–"}\n\n**Stop:** ${schedOf(l,id)==="u"?"Unscheduled":"Scheduled"}\n`+(sm.description?`\n### Description\n\n${mdBlock(sm.description)}\n`:"");
       if(!(mm&&isGen(mm)))md+=`\n**Shot count:** ${v.shots!=null&&v.shots!==""?fmtNum(v.shots):"–"}\n`;
-      md+=`\n### Inspection / faults found\n\n${mdBlock(v.faults)}\n${hrzMd(v.hrz)}\n### Work done\n\n${mdBlock(v.work)}\n${mdUpd(v.updates,"###")}\n### Notes\n\n${mdBlock(v.notes)}\n\n### Parts used\n\n${partsMd(v)}\n`+mdProcs(setProcs(v),"###")});
+      md+=`\n### Inspection / faults found\n\n${mdBlock(v.faults)}\n${mdTags("Defects",v.defects)}${hrzMd(v.hrz)}\n### Work done\n\n${mdBlock(v.work)}\n${mdTags("Actions",v.actions)}${mdUpd(v.updates,"###")}\n### Notes\n\n${mdBlock(v.notes)}\n\n### Parts used\n\n${partsMd(v)}\n`+mdProcs(setProcs(v),"###")});
   }else{
-  md+=`\n## Inspection / faults found\n\n${mdBlock(l.faults)}\n`+hrzMd(l.hrz);
-  md+=`\n## Work done\n\n${mdBlock(l.work)}\n`+mdUpd(l.updates,"##");
+  md+=`\n## Inspection / faults found\n\n${mdBlock(l.faults)}\n`+mdTags("Defects",l.defects)+hrzMd(l.hrz);
+  md+=`\n## Work done\n\n${mdBlock(l.work)}\n`+mdTags("Actions",l.actions)+mdUpd(l.updates,"##");
   md+=`\n## Notes\n\n${mdBlock(l.notes)}\n`;
   }
   if(jobIds(l).length<2){
@@ -6687,6 +6899,7 @@ function workOrderMarkdown(l){
   md+=jobIds(l).length>1?`\n## Photos & files\n\nStored in this Google Drive folder, in a subfolder for each mould.\n`:`\n## Photos & files\n\nStored in this Google Drive folder.\n`;
   return md+`\n---\n_Backed up automatically by GT Hub on ${new Date().toLocaleString()}._\n`;
 }
+const mdTags=(k,a)=>{a=tagsClean(a);return a.length?`\n**${k}:** ${a.join(", ")}\n`:""};
 function mdUpd(list,h){const u=updClean(list);return u.length?`\n${h} Updates\n\n`+u.map(x=>`- **${fmtDate(x.date)}** – ${(x.text||(x.hrz?"Hot runner readings":"")).replace(/\n+/g," ")}${(x.files||[]).length?` _(photos: ${x.files.join(", ")})_`:""}${x.hrz?"\n"+hrzMd(x.hrz).replace(/^/gm,"  ").replace(/^\s+$/gm,""):""}`).join("\n")+"\n":""}
 const backupFileIds={}; // work order number -> Drive file id of its backup
 async function writeBackup(l){
@@ -7006,7 +7219,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.02-145";
+const APP_VERSION="2026.11.02-146";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -7127,9 +7340,11 @@ $("#import-file").addEventListener("change",async e=>{
   }catch(err){toast("That file couldn't be imported: "+((err&&err.message)||"not a GT Hub export"))}
 });
 $("#exportbtn").onclick=()=>{
-  const cols=["Work order","Client order no.","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Procedures","To-do","Sub-jobs","Updates","Hot runner (Ω)"];
+  const cols=["Work order","Client order no.","Status","Date started","Date completed","Mould / job","Category","Part / area","Job type","Shot count","Description","Inspection / faults found","Work done","Notes","Parts used","Procedures","To-do","Sub-jobs","Updates","Hot runner (Ω)","Stop","Defects","Actions"];
   const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.orderNo||"",l.status||"",l.date,l.dateCompleted,jobTool(l),kindTitle(m),isClient(m)?[m.company,m.contact,m.phone].filter(Boolean).join(" · "):(m.part||m.area),l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,partsCsv(l),setProcs(l).map(sn=>sn.name+": "+procProgress(sn,sn.st||{}).txt).join("; ")];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),[l.woNotes?"Work order: "+l.woNotes:"",j("notes")].filter(Boolean).join(" | "),ids.map((id,i)=>{const v=partsCsv(pmVal(l,id));return v?n[i]+": "+v:""}).filter(Boolean).join(" | "),ids.map((id,i)=>{const c=setProcs(pmVal(l,id));return c.length?n[i]+": "+c.map(sn=>sn.name+" "+procProgress(sn,sn.st||{}).txt).join(", "):""}).filter(Boolean).join(" | ")]})(),(l.todos||[]).map(i=>(i.done?"[x] ":"[ ] ")+i.text).join(" | "),jobIds(l).map((id,i)=>{const sm=subMeta(l,id);return sm.no?`${subLabel(l,id)} ${jobNames(l)[i]}: ${sm.status}`:""}).filter(Boolean).join(" | "),jobIds(l).flatMap((id,i)=>updClean(pmVal(l,id).updates).map(u=>(jobIds(l).length>1?jobNames(l)[i]+" ":"")+u.date+": "+u.text.replace(/\n+/g," "))).join(" | "),jobIds(l).map((id,i)=>{const x=hrzCsv(pmVal(l,id).hrz);return x?(jobIds(l).length>1?jobNames(l)[i]+": ":"")+x:""}).filter(Boolean).join(" | ")].map(q).join(",")}));
+  const lines=[cols.join(",")].concat(logs.map(l=>{const m=moulds.find(x=>x.id===l.mouldId)||{};return [l.wo,l.orderNo||"",l.status||"",l.date,l.dateCompleted,jobTool(l),kindTitle(m),isClient(m)?[m.company,m.contact,m.phone].filter(Boolean).join(" · "):(m.part||m.area),l.type,...(()=>{const ids=jobIds(l);if(ids.length<2)return [l.shots,l.description,l.faults,l.work,l.notes,partsCsv(l),setProcs(l).map(sn=>sn.name+": "+procProgress(sn,sn.st||{}).txt).join("; ")];const n=jobNames(l);const j=k=>ids.map((id,i)=>{const v=pmVal(l,id)[k];return v!=null&&v!==""?n[i]+": "+(k==="shots"?fmtNum(v):v):""}).filter(Boolean).join(" | ");return [j("shots"),l.description,j("faults"),j("work"),[l.woNotes?"Work order: "+l.woNotes:"",j("notes")].filter(Boolean).join(" | "),ids.map((id,i)=>{const v=partsCsv(pmVal(l,id));return v?n[i]+": "+v:""}).filter(Boolean).join(" | "),ids.map((id,i)=>{const c=setProcs(pmVal(l,id));return c.length?n[i]+": "+c.map(sn=>sn.name+" "+procProgress(sn,sn.st||{}).txt).join(", "):""}).filter(Boolean).join(" | ")]})(),(l.todos||[]).map(i=>(i.done?"[x] ":"[ ] ")+i.text).join(" | "),jobIds(l).map((id,i)=>{const sm=subMeta(l,id);return sm.no?`${subLabel(l,id)} ${jobNames(l)[i]}: ${sm.status}`:""}).filter(Boolean).join(" | "),jobIds(l).flatMap((id,i)=>updClean(pmVal(l,id).updates).map(u=>(jobIds(l).length>1?jobNames(l)[i]+" ":"")+u.date+": "+u.text.replace(/\n+/g," "))).join(" | "),jobIds(l).map((id,i)=>{const x=hrzCsv(pmVal(l,id).hrz);return x?(jobIds(l).length>1?jobNames(l)[i]+": ":"")+x:""}).filter(Boolean).join(" | "),
+    ...(()=>{const ids=jobIds(l),n=jobNames(l),multi=ids.length>1,j=k=>ids.map((id,i)=>{const a=tagsClean(pmVal(l,id)[k]);return a.length?(multi?n[i]+": ":"")+a.join(", "):""}).filter(Boolean).join(" | ");
+      return [multi?ids.map((id,i)=>n[i]+": "+(schedOf(l,id)==="u"?"Unscheduled":"Scheduled")).join(" | "):(schedOf(l,l.mouldId)==="u"?"Unscheduled":"Scheduled"),j("defects"),j("actions")]})()].map(q).join(",")}));
   saveFile("mould-maintenance-"+today()+".csv",new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));
 };
 function buildBackup(){
@@ -7252,15 +7467,17 @@ function recParse(md,prefer=[]){
   const woField=(h,lines)=>{if(h==="Description")P.description=recBlock(lines);else if(h==="Work order notes")P.woNotes=recBlock(lines);
     else if(h==="To-do")P.todos=lines.map(l=>l.match(/^- \[( |x)\] (.*)$/)).filter(Boolean).map(m=>({text:m[2],done:m[1]==="x"}))};
   let single=null;
-  if(!multi){single=newTool(hdr["Mould / job"]||"",null);Object.assign(single,{status:hdr.Status||"",type:hdr["Job type"]||"",date:rstMdDate(hdr["Date started"]),dateCompleted:rstMdDate(hdr["Date completed"]),shots:shotsOf(hdr["Shot count"])})}
+  if(!multi){single=newTool(hdr["Mould / job"]||"",null);if(hdr.Stop)single.sched=/^Unsched/i.test(hdr.Stop)?"u":"s";Object.assign(single,{status:hdr.Status||"",type:hdr["Job type"]||"",date:rstMdDate(hdr["Date started"]),dateCompleted:rstMdDate(hdr["Date completed"]),shots:shotsOf(hdr["Shot count"])})}
   const byTitle={};
   for(const b of blocks){if(b.h2==null)continue;
+    const tg={};b.lines=b.lines.filter(l=>{const m=l.match(/^\*\*(Defects|Actions|Stop):\*\* (.*)$/);if(!m)return true;tg[m[1]]=m[2];return false});
     const sc=b.lines.findIndex(l=>/^\*\*Shot count:\*\* /.test(l));let shots;if(sc>=0&&multi){shots=shotsOf(b.lines[sc].replace(/^\*\*Shot count:\*\* /,""));b.lines=b.lines.slice(0,sc).concat(b.lines.slice(sc+1))}
     if(WO_H2.includes(b.h2)){if(!b.h3)woField(b.h2,b.lines);continue}
-    if(!multi){if(!b.h3)field(single,b.h2,b.lines);continue}
+    if(!multi){if(tg.Defects)single.defects=tagsClean(tg.Defects.split(/,\s*/));if(tg.Actions)single.actions=tagsClean(tg.Actions.split(/,\s*/));if(!b.h3)field(single,b.h2,b.lines);continue}
     let t=byTitle[b.h2];
     if(!t){const m=b.h2.match(/^(.+)-(\d+) · (.*)$/),num=m&&normWo(m[1])===normWo(wo);t=byTitle[b.h2]=newTool(num?m[3]:b.h2,num?+m[2]:null);t.title=b.h2}
     if(shots!==undefined)t.shots=shots;
+    if(tg.Defects)t.defects=tagsClean(tg.Defects.split(/,\s*/));if(tg.Actions)t.actions=tagsClean(tg.Actions.split(/,\s*/));if(tg.Stop)t.sched=/^Unsched/i.test(tg.Stop)?"u":"s";
     if(!b.h3){for(const ln of b.lines){const m=ln.match(/^\*\*Status:\*\* (.*?) · \*\*Job type:\*\* (.*?) · \*\*Started:\*\* (.*?) · \*\*Completed:\*\* (.*)$/);
         if(m){t.status=recDash(m[1]);t.type=recDash(m[2]);t.date=rstMdDate(recDash(m[3]));t.dateCompleted=rstMdDate(recDash(m[4]))}}continue}
     if(b.h3==="Description")t.description=recBlock(b.lines);else field(t,b.h3,b.lines)}
@@ -7305,8 +7522,8 @@ function recApply(cur,plan,sel,P){let d=JSON.parse(JSON.stringify(cur));delete d
     for(const id of need)if(!give[id]){const n=Math.max(0,...used)+1;give[id]=n;used.add(n)}
     for(const id of need)if(!adds.some(a=>a.lead===id))d.subs[id]={no:give[id],status:cur.status||"Complete",date:cur.date||"",dateCompleted:cur.dateCompleted||"",type:cur.type||"",description:""};
     for(const a of adds){const t=a.t;
-      d.perMould[a.lead]={shots:t.shots,faults:t.faults,work:t.work,notes:t.notes,parts:"",partsList:t.partsList,procs:[],updates:updClean(t.updates.map(nu)),hrz:t.hrz||null};
-      if(tabs.includes(a.lead))d.subs[a.lead]={no:give[a.lead]||want(a.lead)||null,status:t.status||"In progress",date:t.date||"",dateCompleted:t.dateCompleted||"",type:t.type||"",description:t.description||""};
+      d.perMould[a.lead]={shots:t.shots,faults:t.faults,work:t.work,notes:t.notes,parts:"",partsList:t.partsList,procs:[],updates:updClean(t.updates.map(nu)),hrz:t.hrz||null,defects:t.defects||[],actions:t.actions||[]};
+      if(tabs.includes(a.lead))d.subs[a.lead]={no:give[a.lead]||want(a.lead)||null,status:t.status||"In progress",date:t.date||"",dateCompleted:t.dateCompleted||"",type:t.type||"",description:t.description||"",...(t.sched&&t.sched!==schedDef(t.type||"")?{sched:t.sched}:{})};
       if(a.members.length)d.joined[a.lead]=a.members}}
   if(sel.desc&&plan.desc)d.description=plan.desc;
   if(sel.notes&&plan.notes)d.woNotes=plan.notes;
