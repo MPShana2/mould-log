@@ -3217,7 +3217,7 @@ function renderPM(){
   if(prim&&mainShows&&mainFor!==prim){if(!mainFor&&!formPM[prim])formPM[prim]=readSet("f");writeSet("f",prim);mainFor=prim;moved=true}
   if(prim&&!mainShows&&mainFor){mainFor=null;moved=true}
   let nx=Math.max(0,...Object.values(formSubNo));tabs.forEach(id=>{if(!formSubNo[id])formSubNo[id]=++nx});
-  if(tabs.length){if(!tabs.includes(boxActive))boxActive=tabs[0];if(boxFor!==boxActive){if(!formPM[boxActive])formPM[boxActive]={};writeSet("b",boxActive);boxFor=boxActive;moved=true}}
+  if(tabs.length){if(!tabs.includes(boxActive))boxActive=tabs[0];if(boxFor!==boxActive){if(!formPM[boxActive])formPM[boxActive]={};boxFor=boxActive;writeSet("b",boxActive);moved=true}}
   else if(boxFor){boxFor=null;boxActive=null;moved=true}
   const wo=$("#f-wo").value.trim().toUpperCase();
   // the work order lists its sub-jobs; each opens as its own page
@@ -5274,10 +5274,17 @@ function updThumbs(p,names,removable){
   if(!names||!names.length)return "";const t=updTarget(p),key=t&&dkey(t),st=key&&driveState[key];
   if(t&&!st)dsEnsure(key,t);
   const items=(st&&st.items)||[],q=queueCache.filter(x=>t&&x.num===t.num&&(x.sub||"")===(t.sub||""));names=photosNewest(names,items);
+  if(st&&st.status==="ready")updHeal(key,names.some(n=>{const f=items.find(x=>x.name===n);return f?!f.thumbnailLink&&String(f.mimeType||"").startsWith("image/"):!q.some(x=>x.name===n)}));
   return `<div class="updphotos" data-k="${esc(names.join("\u0001"))}">${names.map(n=>{const f=items.find(x=>x.name===n),up=q.some(x=>x.name===n);
     const img=(f&&f.thumbnailLink?`<img src="${esc(thumbUrl(f,240))}" referrerpolicy="no-referrer" alt="" draggable="false">`:`<span class="ext">${up?"↑":/\.(mp4|mov|m4v|3gp|webm|mkv)$/i.test(n)||isVideo(f)?"VIDEO":"IMG"}</span>`)+vidBadge(f);
     return `<span class="updph"><button type="button" class="thumb" ${f?`data-updview="${esc(key)}|${esc(n)}|${esc(names.join("\u0001"))}"`:"disabled"} title="${esc(n)}${up?" (uploading)":""}">${img}</button>${removable?`<button type="button" class="updphx" data-updphx="${p}|${esc(n)}" aria-label="Remove ${esc(n)} from this update">×</button>`:""}</span>`}).join("")}</div>`;
 }
+// A photo just uploaded has no thumbnail in Drive for a little while (and a list loaded before it arrived doesn't
+// have it at all): the folder is looked at again a few times until every photo on the update shows
+const updHealT={};
+function updHeal(key,missing){const h=updHealT[key]||(updHealT[key]={n:0,t:0});
+  if(!missing){clearTimeout(h.t);delete updHealT[key];return}
+  if(h.t||h.n>=5)return;h.t=setTimeout(()=>{h.t=0;h.n++;if(driveState[key])driveRefresh(key)},[3000,6000,15000,30000,60000][h.n])}
 // An update's hot runner readings: folded to a one-line summary, open for the table (stays open across redraws)
 const updHrzOpen=new Set();
 function updHrzView(p,u){const v=u&&u.hrz;if(!hrzHasData(v))return "";const k=p+"|"+u.id;
@@ -7219,7 +7226,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.02-146";
+const APP_VERSION="2026.11.03-147";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
