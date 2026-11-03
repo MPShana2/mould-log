@@ -355,6 +355,7 @@ textarea.autogrow{resize:none;overflow:hidden}
 #mk-text{flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid #3a4652;background:#0b0e12;color:#f2f5f7}
 .mk-sw{width:32px;height:32px;border-radius:50%;border:2px solid #3a4652;cursor:pointer;padding:0}.mk-sw.on{border-color:#ffd400;box-shadow:0 0 0 2px #0b0e12 inset}
 .mk-b{font:inherit;font-size:14px;font-weight:700;color:#f2f5f7;background:rgba(255,255,255,.12);border:1px solid transparent;border-radius:999px;padding:7px 12px;cursor:pointer}.mk-b.on{border-color:#ffd400;color:#ffd400}
+.subcont{margin:-2px 0 6px;color:var(--muted)}.mvsub .mvno input#cry-date{width:auto;min-width:150px}.subcont b{color:var(--fg)}
 .starb{position:absolute;top:5px;right:5px;z-index:1;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.55);color:#ffc533;font-size:15px;line-height:24px;text-align:center;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .starfilt{margin:8px 0 10px}.starfilt button{font-size:13px;padding:6px 11px}
 .lb button#lb-star[aria-pressed="true"]{color:#ffc533}
@@ -1404,7 +1405,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         </div>
         <div class="mbody">
           <div class="mmeta">
-            <div class="subhead"><span class="label">Sub-job</span><span class="subno" id="b-subno"></span><span class="hrline" id="b-hrs"></span></div>
+            <div class="subhead"><span class="label">Sub-job</span><span class="subno" id="b-subno"></span><span class="hrline" id="b-hrs"></span></div><div class="subcont small" id="b-cont" hidden></div>
             <div class="field">
               <span class="label">Status</span>
               <div class="seg status" id="b-status" role="group" aria-label="Sub-job status">
@@ -1421,7 +1422,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
             <div class="field"><label class="label" for="b-type">Job type</label><select id="b-type"></select></div>
             <div class="field"><span class="label">Mould stop</span><div class="seg sched" id="b-sched" role="group" aria-label="Scheduled or unscheduled"><button type="button" data-v="s" aria-pressed="true">Scheduled</button><button type="button" data-v="u" aria-pressed="false">Unscheduled</button></div><div class="hint schedhint" id="b-schedhint"></div></div>
             <div class="field"><label class="label" for="b-desc">Description</label><textarea id="b-desc" class="autogrow" rows="1" placeholder="What this mould needs on this work order"></textarea></div>
-            <div class="submove"><button type="button" class="linkish" id="b-move">Move this sub-job to another work order…</button></div>
+            <div class="submove"><button type="button" class="linkish" id="b-carry">Carry on to another work order…</button> · <button type="button" class="linkish" id="b-move">Move…</button></div>
           </div>
           <div class="mcol">
             <div class="field" id="b-shots-field"><label class="label" for="b-shots">Shot count</label><input id="b-shots" class="mono" type="number" inputmode="numeric" min="0" placeholder="e.g. 412500"></div>
@@ -3222,7 +3223,7 @@ let formPM={}, mainFor=null, boxFor=null, boxActive=null, lastPrimary="";
 let formSubNo={}; // mould id -> sub-job number on this work order
 let formJoined={}; // sub-job mould id -> moulds that joined it
 function readSet(p){const v={shots:$(`#${p}-shots`).value,faults:$(`#${p}-faults`).value,work:$(`#${p}-work`).value,notes:$(`#${p}-notes`).value,partsList:plRead(p),procs:wpList(p).map(x=>procSnap(x,x.st)),updates:updClean(updWithDraft(p)),hrz:hrzClean(hrzList(p)),defects:tagsGet(p,"d"),actions:tagsGet(p,"a")};
-  if(p==="b"){v.status=segVal("#b-status");v.date=$("#b-date").value;v.done=$("#b-done").value;v.type=$("#b-type").value;v.desc=$("#b-desc").value;v.sched=schedState.b}
+  if(p==="b"){v.status=segVal("#b-status");v.date=$("#b-date").value;v.done=$("#b-done").value;v.type=$("#b-type").value;v.desc=$("#b-desc").value;v.sched=schedState.b;const o=(boxFor&&formPM[boxFor])||{};v.from=o.from||"";v.cont=o.cont||""}
   return v}
 function writeSet(p,id){const v=formPM[id]||{};if(typeof aiClear==="function")aiClear(p);
   $(`#${p}-shots`).value=v.shots??"";$(`#${p}-faults`).value=v.faults||"";$(`#${p}-work`).value=v.work||"";$(`#${p}-notes`).value=v.notes||"";plWrite(p,v.partsList||partsFromText(v.parts));tagsSet(p,"d",v.defects);tagsSet(p,"a",v.actions);
@@ -3251,7 +3252,8 @@ function renderPM(){
   $("#sublist").innerHTML=tabs.map(id=>{const st=(formPM[id]||{}).status||segVal("#f-status")||"Pending";
     return `<button type="button" class="subrow" data-subopen="${esc(id)}" aria-label="Open sub-job ${esc(wo)}-${formSubNo[id]}"><span class="no">${esc(wo||"#")}-${formSubNo[id]}</span><span class="nm">${esc([mName(id),...(formJoined[id]||[]).map(mName)].join(" + "))}</span><span class="stpill ${stClass(st)}">${esc(st)}</span><span class="chev" aria-hidden="true">›</span></button>`}).join("");
   if(subPage&&!tabs.includes(subPage))closeSub();
-  if(boxActive){const bm0=moulds.find(x=>x.id===boxActive);$("#b-subno").textContent=`${wo||"#"}-${formSubNo[boxActive]}`;$("#b-title").textContent=bm0?mlabel(bm0):"Unknown";$("#subback-wo").textContent=wo||"work order";renderJoined()}
+  if(boxActive){const bm0=moulds.find(x=>x.id===boxActive);$("#b-subno").textContent=`${wo||"#"}-${formSubNo[boxActive]}`;
+    {const o=formPM[boxActive]||{},c=$("#b-cont"),bits=[o.from?`Continued from <b>#${esc(o.from)}</b>`:"",o.cont?`Carried on to <b>#${esc(o.cont)}</b>`:""].filter(Boolean);c.hidden=!bits.length;c.innerHTML=bits.join(" · ")}$("#b-title").textContent=bm0?mlabel(bm0):"Unknown";$("#subback-wo").textContent=wo||"work order";renderJoined()}
   $("#mbox").hidden=!subPage;$("#logform").classList.remove("hasbox");
   $("#pmmain").classList.toggle("off",!mainShows);$("#wonotes-field").hidden=mainShows&&!$("#f-wonotes").value.trim();$("#logform").classList.toggle("multi",!mainShows);
   const pm=moulds.find(x=>x.id===prim),bm=moulds.find(x=>x.id===boxActive);
@@ -3609,7 +3611,7 @@ function renderHist(){
   $("#timeline").innerHTML=tagNote+(ml.length?ml.map(l=>{const sm=subMeta(l,m.id),pv=pmVal(l,m.id),tg=[...(pv.defects||[]).map(t=>[t,"d"]),...(pv.actions||[]).map(t=>[t,"a"])];return `<div class="entry e-${stClass(sm.status).slice(3)}">
      <div class="ehead">
        <div class="row"><div class="type">${l.wo?`<span class="wotag">${esc(subLabel(l,m.id))}</span>`:""}${esc(sm.type||l.type)}${l.orderNo?`<span class="ordtag">Order ${esc(l.orderNo)}</span>`:""}${schedOf(l,m.id)==="u"?`<span class="unsched">Unscheduled</span>`:""}</div>${statusSel(l,m.id)}</div>
-       <div class="when">Started ${fmtDate(sm.date)}${sm.dateCompleted?" · Completed "+fmtDate(sm.dateCompleted):""}${pmVal(l,m.id).shots?" · "+fmtNum(pmVal(l,m.id).shots)+" shots":""}</div>${alsoOn(l)}
+       <div class="when">${(s=>[s.from?"Continued from #"+esc(s.from):"",s.cont?"Carried on to #"+esc(s.cont):""].filter(Boolean).map(x=>x+" · ").join(""))((l.subs||{})[leadOf(l,m.id)]||{})}Started ${fmtDate(sm.date)}${sm.dateCompleted?" · Completed "+fmtDate(sm.dateCompleted):""}${pmVal(l,m.id).shots?" · "+fmtNum(pmVal(l,m.id).shots)+" shots":""}</div>${alsoOn(l)}
      </div>
      <div class="etabs" role="group" aria-label="Work order sections">
        <button type="button" data-etab="${esc(l.id)}" data-t="details" aria-pressed="${entryTab[l.id]!=="att"}">Details</button>
@@ -3831,8 +3833,12 @@ function subMoveStart(){
   const wo=$("#f-wo").value.trim().toUpperCase(),nm=[mName(X),...(formJoined[X]||[]).map(mName)].join(" + ");
   openAssign({moveSub:{id:X},label:`${wo}-${formSubNo[X]} · ${nm}`})}
 $("#b-move").onclick=subMoveStart;
+$("#b-carry").onclick=()=>{const X=subPage;if(!X||!editingId){toast("Save the work order first");return}if(!curTabsNow().includes(X))return;
+  const wo=$("#f-wo").value.trim().toUpperCase(),nm=[mName(X),...(formJoined[X]||[]).map(mName)].join(" + ");
+  openAssign({moveSub:{id:X,carry:true},label:`${wo}-${formSubNo[X]} · ${nm}`})};
 function subMoveConfirm(logId,want){
   const L=logs.find(x=>x.id===logId),X=ibAssign&&ibAssign.moveSub&&ibAssign.moveSub.id;if(!L||!X)return;
+  if(ibAssign.moveSub.carry)return carryConfirm(L,X,want);
   const plan=subMovePlan(L,X,want),wo=$("#f-wo").value.trim().toUpperCase(),from=`${wo}-${formSubNo[X]}`;
   $("#a-q").hidden=true;
   $("#alist").innerHTML=`<div class="mvsub" data-mvsl="${esc(L.id)}"><div><b>Move ${esc(from)} to #${esc(L.wo)}</b> · ${esc(jobTool(L))}</div>`+
@@ -3843,10 +3849,69 @@ function subMoveConfirm(logId,want){
 $("#alist").addEventListener("input",e=>{if(e.target.id!=="mvs-no")return;const box=e.target.closest("[data-mvsl]"),L=logs.find(x=>x.id===box.dataset.mvsl),X=ibAssign&&ibAssign.moveSub&&ibAssign.moveSub.id;if(!L||!X)return;
   const w=+e.target.value||0,plan=subMovePlan(L,X,w),h=$("#mvs-hint");
   h.className=plan.takenBy?"mvbad":"";h.textContent=!w?"":plan.takenBy?`${L.wo}-${w} is ${mName(plan.takenBy)}`:w===plan.next?"(the next number)":"";
-  box.querySelector("[data-mvsgo]").disabled=!w||!!plan.takenBy});
+  box.querySelector("[data-mvsgo]").disabled=!w||!!plan.takenBy;if(box.dataset.carry)carryHint(box)});
 $("#alist").addEventListener("click",e=>{
   if(e.target.closest("[data-mvsback]")){renderAssignList();$("#a-q").focus();return}
-  const go=e.target.closest("[data-mvsgo]");if(!go)return;const box=go.closest("[data-mvsl]"),n=$("#mvs-no");subMoveGo(box.dataset.mvsl,n?+n.value:null,go)});
+  const go=e.target.closest("[data-mvsgo]");if(!go)return;const box=go.closest("[data-mvsl]"),n=$("#mvs-no");
+  if(box.dataset.carry){carryGo(box.dataset.mvsl,n?+n.value:null,$("#cry-date").value,go);return}
+  subMoveGo(box.dataset.mvsl,n?+n.value:null,go)});
+$("#alist").addEventListener("change",e=>{if(e.target.id!=="cry-date")return;const box=e.target.closest("[data-mvsl]");if(box)carryHint(box)});
+
+// ---- Carry a sub-job on to another work order (e.g. last month's general job → this month's) ----
+// The sub-job stays where it is, finished the day before, with everything on it (updates, photos, parts, hours
+// before that day). The other work order gets the same mould as a sub-job, open, with its description and job type,
+// and the hours logged from that day on. Each notes where the other is.
+const carryHours=(S,X,J,sm,from)=>hoursList.filter(h=>(h.logId===S.id||(!h.logId&&normWo(h.wo)===normWo(S.wo)))&&(h.mouldId===X||J.includes(h.mouldId)||(!h.mouldId&&sm.no&&+h.sub===+sm.no))&&String(h.date||"")>=from);
+function carryConfirm(L,X,want){const S=logs.find(x=>x.id===editingId);if(!S)return;
+  const plan=subMovePlan(L,X,want),wo=S.wo,sm=subMeta(S,X),from=`${wo}-${sm.no||formSubNo[X]}`;
+  const day=validDay(L.date)&&L.date>(sm.date||"")?L.date:today();
+  $("#a-q").hidden=true;
+  $("#alist").innerHTML=`<div class="mvsub" data-mvsl="${esc(L.id)}" data-carry="1"><div><b>Carry ${esc(from)} on to #${esc(L.wo)}</b> · ${esc(jobTool(L))}</div>`+
+    (plan.existing?`<div class="small">${esc(mName(X))} is already on #${esc(L.wo)}${plan.no?` (${esc(L.wo)}-${plan.no})`:""}, so the hours go to that.</div>`
+      :`<label class="mvno small">On #${esc(L.wo)} it's <b>${esc(L.wo)}-</b><input type="number" id="mvs-no" min="1" inputmode="numeric" value="${plan.takenBy?want:plan.no}" aria-label="New sub-job number"><span class="${plan.takenBy?"mvbad":""}" id="mvs-hint">${plan.takenBy?`${esc(L.wo)}-${want} is ${esc(mName(plan.takenBy))}`:plan.no===plan.next?"(the next number)":""}</span></label>`)+
+    `<label class="mvno small">From <input type="date" id="cry-date" value="${esc(day)}" aria-label="Carried on from"></label>
+    <div class="small" id="cry-hint"></div>
+    <div class="attbtns" style="margin:0"><button type="button" class="btn" data-mvsgo${plan.takenBy?" disabled":""}>Carry on</button><button type="button" class="btn ghost" data-mvsback>Back</button></div></div>`;
+  carryHint($("#alist .mvsub"))}
+function carryHint(box){const S=logs.find(x=>x.id===editingId),L=logs.find(x=>x.id===box.dataset.mvsl),X=ibAssign&&ibAssign.moveSub&&ibAssign.moveSub.id;if(!S||!L||!X)return;
+  const sm=subMeta(S,X),J=joinedOf(S,X),d=$("#cry-date").value||today(),n=$("#mvs-no"),plan=subMovePlan(L,X,n?+n.value:null),to=`${L.wo}-${plan.no||"?"}`,from=`${S.wo}-${sm.no}`;
+  const after=carryHours(S,X,J,sm,d),hrs=after.reduce((a,h)=>a+(+h.hours||0),0),end=dayAdd(d,-1);
+  $("#cry-hint").innerHTML=`<b>#${esc(from)}</b> is marked complete on ${esc(fmtDate(end<(sm.date||"")?sm.date:end))} and keeps its updates, photos, parts and the hours before ${esc(fmtDate(d))}. `+
+    `<b>#${esc(to)}</b> starts ${esc(fmtDate(d))}${after.length?` with ${esc(fmtH(hrs))} already logged from then (${after.length} entr${after.length===1?"y":"ies"})`:""}; log new hours against it.`}
+async function carryGo(logId,want,day,btn){
+  const X=ibAssign&&ibAssign.moveSub&&ibAssign.moveSub.id;if(!X||!db)return;if(!validDay(day)){toast("Pick the day it carries on from");return}
+  btn.disabled=true;btn.textContent="Carrying on…";
+  try{stashPM();markDirty(0);
+    if(!(await flushSave())||!editingId)throw {message:"Couldn't save this work order first"};
+    await new Promise(r=>setTimeout(r,80));
+    const S=logs.find(x=>x.id===editingId),L=logs.find(x=>x.id===logId);if(!S||!L)throw {message:"Couldn't find the work order"};
+    if(!tabIdsFor(S.mouldId,S.extraMouldIds).includes(X))throw {message:"That isn't a sub-job any more"};
+    const plan=subMovePlan(L,X,want),sm=subMeta(S,X),J=joinedOf(S,X),now=new Date().toISOString();
+    if(!plan.existing&&plan.takenBy)throw {message:`${L.wo}-${want} is already used`};
+    const to=`${L.wo}${plan.no?"-"+plan.no:""}`,from=`${S.wo}-${sm.no}`;
+    // 1. the other work order: the mould as an open sub-job (or the one it already has)
+    const N={extraMouldIds:[...(L.extraMouldIds||[])],extraMouldNames:[...(L.extraMouldNames||[])],perMould:JSON.parse(JSON.stringify(L.perMould||{})),
+      subs:JSON.parse(JSON.stringify(L.subs||{})),joined:JSON.parse(JSON.stringify(L.joined||{}))};
+    for(const [id,no] of Object.entries(plan.nos)){if(id===X&&!plan.existing)continue;const m=subMeta(L,id);N.subs[id]={...(N.subs[id]||{}),no,status:m.status,date:m.date,dateCompleted:m.dateCompleted,type:m.type,description:m.description}}
+    const open=isDone(sm.status)?"In progress":sm.status;
+    if(plan.existing){const t=N.subs[plan.lead];if(t){t.from=from;if(isDone(t.status)){t.status=open;t.dateCompleted=""}}}
+    else{N.extraMouldIds.push(X);N.extraMouldNames.push(mName(X));
+      N.perMould[X]={shots:null,faults:"",work:"",notes:"",parts:"",partsList:[],procs:[],updates:[],hrz:null,defects:[],actions:[]};
+      N.subs[X]={no:plan.no,status:open,date:day,dateCompleted:"",type:sm.type||S.type||"",description:sm.description||"",from,...(((S.subs||{})[X]||{}).sched?{sched:S.subs[X].sched}:{})};
+      if(J.length){const cur=new Set(N.joined[X]||[]);for(const x of J)if(!allIds(L).includes(x))cur.add(x);N.joined[X]=[...cur]}}
+    const lp={...N,updatedAt:now};if(isDone(L.status)){lp.status="In progress";lp.dateCompleted=""}
+    // 2. this work order: the sub-job finished the day before, noting where it carried on
+    const end=dayAdd(day,-1),sp={subs:JSON.parse(JSON.stringify(S.subs||{})),updatedAt:now};
+    sp.subs[X]={...(sp.subs[X]||{}),no:sm.no,status:"Complete",date:sm.date,dateCompleted:isDone(sm.status)&&sm.dateCompleted?sm.dateCompleted:(end<(sm.date||"")?sm.date:end),type:sm.type,description:sm.description,cont:to};
+    await db.collection("logs").doc(L.id).update(lp);
+    await db.collection("logs").doc(S.id).update(sp);
+    // 3. the hours from that day on
+    let n=0;for(const h of carryHours(S,X,J,sm,day)){try{await db.collection("hours").doc(h.id).update({wo:L.wo,sub:plan.no||null,logId:L.id,mouldId:h.mouldId===X||!h.mouldId?plan.lead:h.mouldId,updatedAt:now});n++}catch(e){}}
+    scheduleBackup(L.id);scheduleBackup(S.id);
+    closeAssign();editingId=null;dirty=false;formBase=null;
+    toast(`Carried on to #${to}${n?` with ${n} hours entr${n===1?"y":"ies"}`:""}. #${from} is complete.`);
+    navReplace=true;await new Promise(r=>setTimeout(r,80));await startEdit(L.id,plan.tabsAfter.includes(plan.lead)?plan.lead:undefined)}
+  catch(err){btn.disabled=false;btn.textContent="Try again";toast("Couldn't carry it on: "+((err&&err.message)||err))}}
 async function subMoveGo(logId,want,btn){
   const X=ibAssign&&ibAssign.moveSub&&ibAssign.moveSub.id;if(!X||!db)return;
   btn.disabled=true;btn.textContent="Moving…";
@@ -4036,7 +4101,7 @@ function fillForm(l){
   formPM[l.mouldId]={shots:l.shots??"",faults:l.faults||"",work:l.work==="Other (see notes)"?"":(l.work||""),notes:l.notes||"",parts:l.parts||"",partsList:l.partsList,procs:setProcs(l).map(x=>procSnap(x,x.st)),updates:updClean(l.updates),hrz:hrzClean(l.hrz),defects:l.defects||[],actions:l.actions||[]};
   for(const x of (l.extraMouldIds||[])){const v=(l.perMould&&l.perMould[x])||{};formPM[x]={shots:v.shots??"",faults:v.faults||"",work:v.work||"",notes:v.notes||"",parts:v.parts||"",partsList:v.partsList,procs:setProcs(v).map(x=>procSnap(x,x.st)),updates:updClean(v.updates),hrz:hrzClean(v.hrz),defects:v.defects||[],actions:v.actions||[]}}
   formJoined=JSON.parse(JSON.stringify(l.joined||{}));
-  for(const [x,sm] of Object.entries(l.subs||{})){if(!sm||!formPM[x])continue;if(sm.no)formSubNo[x]=sm.no;Object.assign(formPM[x],{status:sm.status,date:sm.date,done:sm.dateCompleted||"",type:sm.type||"",desc:sm.description||"",sched:sm.sched||""})}
+  for(const [x,sm] of Object.entries(l.subs||{})){if(!sm||!formPM[x])continue;if(sm.no)formSubNo[x]=sm.no;Object.assign(formPM[x],{status:sm.status,date:sm.date,done:sm.dateCompleted||"",type:sm.type||"",desc:sm.description||"",sched:sm.sched||"",from:sm.from||"",cont:sm.cont||""})}
   $("#f-wo").value=l.wo||"";$("#f-order").value=l.orderNo||"";setMould(l.mouldId,l.mouldName);setExtras(l.extraMouldIds);
   formTodos=(l.todos||[]).map(i=>({...i}));mountFormTodos();formNwSkip=[...(l.nwSkip||[])];nwBanOff.clear();schedState.f=l.sched||"";$("#f-date").value=l.date||today();
   $("#f-shots").value=l.shots??"";plWrite("f",l.partsList||partsFromText(l.parts));$("#f-faults").value=l.faults||"";$("#f-done").value=l.dateCompleted||"";$("#f-due").value=validDay(l.due)?l.due:"";fDueHint();$("#f-desc").value=l.description||"";$("#f-wonotes").value=l.woNotes||"";
@@ -4142,7 +4207,7 @@ function buildEntry(){
   const pmClean=id=>{const v=formPM[id]||(id===mouldId?readSet("f"):{});const sh=String(v.shots??"").trim();return {shots:sh===""?null:Number(sh),faults:String(v.faults||"").trim(),work:String(v.work||"").trim(),notes:String(v.notes||"").trim(),...(()=>{const pl=cleanParts(v.partsList||partsFromText(v.parts));return {parts:partsText(pl),partsList:pl}})(),procs:(v.procs||[]).map(x=>procSnap(x,x.st)),updates:updClean(v.updates),hrz:hrzClean(v.hrz),defects:tagsClean(v.defects),actions:tagsClean(v.actions)}};
   const main=pmClean(mouldId), extras=extraIds.filter(x=>x!==mouldId);
   const perMould={};for(const x of extras)perMould[x]=pmClean(x);
-  const subs={};for(const x of tabIdsFor(mouldId,extras)){const v=formPM[x]||{};subs[x]={no:formSubNo[x]||null,status:v.status||segVal("#f-status"),date:v.date??$("#f-date").value,dateCompleted:v.done||"",type:v.type||$("#f-type").value,description:String(v.desc||"").trim(),sched:v.sched||""}}
+  const subs={};for(const x of tabIdsFor(mouldId,extras)){const v=formPM[x]||{};subs[x]={no:formSubNo[x]||null,status:v.status||segVal("#f-status"),date:v.date??$("#f-date").value,dateCompleted:v.done||"",type:v.type||$("#f-type").value,description:String(v.desc||"").trim(),sched:v.sched||"",...(v.from?{from:v.from}:{}),...(v.cont?{cont:v.cont}:{})}}
   return {entry:{wo,status:segVal("#f-status"),mouldId,mouldName:m?mlabel(m):"",extraMouldIds:extraIds.filter(x=>x!==mouldId),extraMouldNames:extraIds.filter(x=>x!==mouldId).map(id=>{const e=moulds.find(x=>x.id===id);return e?mlabel(e):""}),joined:joinedFor(mouldId,extraIds.filter(x=>x!==mouldId)),date:$("#f-date").value,dateCompleted:$("#f-done").value||"",due:validDay($("#f-due").value)?$("#f-due").value:"",shots:main.shots,type:$("#f-type").value,description:$("#f-desc").value.trim(),faults:main.faults,work:main.work,notes:main.notes,perMould,parts:main.parts,partsList:main.partsList,procs:main.procs,updates:main.updates,hrz:main.hrz,defects:main.defects,actions:main.actions,todos:cleanItems(formTodos),subs,orderNo:$("#f-order").value.trim(),woNotes:$("#f-wonotes").value.trim(),sched:schedState.f||"",...(formNwSkip.length?{nwSkip:formNwSkip.slice()}:{})}};
 }
 function markDirty(delay){
@@ -5788,7 +5853,7 @@ function openAssign(what){
   else if(what.moveUpd){ibAssign={moveUpd:what.moveUpd};$("#asub").textContent=what.label+" (with their photos)"}
   else if(what.moveSub){ibAssign={moveSub:what.moveSub};$("#asub").textContent=what.label}
   else{ibAssign={files:what.files};$("#asub").textContent=what.files.length===1?what.files[0].name:`${what.files.length} photos & files`}
-  $("#atitle").textContent=ibAssign.moveSub?"Move sub-job to a work order":ibAssign.moveUpd?"Move to a work order":"Assign to a work order";
+  $("#atitle").textContent=ibAssign.moveSub?(ibAssign.moveSub.carry?"Carry the sub-job on to a work order":"Move sub-job to a work order"):ibAssign.moveUpd?"Move to a work order":"Assign to a work order";
   $("#a-q").value="";renderAssignList();$("#asheet").hidden=false;document.documentElement.classList.add("lbopen");
   if(!IS_MOBILE)setTimeout(()=>$("#a-q").focus(),30)}
 function closeAssign(){$("#asheet").hidden=true;ibAssign=null;document.documentElement.classList.remove("lbopen")}
@@ -7383,7 +7448,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.04-149";
+const APP_VERSION="2026.11.04-150";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
