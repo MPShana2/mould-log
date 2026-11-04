@@ -356,6 +356,8 @@ textarea.autogrow{resize:none;overflow:hidden}
 .mk-sw{width:32px;height:32px;border-radius:50%;border:2px solid #3a4652;cursor:pointer;padding:0}.mk-sw.on{border-color:#ffd400;box-shadow:0 0 0 2px #0b0e12 inset}
 .mk-b{font:inherit;font-size:14px;font-weight:700;color:#f2f5f7;background:rgba(255,255,255,.12);border:1px solid transparent;border-radius:999px;padding:7px 12px;cursor:pointer}.mk-b.on{border-color:#ffd400;color:#ffd400}
 .subcont{margin:-2px 0 6px;color:var(--muted)}.mvsub .mvno input#cry-date{width:auto;min-width:150px}.subcont b{color:var(--fg)}
+.pelab{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.pelab .label{margin:0}
+.peind{display:flex;gap:6px}.peind .btn{padding:5px 10px;font-size:13px;min-height:0}
 .starb{position:absolute;top:5px;right:5px;z-index:1;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.55);color:#ffc533;font-size:15px;line-height:24px;text-align:center;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .starfilt{margin:8px 0 10px}.starfilt button{font-size:13px;padding:6px 11px}
 .lb button#lb-star[aria-pressed="true"]{color:#ffc533}
@@ -1599,9 +1601,9 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <div class="field"><label class="label" for="pe-doc">Import from a Google Doc</label>
         <div class="worow"><input id="pe-doc" placeholder="Paste the doc's link"><button type="button" class="btn ghost" id="pe-import">Import</button></div>
         <div class="hint">Fills in the steps below from the doc. The link is kept so you can open the original later.</div></div>
-      <div class="field"><label class="label" for="pe-text">Steps</label>
+      <div class="field"><div class="pelab"><label class="label" for="pe-text">Steps</label><span class="peind"><button type="button" class="btn ghost" data-peind="-1" title="Make it a step (Shift+Tab)">← Step</button><button type="button" class="btn ghost" data-peind="1" title="Make it a sub-step (Tab)">Sub-step →</button></span></div>
         <textarea id="pe-text" class="autogrow" rows="8" placeholder="NOTE: Do not loosen the backplate of the fixed half.&#10;&#10;Moving half:&#10;* Disassemble ejection system&#10;* Reassemble ejection system&#10;   * 300mm insert - keep excess pins in storage&#10;&#10;Fixed half:&#10;* Loosen the grub screws on each insert"></textarea>
-        <div class="hint">A line ending in “:” starts a section · “* ” starts a step · indent a step to make it a sub-step · “NOTE:” shows a warning at the top. Pasting a list from Google Docs works too.</div></div>
+        <div class="hint">A line ending in “:” starts a section · “* ” starts a step · Tab (or Sub-step →) makes the line a sub-step, Shift+Tab (or ← Step) back · “NOTE:” shows a warning at the top. Pasting a list from Google Docs works too.</div></div>
       <div class="field"><span class="label">Preview <span class="pecount" id="pe-count"></span></span><div class="peprev" id="pe-prev"></div></div>
       <div class="attbtns" style="margin:0"><button class="btn" type="submit">Save procedure</button><button class="btn ghost" type="button" id="pe-cancel">Cancel</button></div>
     </form>
@@ -5167,6 +5169,17 @@ function pePreview(){
   $("#pe-count").textContent=n?`${P.sections.filter(s=>s.title).length} section${P.sections.filter(s=>s.title).length===1?"":"s"} · ${n} step${n===1?"":"s"}`:"";
 }
 $("#pe-text").addEventListener("input",pePreview);
+// Tab / Shift+Tab (or the buttons) indent and outdent the line(s) the cursor is on: an indented step is a sub-step
+function peIndent(dir){const ta=$("#pe-text"),v=ta.value,a=ta.selectionStart,b=ta.selectionEnd;
+  const ls=v.lastIndexOf("\n",a-1)+1,le0=v.indexOf("\n",Math.max(a,b-(b>a&&v[b-1]==="\n"?1:0)));const le=le0<0?v.length:le0;
+  const lines=v.slice(ls,le).split("\n");let d0=0,dt=0;
+  const out=lines.map((l,i)=>{let n;if(dir>0){n=(l.trim()&&!/^\s*[*•\-–]\s/.test(l)&&!/:$/.test(l.trim())?"    * "+l.trimStart():"    "+l)}else{const m=l.match(/^( {1,4}|\t)/);n=m?l.slice(m[0].length):l}
+    const ch=n.length-l.length;if(i===0)d0=ch;dt+=ch;return n});
+  ta.value=v.slice(0,ls)+out.join("\n")+v.slice(le);
+  const na=Math.max(ls,a+d0),nb=b===a?na:Math.max(na,b+dt);ta.setSelectionRange(na,nb);ta.focus();pePreview();grow(ta)}
+$("#pe-text").addEventListener("keydown",e=>{if(e.key!=="Tab"||e.altKey||e.ctrlKey||e.metaKey)return;e.preventDefault();peIndent(e.shiftKey?-1:1)});
+document.addEventListener("pointerdown",e=>{if(e.target.closest("[data-peind]"))e.preventDefault()}); // keeps the cursor in the text
+document.addEventListener("click",e=>{const b=e.target.closest("[data-peind]");if(b)peIndent(+b.dataset.peind)});
 $("#pe-chips").addEventListener("click",e=>{const b=e.target.closest("[data-perm]");if(b){procMoulds=procMoulds.filter(x=>x!==b.dataset.perm);peChips()}});
 // Mould picker: type to see matching moulds and general jobs
 let peItems=[],peIdx=-1;
@@ -7448,7 +7461,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.04-150";
+const APP_VERSION="2026.11.04-151";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
