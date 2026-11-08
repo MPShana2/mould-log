@@ -1225,7 +1225,8 @@ details summary{cursor:pointer;font-weight:600;color:var(--steel)}
   .mould:hover{border-color:var(--accent)}
   /* Mould history: details on the left, history on the right */
   .hgrid{display:grid;grid-template-columns:360px minmax(0,1fr);gap:28px;align-items:start}
-  .hside{position:sticky;top:calc(env(safe-area-inset-top,0px) + 96px)}
+  /* the details column scrolls on its own (wheel over it moves it; over the history moves the page) */
+  .hside{position:sticky;top:calc(env(safe-area-inset-top,0px) + 96px);max-height:calc(100vh - env(safe-area-inset-top,0px) - 112px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-gutter:stable;margin-right:-10px;padding:0 10px 16px 0}
   .attgrid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
   .lb-body{padding:0 48px 16px}
 }
@@ -7519,7 +7520,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.06-152";
+const APP_VERSION="2026.11.08-153";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
