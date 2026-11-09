@@ -730,6 +730,51 @@ details.ck>summary span:first-child{flex:1}
 .bomsel .bomrow{border:1px solid var(--line);border-radius:10px;background:var(--surface)}
 .ivused{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:4px}
 #invsheet .qbox{gap:8px}
+/* Resources: manuals, charts and reference sheets */
+.resgrp{display:flex;flex-direction:column;gap:8px}
+.resgrp>.label{margin:4px 0 0}
+.rescard{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;cursor:pointer}
+.rescard:hover{border-color:var(--accent)}
+.rescard .ri{width:40px;height:40px;border-radius:10px;background:var(--sunk);display:grid;place-items:center;color:var(--muted)}
+.rescard b{display:block;font-weight:600}
+.rescard small{display:block;color:var(--muted);font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rescard .chev{color:var(--muted);font-size:20px}
+.reshead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.reshead h2{margin:4px 0 0;font-size:22px;line-height:1.2}
+.rescat{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-text,var(--muted))}
+.resnotes{white-space:pre-wrap;line-height:1.5}
+.resfiles{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden}
+.resfile{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line)}
+.resfile:first-child{border-top:0}
+.resfile .fi{font-size:20px}
+.resfile button.fn,.resfile a.fn{font:inherit;text-align:left;background:none;border:0;padding:0;color:var(--fg);cursor:pointer;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.rctools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rctools input[type=search]{flex:1;min-width:160px}
+.rcsec{display:flex;flex-direction:column;gap:6px}
+.rcsec>.row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.rtwrap{overflow:auto;max-height:72vh;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);-webkit-overflow-scrolling:touch}
+.rtab{border-collapse:separate;border-spacing:0;font-size:14px;min-width:100%}
+.rtab th,.rtab td{padding:7px 10px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);text-align:center;white-space:nowrap;font-family:var(--mono)}
+.rtab th{position:sticky;top:0;z-index:2;background:var(--sunk);font-family:inherit;font-weight:600;font-size:12px;line-height:1.25;white-space:normal;min-width:56px;vertical-align:bottom}
+.rtab th small{display:block;font-weight:400;color:var(--muted)}
+.rtab th:first-child,.rtab td:first-child{position:sticky;left:0;z-index:1;background:var(--surface);font-weight:600}
+.rtab th:first-child{z-index:3;background:var(--sunk)}
+.rtab tr:last-child td{border-bottom:0}
+.rtab tbody tr{cursor:pointer}
+.rtab tbody tr:hover td{background:var(--sunk)}
+.rtab td.rnote{white-space:normal;min-width:220px;max-width:360px;text-align:left;font-family:inherit;color:var(--muted)}
+.rtab .rst{display:inline-block;font-family:inherit;font-size:12px;font-weight:600;border-radius:999px;padding:2px 8px;background:var(--sunk)}
+.rtab .rst.proven{background:#dff3e6;color:#17582f}
+.rtab .rst.trial{background:#fff0d6;color:#7a4b00}
+:root[data-theme="dark"] .rtab .rst.proven{background:#1c3a26;color:#b8ebc8}:root[data-theme="dark"] .rtab .rst.trial{background:#4a3410;color:#ffd99a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .rtab .rst.proven{background:#1c3a26;color:#b8ebc8}:root:not([data-theme="light"]) .rtab .rst.trial{background:#4a3410;color:#ffd99a}}
+.rtab mark{background:var(--accent);color:var(--accent-ink);border-radius:3px;padding:0 2px}
+.rclock{font-size:13px;color:var(--muted)}
+.rccols{display:flex;flex-direction:column;gap:6px}
+.rccol{display:grid;grid-template-columns:minmax(0,1fr) 110px auto;gap:6px;align-items:center}
+.rfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+#ressheet .qbox,#rowsheet .qbox,#rpsheet .qbox{gap:10px}
+#ressheet,#rowsheet,#rpsheet{z-index:27}
 #invsheet{z-index:27}
 .inboxbar{display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--accent);border-left:5px solid var(--accent);border-radius:10px;padding:12px 14px;cursor:pointer;margin-bottom:4px}
 .inboxbar[hidden]{display:none}
@@ -1551,6 +1596,16 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <div id="invlist"></div>
   </section>
 
+  <section id="v-res" class="stackcol page" hidden>
+    <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Resources</h2></div>
+    <div class="ibtools"><input type="search" id="res-q" placeholder="Search manuals, charts, settings…" autocomplete="off" style="flex:1;min-width:180px"><button type="button" class="btn" id="res-add">+ Add resource</button></div>
+    <div id="reslist" class="stackcol"></div>
+  </section>
+  <section id="v-resview" class="stackcol page" hidden>
+    <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button></div>
+    <div id="resbody"></div>
+  </section>
+
   <section id="v-search" class="stackcol page" hidden>
     <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Search</h2></div>
     <div class="srbox"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5l5 5"/></svg><input type="search" id="sr-q" placeholder="Search jobs, notes, updates, photos, files…" autocomplete="off" enterkeyhint="search" aria-label="Search everything"></div>
@@ -1669,7 +1724,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <div class="pagehead"><button type="button" class="subback" data-pageback>← Back</button><h2>Backup &amp; export</h2></div>
     <div class="panel stackcol">
       <span class="label" style="margin:0">Save a copy</span>
-      <p class="small" style="margin:0">A backup file holds everything (work orders, moulds, hours, procedures, inventory, to-do lists, unassigned updates) and can be imported again. The CSV opens in Excel or Google Sheets.</p>
+      <p class="small" style="margin:0">A backup file holds everything (work orders, moulds, hours, procedures, inventory, resources, to-do lists, unassigned updates) and can be imported again. The CSV opens in Excel or Google Sheets.</p>
       <p class="small" style="margin:0">A full backup is also saved to the <b>_Backups</b> folder in your Drive Work Orders folder once a week, automatically (the newest 8 are kept). <span id="autobk"></span></p>
       <div class="attbtns" style="margin:0">
         <button class="btn ghost" id="backupbtn" type="button">Download backup</button>
@@ -1831,6 +1886,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
   <button type="button" class="sideonly" data-page="inbox" aria-current="false"><span class="ti"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 13.5l2.6-8h11.8l2.6 8v5.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19z"/><path d="M3.5 13.5h5l1.2 2.5h4.6l1.2-2.5h5"/></svg></span><span class="tl">Unassigned updates</span><b class="menucount" data-mirror="inboxcount" hidden></b></button>
   <button type="button" class="sideonly" data-page="hours" aria-current="false"><span class="ti"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><span class="tl">Work hours</span></button>
   <button type="button" class="sideonly" data-page="inv" aria-current="false"><span class="ti"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 12h17M9 7.8h6M9 16.2h6"/></svg></span><span class="tl">Inventory</span><b class="menucount" data-mirror="invcount" hidden></b></button>
+  <button type="button" class="sideonly" data-page="res" aria-current="false"><span class="ti"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5.5A2 2 0 0 1 7 3.5h11.5v13H7a2 2 0 0 0-2 2z"/><path d="M5 18.5a2 2 0 0 0 2 2h11.5v-4"/><path d="M9 7.5h6M9 11h4"/></svg></span><span class="tl">Resources</span></button>
   <button type="button" class="sideonly" data-page="settings" aria-current="false"><span class="ti"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></span><span class="tl">Settings</span></button>
   <button type="button" class="sideonly" data-page="account" aria-current="false"><span class="ti"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c1.4-3.8 4.2-5.6 7.5-5.6s6.1 1.8 7.5 5.6"/></svg></span><span class="tl">Account</span></button>
   <button type="button" class="sideonly" data-page="backup" aria-current="false"><span class="ti"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5"/><path d="M4 16.5v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span><span class="tl">Backup &amp; export</span></button>
@@ -1844,6 +1900,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <button type="button" class="moretile" data-page="inbox"><span class="mi"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 13.5l2.6-8h11.8l2.6 8v5.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19z"/><path d="M3.5 13.5h5l1.2 2.5h4.6l1.2-2.5h5"/></svg><b class="menucount" id="inboxcount" hidden></b></span><span class="mt">Unassigned updates</span><small>Quick notes to assign</small></button>
     <button type="button" class="moretile" data-page="hours"><span class="mi"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><span class="mt">Work hours</span><small>Log time · monthly totals</small></button>
     <button type="button" class="moretile" data-page="inv"><span class="mi"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 12h17M9 7.8h6M9 16.2h6"/></svg><b class="menucount" id="invcount" hidden></b></span><span class="mt">Inventory</span><small>Parts · consumables · SDS</small></button>
+    <button type="button" class="moretile" data-page="res"><span class="mi"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5.5A2 2 0 0 1 7 3.5h11.5v13H7a2 2 0 0 0-2 2z"/><path d="M5 18.5a2 2 0 0 0 2 2h11.5v-4"/><path d="M9 7.5h6M9 11h4"/></svg></span><span class="mt">Resources</span><small>Manuals · charts · settings</small></button>
   </div>
   <div class="morerow">
     <button type="button" data-page="settings"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg><span>Settings</span></button>
@@ -1881,6 +1938,39 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
   <div class="field"><label class="label" for="iv-notes">Notes</label><textarea id="iv-notes" class="autogrow" rows="2" placeholder="Material, alternatives, anything useful"></textarea></div>
   <div id="iv-used"></div>
   <div class="attbtns" style="margin:0"><button type="submit" class="btn">Save</button><button type="button" class="btn ghost" id="iv-cancel">Cancel</button><button type="button" class="btn ghost danger" id="iv-del" hidden>Delete</button></div>
+</form></div>
+<div class="qsheet" id="ressheet" hidden><form class="qbox" role="dialog" aria-modal="true" aria-labelledby="rs-title" id="resform" autocomplete="off">
+  <div class="qhead"><b id="rs-title">New resource</b><small id="rs-sub">A manual, chart or reference sheet</small></div>
+  <div class="field"><label class="label" for="rs-name">Title</label><input id="rs-name" required placeholder="e.g. Spark gap chart – copper electrode"></div>
+  <div class="field"><label class="label" for="rs-cat">Section</label><input id="rs-cat" list="rs-cats" placeholder="e.g. EDM" autocapitalize="words"><datalist id="rs-cats"></datalist></div>
+  <div class="field" id="rs-kindbox"><span class="label">Type</span><div class="seg" id="rs-kind" role="group" aria-label="Type"><button type="button" data-v="doc" aria-pressed="true">Document / files</button><button type="button" data-v="chart" aria-pressed="false">Chart / table</button></div>
+    <div class="hint" id="rs-kindhint"></div></div>
+  <div id="rs-chartbox" hidden>
+    <div class="field"><label class="label" for="rs-src">Source</label><input id="rs-src" placeholder="e.g. Strathclyde booklet, page 12"></div>
+    <div class="field"><span class="label">Columns</span><div class="rccols" id="rs-cols"></div><button type="button" class="linkish" id="rs-coladd" style="align-self:flex-start;margin-top:4px">+ Add column</button>
+      <div class="hint">Columns can be added or renamed later without losing values. Pasting a table with headings also sets them up.</div></div>
+  </div>
+  <button type="button" class="linkish" id="rs-addchart" hidden style="align-self:flex-start">+ Add a chart to this resource</button>
+  <div class="field"><label class="label" for="rs-notes">Notes</label><textarea id="rs-notes" class="autogrow" rows="2" placeholder="What it covers, which machine, anything to watch for"></textarea></div>
+  <div class="attbtns" style="margin:0"><button type="submit" class="btn">Save</button><button type="button" class="btn ghost" id="rs-cancel">Cancel</button><button type="button" class="btn ghost danger" id="rs-del" hidden>Delete</button></div>
+</form></div>
+<div class="qsheet" id="rowsheet" hidden><form class="qbox" role="dialog" aria-modal="true" aria-labelledby="rw-title" id="rowform" autocomplete="off">
+  <div class="qhead"><b id="rw-title">Our setting</b><small id="rw-sub"></small></div>
+  <div class="rfgrid" id="rw-fields"></div>
+  <div id="rw-ours">
+    <div class="field"><span class="label">Status</span><div class="seg" id="rw-status" role="group" aria-label="Status"><button type="button" data-v="trial" aria-pressed="true">Trial</button><button type="button" data-v="proven" aria-pressed="false">Proven</button></div></div>
+    <div class="field"><label class="label" for="rw-note">Notes</label><textarea id="rw-note" class="autogrow" rows="2" placeholder="Electrode size and material, job, result, what to change next time"></textarea></div>
+  </div>
+  <div class="hint" id="rw-lock"></div>
+  <div class="attbtns" style="margin:0"><button type="submit" class="btn" id="rw-save">Save</button><button type="button" class="btn ghost" id="rw-copy" hidden>Start our setting from this row</button><button type="button" class="btn ghost" id="rw-cancel">Cancel</button><button type="button" class="btn ghost danger" id="rw-del" hidden>Delete</button></div>
+</form></div>
+<div class="qsheet" id="rpsheet" hidden><form class="qbox" role="dialog" aria-modal="true" aria-labelledby="rp-title" id="rpform" autocomplete="off">
+  <div class="qhead"><b id="rp-title">Paste rows</b><small>Copy cells from Excel or Google Sheets (or CSV text) and paste them here</small></div>
+  <textarea id="rp-text" rows="8" class="mono" placeholder="Stage&#9;Current&#9;Gap…"></textarea>
+  <label class="ivhazchk"><input type="checkbox" id="rp-head" checked> <span>The first line is the column headings</span></label>
+  <div class="field"><span class="label">Add them to</span><div class="seg" id="rp-to" role="group" aria-label="Add to"><button type="button" data-v="book" aria-pressed="true">Booklet values</button><button type="button" data-v="ours" aria-pressed="false">Our settings</button></div></div>
+  <div class="hint" id="rp-prev"></div>
+  <div class="attbtns" style="margin:0"><button type="submit" class="btn">Add rows</button><button type="button" class="btn ghost" id="rp-cancel">Cancel</button></div>
 </form></div>
 <div class="qsheet" id="bomsheet" hidden><div class="qbox" role="dialog" aria-modal="true" aria-labelledby="bom-title">
   <div class="qhead"><b id="bom-title">Add a part to this tool</b><small id="bom-sub"></small></div>
@@ -1947,6 +2037,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 </div>
 <input type="file" id="pick-photo" class="vh" tabindex="-1" aria-hidden="true" accept="image/*" capture="environment">
 <input type="file" id="pick-file" class="vh" tabindex="-1" aria-hidden="true" multiple>
+<input type="file" id="pick-res" class="vh" tabindex="-1" aria-hidden="true" multiple accept="application/pdf,image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt">
 <input type="file" id="pick-sds" class="vh" tabindex="-1" aria-hidden="true" accept="application/pdf,image/*,.pdf,.doc,.docx">
 <input type="file" id="pick-gallery" class="vh" tabindex="-1" aria-hidden="true" accept="image/*,video/*" multiple>
 <div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Attachment viewer">
@@ -2861,7 +2952,7 @@ const lazyMods={};
 function lazy(name){return lazyMods[name]||(lazyMods[name]=new Promise((res,rej)=>{const sc=document.createElement("script");sc.src=name+".js";
   sc.onload=res;sc.onerror=()=>{delete lazyMods[name];sc.remove();rej(new Error("Couldn't load that part of the app. Check your connection and try again."))};document.head.appendChild(sc)}))}
 const TABS=["open","cal","all","moulds"];
-const PAGES=["search","calday","inv","inbox","hours","settings","account","backup","ai","share","proc","procedit"];
+const PAGES=["search","calday","inv","res","resview","inbox","hours","settings","account","backup","ai","share","proc","procedit"];
 function currentView(){return ["log",...TABS,"hist",...PAGES].find(v=>!$("#v-"+v).hidden)||"open"}
 async function leaveLogIfNeeded(target){
   if($("#v-log").hidden||target==="log")return;
@@ -2883,6 +2974,7 @@ window.addEventListener("popstate",async()=>{
   if(subPage&&!$("#v-log").hidden){closeSub(true);return}
   if(!$("#asheet").hidden){closeAssign();return}
   if(!$("#invsheet").hidden){closeInvItem();return}
+  if(resSheetOpen()){resSheetClose();return}
   if(!$("#bomsheet").hidden){closeBom();return}
   if(!$("#qsheet").hidden){closeQuick(false);return}
   await navBack();
@@ -3027,7 +3119,7 @@ $("#menu").addEventListener("click",async e=>{const b=e.target.closest("[data-pa
 document.addEventListener("click",e=>{if(e.target.closest("[data-pageback]"))navBackBtn()});
 
 // ---- Bottom bar: Dashboard · Calendar · All jobs · Moulds · More ----
-const MORE_PAGES=["search","inbox","hours","inv","settings","account","backup","ai","proc","procedit"];
+const MORE_PAGES=["search","inbox","hours","inv","res","resview","settings","account","backup","ai","proc","procedit"];
 function moreBadges(){document.querySelectorAll("[data-mirror]").forEach(m=>{const src=$("#"+m.dataset.mirror);if(!src)return;m.hidden=src.hidden;m.textContent=src.textContent;m.className=src.className});
   const d=$("#moredot");if(d)d.hidden=$("#inboxcount").hidden&&$("#invcount").hidden}
 // the amber line above the current tab slides across to the new one
@@ -3165,6 +3257,8 @@ function show(view){
   if(view==="settings")offStat();
   if(view==="ai")aiRenderSettings();
   if(view==="inv")renderInv();
+  if(view==="res")renderRes();
+  if(view==="resview")renderResView();
   if(view==="proc")renderProc();
   if(view==="search")srShow();
   document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current",String(b.dataset.tab?(b.dataset.tab===view||(view==="hist"&&b.dataset.tab==="moulds")||(view==="calday"&&b.dataset.tab==="cal")):b.dataset.page?b.dataset.page===view:b.dataset.more?MORE_PAGES.includes(view):false)));
@@ -5746,6 +5840,195 @@ $("#pick-sds").addEventListener("change",async e=>{const f=e.target.files[0];e.t
     const up=await dUpload(fo.id,f,nm,f.type||"application/pdf");ivSds={id:up.id,name:up.name||nm,url:up.webViewLink||""};toast("SDS uploaded")}
   catch(err){toast("Couldn't upload: "+((err&&err.message)||err.code||"error"))}
   ivHazShow()});
+
+// ---- Resources: manuals, charts and reference sheets, grouped into sections (e.g. EDM) ----
+// Stored in "resources": {title, cat, kind:"doc"|"chart", notes, files:[{id,name,mimeType,url}],
+//   chart:{src, cols:[{k,l,u}], rows:[{id, v:{colKey:value}, ours, status:"trial"|"proven", note, at}]}}
+// Booklet rows (ours:false) are the original values and stay locked unless unlocked on the page;
+// "our settings" (ours:true) are the ones you've developed and can be changed any time.
+let resources=[],resCur=null,resUnlock=false,resFilter="all",resQ="",resEdit=null,resRow=null,resFileArmed=null,resDelArmed=false;
+const RES_FOLDER="_Resources";
+const resById=id=>resources.find(x=>x.id===id);
+const resRows=r=>((r&&r.chart&&r.chart.rows)||[]);
+const resCols=r=>((r&&r.chart&&r.chart.cols)||[]);
+function resCats(){return [...new Set(resources.map(r=>(r.cat||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b))}
+function resSummary(r){const parts=[];const rows=resRows(r),b=rows.filter(x=>!x.ours).length,o=rows.length-b,f=(r.files||[]).length;
+  if(r.chart)parts.push(`Chart · ${b} booklet row${b===1?"":"s"}`+(o?` · ${o} of ours`:""));
+  if(f)parts.push(`${f} file${f===1?"":"s"}`);
+  if(!parts.length)parts.push(r.kind==="chart"?"Chart · empty":"No files yet");
+  return parts.join(" · ")}
+function renderRes(){const el=$("#reslist");if(!el||$("#v-res").hidden)return;
+  const q=$("#res-q").value.trim().toLowerCase();
+  const list=resources.filter(r=>!q||[r.title,r.cat,r.notes,(r.chart&&r.chart.src)||"",...(r.files||[]).map(f=>f.name),...resRows(r).filter(x=>x.ours).map(x=>x.note||"")].join(" ").toLowerCase().includes(q));
+  if(!resources.length){el.innerHTML=`<div class="empty">No resources yet.<br>Add manuals, charts and reference sheets: the EDM manual, spark gap charts and the settings you've worked out.</div>`;return}
+  if(!list.length){el.innerHTML=`<div class="empty">Nothing matches “${esc(q)}”.</div>`;return}
+  const groups=new Map();for(const r of list){const c=(r.cat||"").trim()||"Other";if(!groups.has(c))groups.set(c,[]);groups.get(c).push(r)}
+  const keys=[...groups.keys()].sort((a,b)=>(a==="Other")-(b==="Other")||a.localeCompare(b));
+  el.innerHTML=keys.map(k=>`<div class="resgrp"><span class="label">${esc(k)}</span>${groups.get(k).sort((a,b)=>(a.order??0)-(b.order??0)||(a.title||"").localeCompare(b.title||"",undefined,{numeric:true})).map(r=>`<button type="button" class="rescard" data-resopen="${esc(r.id)}"><span class="ri">${r.chart?'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15"/></svg>':'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3.5h7l4 4v13h-11z"/><path d="M13.5 3.5v4h4M9 12h6M9 15.5h6"/></svg>'}</span><span><b>${esc(r.title||"Untitled")}</b><small>${esc(resSummary(r))}</small></span><span class="chev" aria-hidden="true">›</span></button>`).join("")}</div>`).join("")}
+$("#res-q").addEventListener("input",renderRes);
+$("#reslist").addEventListener("click",e=>{const b=e.target.closest("[data-resopen]");if(b)openRes(b.dataset.resopen)});
+function openRes(id){if(!resById(id))return;resCur=id;resUnlock=false;resFilter="all";resQ="";resFileArmed=null;
+  const cur=currentView();if(!PAGES.includes(cur))pageReturn=cur;goTab("resview").then(()=>window.scrollTo(0,0))}
+
+// --- one resource
+function rcMatch(row,cols,q){if(!q)return true;return [...cols.map(c=>row.v&&row.v[c.k]),row.note].filter(v=>v!=null&&v!=="").join(" ").toLowerCase().includes(q)}
+function rcMark(v,q){const t=String(v??"");if(!q)return esc(t);const i=t.toLowerCase().indexOf(q);return i<0?esc(t):esc(t.slice(0,i))+"<mark>"+esc(t.slice(i,i+q.length))+"</mark>"+esc(t.slice(i+q.length))}
+function rcTable(r,rows,ours,q){const cols=resCols(r);
+  if(!cols.length)return `<div class="empty">No columns yet. Tap <b>Edit</b> to add them, or <b>Paste rows</b> with headings.</div>`;
+  return `<div class="rtwrap"><table class="rtab"><thead><tr>${cols.map(c=>`<th scope="col">${esc(c.l||"")}${c.u?`<small>${esc(c.u)}</small>`:""}</th>`).join("")}${ours?`<th scope="col">Status</th><th scope="col" style="text-align:left">Notes</th>`:""}</tr></thead>
+    <tbody>${rows.map(x=>`<tr data-rrow="${esc(x.id)}">${cols.map(c=>`<td>${rcMark(x.v&&x.v[c.k],q)}</td>`).join("")}${ours?`<td><span class="rst ${x.status==="proven"?"proven":"trial"}">${x.status==="proven"?"Proven":"Trial"}</span></td><td class="rnote">${rcMark(x.note||"",q)}${x.at?` <small>· ${esc(fmtDate(x.at))}</small>`:""}</td>`:""}</tr>`).join("")}</tbody></table></div>`}
+function rcTablesHTML(r){const q=resQ.trim().toLowerCase(),cols=resCols(r),rows=resRows(r);
+  const book=rows.filter(x=>!x.ours&&rcMatch(x,cols,q)),ours=rows.filter(x=>x.ours&&rcMatch(x,cols,q));
+  const nb=rows.filter(x=>!x.ours).length,no=rows.length-nb;let h="";
+  if(resFilter!=="ours")h+=`<div class="rcsec"><div class="row"><span class="label" style="margin:0">Booklet values${nb?` · ${nb}`:""}</span><button type="button" class="linkish rclock" data-rcunlock="1">${resUnlock?"🔓 Unlocked: tap a row to edit · Lock":"🔒 Locked · Unlock to edit"}</button></div>
+      ${nb?(book.length?rcTable(r,book,false,q):`<div class="small">No booklet rows match.</div>`):`<div class="empty">The original values from the booklet go here. Use <b>Paste rows</b> or tap <b>Unlock</b> and add them.</div>`}</div>`;
+  if(resFilter!=="book")h+=`<div class="rcsec"><div class="row"><span class="label" style="margin:0">Our settings${no?` · ${no}`:""}</span><button type="button" class="linkish" data-rcadd="ours">+ Add our setting</button></div>
+      ${no?(ours.length?rcTable(r,ours,true,q):`<div class="small">None of our settings match.</div>`):`<div class="empty">Settings you've developed (e.g. for smaller electrodes) go here, kept apart from the booklet values. Tap a booklet row to start from it.</div>`}</div>`;
+  return h}
+function renderResView(){const el=$("#resbody");if(!el||$("#v-resview").hidden)return;const r=resById(resCur);
+  if(!r){el.innerHTML=`<div class="empty">This resource was deleted.</div>`;return}
+  const files=r.files||[];
+  el.innerHTML=`<div class="panel stackcol">
+    <div class="reshead"><div>${r.cat?`<span class="rescat">${esc(r.cat)}</span>`:""}<h2>${esc(r.title||"Untitled")}</h2>${r.chart&&r.chart.src?`<div class="small" style="margin-top:4px">Source: ${esc(r.chart.src)}</div>`:""}</div><button type="button" class="btn ghost" data-resedit="1">Edit</button></div>
+    ${r.notes?`<div class="resnotes">${esc(r.notes)}</div>`:""}
+    <div class="field" style="margin:0"><div class="row" style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><span class="label" style="margin:0">Files${files.length?` · ${files.length}`:""}</span><button type="button" class="linkish" data-resup="1">+ Add files</button></div>
+      ${files.length?`<div class="resfiles">${files.map(f=>{const img=/^image\//.test(f.mimeType||""),armed=resFileArmed===f.id;return `<div class="resfile"><span class="fi" aria-hidden="true">${img?"🖼️":/pdf/.test(f.mimeType||"")?"📕":"📄"}</span>${img?`<button type="button" class="fn" data-resview="${esc(f.id)}">${esc(f.name||"Photo")}</button>`:`<a class="fn" href="${esc(f.url||("https://drive.google.com/file/d/"+f.id+"/view"))}" target="_blank" rel="noopener">${esc(f.name||"File")} ↗</a>`}<button type="button" class="linkish${armed?" armed":""}" data-resrm="${esc(f.id)}">${armed?"Tap to remove":"Remove"}</button></div>`}).join("")}</div>`
+        :`<div class="hint">PDF manuals, scans or photos of pages. Saved to the <b>${RES_FOLDER}</b> folder in your Drive Work Orders folder.</div>`}
+      <div class="hint" id="res-upst" hidden></div></div>
+    ${r.chart?`<div class="stackcol" style="gap:12px">
+      <div class="rctools"><input type="search" id="rc-q" placeholder="Find a value or note…" value="${esc(resQ)}" autocomplete="off" aria-label="Find in chart">
+        <div class="seg" id="rc-f" role="group" aria-label="Show">${[["all","All"],["book","Booklet"],["ours","Ours"]].map(([v,l])=>`<button type="button" data-v="${v}" aria-pressed="${resFilter===v}">${l}</button>`).join("")}</div>
+        <button type="button" class="btn ghost" data-rcpaste="1">Paste rows</button></div>
+      <div id="rc-tables" class="stackcol" style="gap:16px">${rcTablesHTML(r)}</div></div>`
+      :`<button type="button" class="linkish" data-resaddchart="1" style="align-self:flex-start">+ Add a chart to this resource</button>`}
+  </div>`}
+function rcRefresh(){const r=resById(resCur),t=$("#rc-tables");if(r&&t)t.innerHTML=rcTablesHTML(r)}
+$("#resbody").addEventListener("input",e=>{if(e.target.id==="rc-q"){resQ=e.target.value;rcRefresh()}});
+$("#resbody").addEventListener("click",async e=>{const r=resById(resCur);if(!r)return;
+  if(e.target.closest("[data-resedit]")){openResSheet(r.id);return}
+  if(e.target.closest("[data-resaddchart]")){openResSheet(r.id,true);return}
+  if(e.target.closest("[data-resup]")){if(!driveRoot){toast("Set your Drive Work Orders folder first (menu › Settings)");return}$("#pick-res").click();return}
+  const f=e.target.closest("[data-rc-f] button, #rc-f button");if(f){resFilter=f.dataset.v;$("#rc-f").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===f)));rcRefresh();return}
+  if(e.target.closest("[data-rcunlock]")){resUnlock=!resUnlock;rcRefresh();return}
+  if(e.target.closest("[data-rcpaste]")){openPaste();return}
+  const a=e.target.closest("[data-rcadd]");if(a){openRow(null,{ours:a.dataset.rcadd==="ours"});return}
+  const tr=e.target.closest("[data-rrow]");if(tr){openRow(tr.dataset.rrow);return}
+  const v=e.target.closest("[data-resview]");if(v){const imgs=(r.files||[]).filter(x=>/^image\//.test(x.mimeType||"")).map(x=>({id:x.id,name:x.name,mimeType:x.mimeType,webViewLink:x.url}));
+    lbNum=null;openViewer(imgs,Math.max(0,imgs.findIndex(x=>x.id===v.dataset.resview)));return}
+  const rm=e.target.closest("[data-resrm]");if(rm){const id=rm.dataset.resrm;
+    if(resFileArmed!==id){resFileArmed=id;renderResView();setTimeout(()=>{if(resFileArmed===id){resFileArmed=null;renderResView()}},4000);return}
+    resFileArmed=null;const files=(r.files||[]).filter(x=>x.id!==id);
+    try{await db.collection("resources").doc(r.id).update({files,updatedAt:new Date().toISOString()});toast("Removed from the resource (it's still in Drive)")}catch(err){toast("Couldn't remove: "+(err.message||err.code))}}
+});
+$("#pick-res").addEventListener("change",async e=>{const list=[...e.target.files];e.target.value="";const r=resById(resCur);if(!list.length||!r)return;
+  const st=$("#res-upst");const say=t=>{if(st){st.hidden=false;st.textContent=t}};
+  try{if(!hasToken())await requestToken("");const fo=await rootFolder(RES_FOLDER);const added=[];
+    for(let i=0;i<list.length;i++){const f=list[i];say(`Uploading ${i+1} of ${list.length}: ${f.name}…`);
+      const up=await dUpload(fo.id,f,f.name.replace(/[\\/:*?"<>|]/g,"-"),f.type||"application/octet-stream");
+      added.push({id:up.id,name:up.name||f.name,mimeType:up.mimeType||f.type||"",url:up.webViewLink||""})}
+    const cur=resById(r.id)||r;await db.collection("resources").doc(r.id).update({files:[...(cur.files||[]),...added],updatedAt:new Date().toISOString()});
+    toast(added.length===1?"File added":`${added.length} files added`)}
+  catch(err){toast("Couldn't upload: "+((err&&err.message)||err.code||"error"));say("")}});
+
+// --- sheets
+function resSheetOpen(){return !$("#ressheet").hidden||!$("#rowsheet").hidden||!$("#rpsheet").hidden}
+function resSheetClose(){["#ressheet","#rowsheet","#rpsheet"].forEach(id=>$(id).hidden=true);resEdit=null;resRow=null;resDelArmed=false;
+  if($("#invsheet").hidden&&$("#bomsheet").hidden)document.documentElement.classList.remove("lbopen")}
+function sheetShow(id,focus){$(id).hidden=false;document.documentElement.classList.add("lbopen");setTimeout(()=>{const f=focus&&$(focus);if(f&&!matchMedia("(hover:none)").matches)f.focus()},40)}
+["#ressheet","#rowsheet","#rpsheet"].forEach(id=>$(id).addEventListener("click",e=>{if(e.target===$(id))resSheetClose()}));
+["#rs-cancel","#rw-cancel","#rp-cancel"].forEach(id=>$(id).onclick=()=>resSheetClose());
+
+// add / edit a resource (title, section, notes, chart columns)
+let rsCols=[],rsChart=false;
+function rsColsRender(){$("#rs-cols").innerHTML=rsCols.map((c,i)=>`<div class="rccol"><input data-rsc="${i}" data-f="l" value="${esc(c.l||"")}" placeholder="Column ${i+1}, e.g. Current" aria-label="Column ${i+1} name"><input data-rsc="${i}" data-f="u" value="${esc(c.u||"")}" placeholder="Unit" aria-label="Column ${i+1} unit"><button type="button" class="linkish" data-rscrm="${i}" aria-label="Remove column ${i+1}">✕</button></div>`).join("")||`<div class="small">No columns yet.</div>`}
+function rsKindShow(){const k=segVal("#rs-kind");rsChart=rsChart||k==="chart";
+  $("#rs-chartbox").hidden=!rsChart;$("#rs-addchart").hidden=rsChart||!resEdit;
+  $("#rs-kindhint").textContent=k==="chart"?"A table of values, e.g. a spark gap chart. The booklet values and your own settings are kept apart.":"A manual or reference sheet: add PDF or photo files to it."}
+function openResSheet(id,addChart){const r=id?resById(id):null;resEdit=r?r.id:"";resDelArmed=false;
+  $("#rs-title").textContent=r?"Edit resource":"New resource";$("#rs-sub").textContent=r?(r.cat||""):"A manual, chart or reference sheet";
+  $("#rs-name").value=r?r.title||"":"";$("#rs-cat").value=r?r.cat||"":(resCats()[0]||"EDM");$("#rs-notes").value=r?r.notes||"":"";
+  $("#rs-cats").innerHTML=[...new Set(["EDM",...resCats()])].map(c=>`<option value="${esc(c)}">`).join("");
+  $("#rs-kindbox").hidden=!!r;segSet("#rs-kind",r?(r.chart?"chart":"doc"):"doc");
+  rsChart=!!(r&&r.chart)||!!addChart;$("#rs-src").value=(r&&r.chart&&r.chart.src)||"";
+  rsCols=(r&&r.chart?resCols(r):[]).map(c=>({...c}));if(rsChart&&!rsCols.length)rsCols=[{k:newId(),l:"",u:""}];
+  rsColsRender();rsKindShow();$("#rs-del").hidden=!r;$("#rs-del").textContent="Delete";
+  sheetShow("#ressheet",addChart?"#rs-cols input":"#rs-name");grow($("#rs-notes"))}
+$("#rs-kind").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;segSet("#rs-kind",b.dataset.v);rsChart=b.dataset.v==="chart";if(rsChart&&!rsCols.length){rsCols=[{k:newId(),l:"",u:""}];rsColsRender()}rsKindShow()});
+$("#rs-addchart").onclick=()=>{rsChart=true;if(!rsCols.length)rsCols=[{k:newId(),l:"",u:""}];rsColsRender();rsKindShow();const f=$("#rs-cols input");if(f)f.focus()};
+$("#rs-cols").addEventListener("input",e=>{const t=e.target.closest("[data-rsc]");if(t)rsCols[+t.dataset.rsc][t.dataset.f]=t.value});
+$("#rs-cols").addEventListener("click",e=>{const b=e.target.closest("[data-rscrm]");if(!b)return;const i=+b.dataset.rscrm,c=rsCols[i],r=resEdit&&resById(resEdit);
+  const used=r&&resRows(r).some(x=>x.v&&x.v[c.k]!==undefined&&x.v[c.k]!=="");
+  if(used&&!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Remove? Its values go too";setTimeout(()=>{if(b.isConnected){b.classList.remove("armed");b.textContent="✕"}},4000);return}
+  rsCols.splice(i,1);rsColsRender()});
+$("#rs-coladd").onclick=()=>{rsCols.push({k:newId(),l:"",u:""});rsColsRender();const ins=$("#rs-cols").querySelectorAll('[data-f="l"]');if(ins.length)ins[ins.length-1].focus()};
+$("#resform").addEventListener("submit",async e=>{e.preventDefault();if(!db)return;
+  const title=$("#rs-name").value.trim();if(!title){$("#rs-name").focus();return}
+  const now=new Date().toISOString(),cat=$("#rs-cat").value.trim(),notes=$("#rs-notes").value.trim();
+  const cols=rsCols.map(c=>({k:c.k||newId(),l:String(c.l||"").trim(),u:String(c.u||"").trim()})).filter(c=>c.l||c.u);
+  try{if(resEdit){const r=resById(resEdit);if(!r){resSheetClose();return}
+      const upd={title,cat,notes,updatedAt:now};
+      if(rsChart){upd.kind="chart";upd["chart.src"]=$("#rs-src").value.trim();upd["chart.cols"]=cols;
+        if(!r.chart)upd["chart.rows"]=[];
+        else{const keep=new Set(cols.map(c=>c.k));if(resCols(r).some(c=>!keep.has(c.k)))upd["chart.rows"]=resRows(r).map(x=>({...x,v:Object.fromEntries(Object.entries(x.v||{}).filter(([k])=>keep.has(k)))}))}}
+      await db.collection("resources").doc(r.id).update(upd);resSheetClose();toast("Saved")}
+    else{const id="r"+newId(),doc={title,cat,notes,kind:rsChart?"chart":"doc",files:[],createdAt:now,updatedAt:now,...(rsChart?{chart:{src:$("#rs-src").value.trim(),cols,rows:[]}}:{})};
+      await db.collection("resources").doc(id).set(doc);if(!resById(id))resources.push({id,...doc});resSheetClose();openRes(id)}}
+  catch(err){toast("Couldn't save: "+(err.message||err.code))}});
+$("#rs-del").onclick=async()=>{const r=resById(resEdit);if(!r)return;
+  if(!resDelArmed){resDelArmed=true;$("#rs-del").textContent="Tap again to delete";setTimeout(()=>{resDelArmed=false;if(!$("#ressheet").hidden)$("#rs-del").textContent="Delete"},4000);return}
+  try{await db.collection("resources").doc(r.id).delete();resSheetClose();toast(`Deleted “${r.title||"resource"}” (its files are still in Drive)`);if(currentView()==="resview")history.back()}catch(err){toast("Couldn't delete: "+(err.message||err.code))}};
+$("#res-add").onclick=()=>{if(!db){toast("Sign in first");return}openResSheet(null)};
+
+// one row of a chart
+function openRow(rowId,opts){const r=resById(resCur);if(!r)return;const cols=resCols(r);
+  if(!cols.length){toast("Add the chart's columns first (Edit)");return}
+  const row=rowId?resRows(r).find(x=>x.id===rowId):null;if(rowId&&!row)return;
+  const ours=row?!!row.ours:!!(opts&&opts.ours),locked=!!row&&!ours&&!resUnlock,base=(opts&&opts.from)||null;
+  resRow={id:row?row.id:"",ours,locked};
+  $("#rw-title").textContent=ours?(row?"Our setting":"New setting of ours"):(row?"Booklet row":"New booklet row");
+  $("#rw-sub").textContent=r.title||"";
+  const vals=(row&&row.v)||(base&&base.v)||{};
+  $("#rw-fields").innerHTML=cols.map(c=>`<div class="field" style="margin:0"><label class="label" for="rwf-${esc(c.k)}">${esc(c.l||"—")}${c.u?` <span style="text-transform:none;font-weight:400">(${esc(c.u)})</span>`:""}</label><input id="rwf-${esc(c.k)}" data-rwk="${esc(c.k)}" class="mono" value="${esc(vals[c.k]??"")}"${locked?" readonly":""}></div>`).join("");
+  $("#rw-ours").hidden=!ours;segSet("#rw-status",(row&&row.status)||"trial");$("#rw-note").value=(row&&row.note)||(base?`Started from booklet row ${cols[0]?(base.v||{})[cols[0].k]||"":""}`.trim():"");
+  $("#rw-lock").textContent=locked?"Booklet values are locked so the original chart stays as printed. Unlock them on the page to correct a typo, or start one of our settings from this row.":"";
+  $("#rw-save").hidden=locked;$("#rw-copy").hidden=!locked;$("#rw-del").hidden=!row||locked;$("#rw-del").textContent="Delete";$("#rw-cancel").textContent=locked?"Close":"Cancel";
+  sheetShow("#rowsheet",locked?null:"#rw-fields input");grow($("#rw-note"))}
+$("#rw-status").addEventListener("click",e=>{const b=e.target.closest("button");if(b)segSet("#rw-status",b.dataset.v)});
+$("#rw-copy").onclick=()=>{const r=resById(resCur),row=r&&resRows(r).find(x=>x.id===resRow.id);if(!row)return;openRow(null,{ours:true,from:row})};
+async function rcSaveRows(rows){const r=resById(resCur);if(!r)return false;
+  try{await db.collection("resources").doc(r.id).update({"chart.rows":rows,updatedAt:new Date().toISOString()});return true}catch(err){toast("Couldn't save: "+(err.message||err.code));return false}}
+$("#rowform").addEventListener("submit",async e=>{e.preventDefault();const r=resById(resCur);if(!r||!resRow||resRow.locked)return;
+  const v={};$("#rw-fields").querySelectorAll("[data-rwk]").forEach(i=>{const t=i.value.trim();if(t!=="")v[i.dataset.rwk]=t});
+  if(!Object.keys(v).length&&!(resRow.ours&&$("#rw-note").value.trim())){toast("Fill in at least one value");return}
+  const rows=resRows(r).map(x=>({...x}));
+  const data={v,ours:resRow.ours,...(resRow.ours?{status:segVal("#rw-status")||"trial",note:$("#rw-note").value.trim()}:{})};
+  if(resRow.id){const i=rows.findIndex(x=>x.id===resRow.id);if(i<0){resSheetClose();return}rows[i]={...rows[i],...data}}
+  else rows.push({id:newId(),...data,...(resRow.ours?{at:today()}:{})});
+  if(await rcSaveRows(rows)){const n=resRow.ours;resSheetClose();toast(n?"Setting saved":"Row saved")}});
+$("#rw-del").onclick=async()=>{const b=$("#rw-del"),r=resById(resCur);if(!r||!resRow||!resRow.id)return;
+  if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Tap again to delete";setTimeout(()=>{b.classList.remove("armed");b.textContent="Delete"},4000);return}
+  b.classList.remove("armed");if(await rcSaveRows(resRows(r).filter(x=>x.id!==resRow.id))){resSheetClose();toast("Deleted")}};
+
+// paste a block of rows (from Excel / Google Sheets, or CSV)
+function rpParse(text){const lines=text.replace(/\r/g,"").split("\n").filter(l=>l.trim()!=="");if(!lines.length)return [];
+  const tab=lines.some(l=>l.includes("\t"));
+  const csv=l=>{const out=[];let cur="",q=false;for(let i=0;i<l.length;i++){const ch=l[i];if(q){if(ch==='"'&&l[i+1]==='"'){cur+='"';i++}else if(ch==='"')q=false;else cur+=ch}else if(ch==='"')q=true;else if(ch===","){out.push(cur);cur=""}else cur+=ch}out.push(cur);return out};
+  return lines.map(l=>(tab?l.split("\t"):csv(l)).map(c=>c.trim()))}
+function rpPlan(){const r=resById(resCur);const grid=rpParse($("#rp-text").value),head=$("#rp-head").checked;if(!r||!grid.length)return null;
+  const cols=resCols(r).map(c=>({...c})),hdr=head?grid[0]:null,body=head?grid.slice(1):grid;const map=[];
+  if(hdr){hdr.forEach((h,i)=>{const m=h.match(/^(.*?)\s*[\(\[]([^\)\]]*)[\)\]]\s*$/),l=(m?m[1]:h).trim(),u=m?m[2].trim():"";
+      let c=cols.find(x=>(x.l||"").toLowerCase()===l.toLowerCase()&&l);if(!c){c={k:newId(),l:l||("Column "+(i+1)),u};cols.push(c)}map[i]=c.k})}
+  else{const w=Math.max(...body.map(x=>x.length));for(let i=0;i<w;i++){if(!cols[i])cols.push({k:newId(),l:"Column "+(i+1),u:""});map[i]=cols[i].k}}
+  const ours=segVal("#rp-to")==="ours";
+  const rows=body.map(cells=>{const v={};cells.forEach((c,i)=>{if(c!==""&&map[i])v[map[i]]=c});return {id:newId(),v,ours,...(ours?{status:"trial",note:"",at:today()}:{})}}).filter(x=>Object.keys(x.v).length);
+  return {cols,rows,newCols:cols.length-resCols(r).length}}
+function rpPreview(){const p=rpPlan();$("#rp-prev").textContent=!p?"":`${p.rows.length} row${p.rows.length===1?"":"s"} to add`+(p.newCols?` · ${p.newCols} new column${p.newCols===1?"":"s"}`:"")}
+function openPaste(){$("#rp-text").value="";$("#rp-head").checked=!resCols(resById(resCur)).length;segSet("#rp-to",resFilter==="ours"?"ours":"book");rpPreview();sheetShow("#rpsheet","#rp-text")}
+$("#rp-text").addEventListener("input",rpPreview);$("#rp-head").addEventListener("change",rpPreview);
+$("#rp-to").addEventListener("click",e=>{const b=e.target.closest("button");if(b){segSet("#rp-to",b.dataset.v);rpPreview()}});
+$("#rpform").addEventListener("submit",async e=>{e.preventDefault();const r=resById(resCur),p=rpPlan();if(!r||!p||!p.rows.length){toast("Nothing to add");return}
+  try{await db.collection("resources").doc(r.id).update({"chart.cols":p.cols,"chart.rows":[...resRows(r),...p.rows],updatedAt:new Date().toISOString()});
+    resSheetClose();toast(`Added ${p.rows.length} row${p.rows.length===1?"":"s"}`)}catch(err){toast("Couldn't add: "+(err.message||err.code))}});
 // A folder directly inside the Drive Work Orders folder (made when missing)
 async function rootFolder(name){const r=await dList(`'${dq(driveRoot.id)}' in parents and mimeType='${FOLDER_MT}' and trashed=false and name='${dq(name)}'`);
   if((r.files||[])[0])return r.files[0];
@@ -5818,7 +6101,7 @@ $("#bom-rm").onclick=async()=>{const m=moulds.find(x=>x.id===bomFor);if(!m||bomE
   if(b.dataset.armed!=="1"){b.dataset.armed="1";b.textContent="Tap again to remove";setTimeout(()=>{b.dataset.armed="";b.textContent="Remove from tool"},4000);return}
   b.dataset.armed="";const bom=(m.bom||[]).filter((_,i)=>i!==bomEditIdx);m.bom=bom;closeBom();renderHistParts();
   try{await db.collection("moulds").doc(m.id).update({bom,updatedAt:new Date().toISOString()})}catch(err){toast("Couldn't save: "+(err.message||err.code))}};
-document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(!$("#invsheet").hidden)closeInvItem();else if(!$("#bomsheet").hidden)closeBom()});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(resSheetOpen()){resSheetClose();return}if(!$("#invsheet").hidden)closeInvItem();else if(!$("#bomsheet").hidden)closeBom()});
 
 // ---- Unassigned updates: quick notes made from Open jobs, assigned to a work order later ----
 let inbox=[],ibSort="new",ibEdit=null,ibSel=new Set(),ibAssign=null,ibDelArmed=null;
@@ -6612,6 +6895,7 @@ function srLocal(q){const words=searchWords(q),qn=normWo(q),R={wo:[],upd:[],file
     for(const it of (L.items||[])){const sc=it.text?hit(it.text):0;if(sc)R.other.push({sc,kind:"todo",title:L.title||"To-do list",text:it.text,done:it.done,list:L.id})}}
   for(const l of logs)for(const it of (l.todos||[])){const sc=it.text?hit(it.text):0;if(sc)R.other.push({sc,kind:"wotodo",l,title:`#${l.wo||"—"} ${jobTool(l)}`,text:it.text,done:it.done})}
   for(const m of moulds)for(const it of nwList(m)){const sc=it.text?hit(it.text):0;if(sc)R.other.push({sc,kind:"nw",m,title:mlabel(m),text:it.text,done:it.done})}
+  for(const r of resources){const ch=r.chart||{},rows=(ch.rows||[]),body=[r.notes,ch.src,...rows.filter(x=>x.ours).map(x=>x.note)].filter(Boolean).join(" · "),sc=hit([r.title,r.cat,...(r.files||[]).map(f=>f.name),body].join(" "));if(sc)R.other.push({sc,kind:"res",r,title:(r.cat?r.cat+" · ":"")+(r.title||"Resource"),text:body})}
   for(const p of procedures){const body=[...srStrings(p.sections),...(p.notes||[])].join(" · "),sc=hit([p.name,...procMouldNames(p),body].join(" "));if(sc)R.other.push({sc,kind:"proc",p,title:p.name||"Untitled procedure",text:body})}
   for(const it of inventory)if(invMatch(it,q))R.other.push({sc:2,kind:"inv",it,title:it.name||"Item",text:[it.spec,it.partNo,it.supplier,it.location,it.notes].filter(Boolean).join(" · ")});
   ["wo","upd","moulds"].forEach(k=>R[k].sort(srByDate));R.moulds.sort((a,b)=>b.sc-a.sc||mlabel(a.m).localeCompare(mlabel(b.m),undefined,{numeric:true}));
@@ -6681,7 +6965,7 @@ function srRender(){if($("#v-search").hidden)return;const q=srQ,el=$("#sr-result
     wo:(x,i)=>{const l=x.l,st=l.status||"Complete";return `<button type="button" class="srrow" data-sri="wo|${i}"><span class="srtop"><span class="wotag">${srMark(l.wo||"—",words)}</span><b class="srtool">${srMark(jobTool(l),words)}</b>${pill(st)}</span>${x.why?`<span class="srwhy"><small>${esc(x.why[0])}</small>${srSnip(x.why[1],words)}</span>`:""}<span class="srmeta">${esc([l.type,l.date?fmtDate(l.date):""].filter(Boolean).join(" · "))}</span></button>`},
     upd:(x,i)=>`<button type="button" class="srrow" data-sri="upd|${i}"><span class="srtop">${x.inbox?`<span class="stpill none">Not assigned</span>`:x.mould?`<span class="stpill none">${isGen(x.mould)?"Job":"Mould"} update</span>`:`<span class="wotag">${esc(x.wo||"—")}</span>`}<b class="srtool">${esc(x.tool)}</b><span class="srdate">${esc(fmtDate(x.date))}</span></span><span class="srwhy">${srSnip(x.text,words,220)}</span></button>`,
     moulds:(x,i)=>`<button type="button" class="srrow" data-sri="moulds|${i}"><span class="srtop"><b class="srtool">${srMark(mlabel(x.m),words)}</b>${x.m.company?`<span class="srmeta">${esc(x.m.company)}</span>`:""}</span>${x.why?`<span class="srwhy"><small>${esc(x.why[0])}</small>${srSnip(x.why[1],words)}</span>`:x.m.part?`<span class="srmeta">${esc(x.m.part)}</span>`:""}</button>`,
-    other:(x,i)=>`<button type="button" class="srrow" data-sri="other|${i}"><span class="srtop"><span class="srkind">${{todo:"To-do",wotodo:"To-do",nw:"Next time",proc:"Procedure",inv:"Inventory"}[x.kind]}</span><b class="srtool">${srMark(x.title,words)}</b></span>${x.text?`<span class="srwhy${x.done?" srdone":""}">${srSnip(x.text,words)}</span>`:""}</button>`,
+    other:(x,i)=>`<button type="button" class="srrow" data-sri="other|${i}"><span class="srtop"><span class="srkind">${{todo:"To-do",wotodo:"To-do",nw:"Next time",proc:"Procedure",inv:"Inventory",res:"Resource"}[x.kind]}</span><b class="srtool">${srMark(x.title,words)}</b></span>${x.text?`<span class="srwhy${x.done?" srdone":""}">${srSnip(x.text,words)}</span>`:""}</button>`,
     files:(x,i)=>{const f=x.f,media=isMediaF(f),d=srFileDest(x);
       const pic=media&&f.thumbnailLink?`<img src="${esc(thumbUrl(f,400))}" referrerpolicy="no-referrer" alt="" loading="lazy" draggable="false">`:`<span class="ext">${driveIcon(f.mimeType)}</span>`;
       const meta=[fileTaken(f)?fmtDate(fileTaken(f).slice(0,10)):"",fmtSize(f.size)].filter(Boolean).join(" · ");
@@ -6716,6 +7000,7 @@ $("#sr-results").addEventListener("click",async e=>{const t=e.target;
   else if(x.kind==="wotodo")startEdit(x.l.id);
   else if(x.kind==="nw")openMould(x.m.id);
   else if(x.kind==="proc")openProc(x.p.id);
+  else if(x.kind==="res")openRes(x.r.id);
   else if(x.kind==="inv"){await goPage("inv");$("#inv-q").value=x.it.name||"";renderInv()}
   else if(x.kind==="todo"){await goTab("open");const card=document.querySelector(`#todolists .tdcard[data-id="${CSS.escape(x.list)}"]`);
     if(card){card.scrollIntoView({block:"center"});card.classList.remove("rowflash");void card.offsetWidth;card.classList.add("rowflash");setTimeout(()=>card.classList.remove("rowflash"),1700)}}});
@@ -7520,7 +7805,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.08-153";
+const APP_VERSION="2026.11.09-154";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -7543,7 +7828,7 @@ $("#signin").addEventListener("click",async()=>{
   }catch(e){$("#gate-msg").textContent=(e&&e.code==="popup_closed")?"Sign-in was cancelled.":((e&&e.message)||"Sign-in failed. Try again.")}
   btn.disabled=false;
 });
-function stopData(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[];inventory=[];moulds=[];logs=[];hoursList=[];procedures=[];loaded={m:false,l:false};driveRoot=null}
+function stopData(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[];inventory=[];resources=[];moulds=[];logs=[];hoursList=[];procedures=[];loaded={m:false,l:false};driveRoot=null}
 function dataError(err){
   if(err&&err.code==="permission-denied"){
     stopData();
@@ -7558,6 +7843,7 @@ function startData(){
   unsubs.push(db.collection("procedures").onSnapshot(s=>{procedures=s.docs.map(d=>({id:d.id,...d.data()}));renderProcLists();renderProc();renderList();ensureServiceProc()},e=>dataError(e)));
   unsubs.push(db.collection("hours").onSnapshot(s=>{hoursList=s.docs.map(d=>({id:d.id,...d.data()}));renderHours();renderFormHours()},e=>dataError(e)));
   unsubs.push(db.collection("inventory").onSnapshot(s=>{inventory=s.docs.map(d=>({id:d.id,...d.data()}));loaded.inv=true;renderInv();plStockRefresh();renderInvBadge();if(!$("#v-hist").hidden)renderHistParts();if(!$("#invsheet").hidden&&ivEdit)ivUsed()},e=>dataError(e)));
+  unsubs.push(db.collection("resources").onSnapshot(s=>{resources=s.docs.map(d=>({id:d.id,...d.data()}));renderRes();renderResView()},e=>dataError(e)));
   unsubs.push(db.collection("inbox").onSnapshot(s=>{inbox=s.docs.map(d=>({id:d.id,...d.data()}));renderInbox();calRefresh()},e=>dataError(e)));
   unsubs.push(db.collection("todolists").onSnapshot(s=>{todoLists=s.docs.map(d=>({id:d.id,...d.data()}));renderTodo()},e=>dataError(e)));
   unsubs.push(db.doc("settings/drive").onSnapshot(s=>{
@@ -7634,10 +7920,12 @@ $("#import-file").addEventListener("change",async e=>{
     for(const [id,doc] of Object.entries(cols.todolists||{})){if(!todoLists.some(x=>x.id===id))writes.push(["todolists",id,doc])}
     for(const [id,doc] of Object.entries(cols.inbox||{})){if(!inbox.some(x=>x.id===id))writes.push(["inbox",id,doc])}
     for(const [id,doc] of Object.entries(cols.inventory||{})){if(!inventory.some(x=>x.id===id))writes.push(["inventory",id,doc])}
+    // resources (manuals, charts) are added when new; an existing one is never overwritten
+    let nr=0;for(const [id,doc] of Object.entries(cols.resources||{})){if(!resources.some(x=>x.id===id)){writes.push(["resources",id,doc]);nr++}}
     for(const [id,doc] of Object.entries(cols.settings||{})){if(!(id==="drive"&&driveRoot))writes.push(["settings",id,doc])}
     toast(`Importing ${nl} work orders…`);
     for(let i=0;i<writes.length;i+=25){await Promise.all(writes.slice(i,i+25).map(([c,id,d])=>db.collection(c).doc(id).set(d)))}
-    toast(`Imported ${nl} work order${nl===1?"":"s"} and ${nm} new mould${nm===1?"":"s"}/job${nm===1?"":"s"}`+(skip?`. Skipped ${skip} already in the app.`:""));
+    toast(!nl&&!nm&&nr?`Imported ${nr} resource${nr===1?"":"s"}`:`Imported ${nl} work order${nl===1?"":"s"} and ${nm} new mould${nm===1?"":"s"}/job${nm===1?"":"s"}`+(nr?` and ${nr} resource${nr===1?"":"s"}`:"")+(skip?`. Skipped ${skip} already in the app.`:""));
   }catch(err){toast("That file couldn't be imported: "+((err&&err.message)||"not a GT Hub export"))}
 });
 $("#exportbtn").onclick=()=>{
@@ -7657,6 +7945,7 @@ function buildBackup(){
   out.collections.todolists={};todoLists.forEach(({id,...d})=>out.collections.todolists[id]=d);
   out.collections.procedures={};procedures.forEach(({id,...d})=>out.collections.procedures[id]=d);
   if(typeof inventory!=="undefined"){out.collections.inventory={};inventory.forEach(({id,...d})=>out.collections.inventory[id]=d)}
+  out.collections.resources={};resources.forEach(({id,...d})=>out.collections.resources[id]=d);
   if(driveRoot)out.collections.settings.drive={rootId:driveRoot.id,rootName:driveRoot.name};
   return out}
 $("#backupbtn").onclick=()=>{
