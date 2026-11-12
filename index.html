@@ -4575,6 +4575,13 @@ document.addEventListener("click",e=>{
 },true);
 
 // Must be called from a tap (it may open a Google window)
+// Open a file picker for an upload to Drive. If the Drive sign-in has run out, sign in first, while the tap still
+// counts as a tap (a browser blocks a sign-in popup that opens later, e.g. after a file was picked).
+async function pickForDrive(input){
+  if(hasToken()){input.click();return}
+  try{await requestToken("")}catch(e){toast((e&&/popup/i.test(String(e.type||e.message||"")))?"The Google sign-in window was blocked. Allow pop-ups for GT Hub, then try again.":"Couldn't connect to Google Drive. Try again, or reconnect in Account.");return}
+  if(!navigator.userActivation||navigator.userActivation.isActive)input.click();else toast("Google Drive connected. Tap again to choose the file.")}
+function driveErrMsg(err){const t=String((err&&(err.type||err.message||err.code))||err||"");return /popup/i.test(t)?"Google Drive needs signing in again. Tap the button again to reconnect.":t||"error"}
 function requestToken(prompt){
   return new Promise((resolve,reject)=>{
     tokenWaiters.push({resolve,reject});
@@ -5831,14 +5838,14 @@ function ivHazShow(){const on=$("#iv-haz").checked;$("#iv-hazbox").hidden=!on;if
   $("#iv-sdsfile").innerHTML=ivSds&&ivSds.id?`<div class="sdsfile"><a href="${esc(ivSds.url||("https://drive.google.com/file/d/"+ivSds.id+"/view"))}" target="_blank" rel="noopener">📄 ${esc(ivSds.name||"SDS")} ↗</a> <button type="button" class="linkish" data-sdsup="1">Replace</button></div>`
     :`<button type="button" class="btn ghost" data-sdsup="1">Upload SDS</button><div class="hint">PDF or photo. Saved to the <b>_SDS</b> folder in your Drive Work Orders folder.</div>`}
 $("#iv-haz").addEventListener("change",ivHazShow);$("#iv-sdsdate").addEventListener("input",ivHazShow);
-$("#iv-sdsfile").addEventListener("click",e=>{if(e.target.closest("[data-sdsup]")){if(!driveRoot){toast("Set your Drive Work Orders folder first (menu › Settings)");return}$("#pick-sds").click()}});
+$("#iv-sdsfile").addEventListener("click",e=>{if(e.target.closest("[data-sdsup]")){if(!driveRoot){toast("Set your Drive Work Orders folder first (menu › Settings)");return}pickForDrive($("#pick-sds"))}});
 $("#pick-sds").addEventListener("change",async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;
   const box=$("#iv-sdsfile");box.innerHTML=`<div class="hint">Uploading ${esc(f.name)}…</div>`;
   try{if(!hasToken())await requestToken("");
     const fo=await rootFolder("_SDS"),ext=(f.name.match(/\.[a-z0-9]+$/i)||[".pdf"])[0];
     const nm=`SDS - ${($("#iv-name").value.trim()||"material").replace(/[\\/:*?"<>|]/g,"-")}${$("#iv-sdsdate").value?" - "+$("#iv-sdsdate").value:""}${ext}`;
     const up=await dUpload(fo.id,f,nm,f.type||"application/pdf");ivSds={id:up.id,name:up.name||nm,url:up.webViewLink||""};toast("SDS uploaded")}
-  catch(err){toast("Couldn't upload: "+((err&&err.message)||err.code||"error"))}
+  catch(err){toast("Couldn't upload: "+driveErrMsg(err))}
   ivHazShow()});
 
 // ---- Resources: manuals, charts and reference sheets, grouped into sections (e.g. EDM) ----
@@ -5907,7 +5914,7 @@ $("#resbody").addEventListener("input",e=>{if(e.target.id==="rc-q"){resQ=e.targe
 $("#resbody").addEventListener("click",async e=>{const r=resById(resCur);if(!r)return;
   if(e.target.closest("[data-resedit]")){openResSheet(r.id);return}
   if(e.target.closest("[data-resaddchart]")){openResSheet(r.id,true);return}
-  if(e.target.closest("[data-resup]")){if(!driveRoot){toast("Set your Drive Work Orders folder first (menu › Settings)");return}$("#pick-res").click();return}
+  if(e.target.closest("[data-resup]")){if(!driveRoot){toast("Set your Drive Work Orders folder first (menu › Settings)");return}pickForDrive($("#pick-res"));return}
   const f=e.target.closest("[data-rc-f] button, #rc-f button");if(f){resFilter=f.dataset.v;$("#rc-f").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===f)));rcRefresh();return}
   if(e.target.closest("[data-rcunlock]")){resUnlock=!resUnlock;rcRefresh();return}
   if(e.target.closest("[data-rcpaste]")){openPaste();return}
@@ -5928,7 +5935,7 @@ $("#pick-res").addEventListener("change",async e=>{const list=[...e.target.files
       added.push({id:up.id,name:up.name||f.name,mimeType:up.mimeType||f.type||"",url:up.webViewLink||""})}
     const cur=resById(r.id)||r;await db.collection("resources").doc(r.id).update({files:[...(cur.files||[]),...added],updatedAt:new Date().toISOString()});
     toast(added.length===1?"File added":`${added.length} files added`)}
-  catch(err){toast("Couldn't upload: "+((err&&err.message)||err.code||"error"));say("")}});
+  catch(err){toast("Couldn't upload: "+driveErrMsg(err));say("")}});
 
 // --- sheets
 function resSheetOpen(){return !$("#ressheet").hidden||!$("#rowsheet").hidden||!$("#rpsheet").hidden}
@@ -7805,7 +7812,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.09-154";
+const APP_VERSION="2026.11.12-155";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
