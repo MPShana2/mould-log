@@ -6675,7 +6675,9 @@ function hrMatch(h,f){if(!f||f==="all")return true;
   if(f.startsWith("m:")){const id=f.slice(2);return hrTools(h).includes(id)||(hrMain(h)||{}).id===id}
   if(f.startsWith("c:")){const k=coNorm(f.slice(2));return hrCompanies(h).some(n=>coNorm(n)===k)}
   return true}
-function hrLabel(h){const l=hrLog(h);if(h.mouldId){const m=moulds.find(x=>x.id===h.mouldId);const mem=joinedOf(l,h.mouldId);return m?[mlabel(m),...mem.map(mName)].join(" + "):(l?jobTool(l):"")}return l?jobTool(l):"Work order not found"}
+// A work order run under a general job (e.g. a monthly maintenance job) is named by that job alone, not every mould on it
+function woMainLabel(l){const m=l&&moulds.find(x=>x.id===l.mouldId);return m&&isGen(m)?mlabel(m):jobTool(l)}
+function hrLabel(h){const l=hrLog(h);if(h.mouldId){const m=moulds.find(x=>x.id===h.mouldId);const mem=joinedOf(l,h.mouldId);return m?[mlabel(m),...mem.map(mName)].join(" + "):(l?woMainLabel(l):"")}return l?woMainLabel(l):"Work order not found"}
 // Hours on a work order (or one of its sub-jobs), for the small total on the work order page
 function hoursFor(logId,mouldId){const l=logs.find(x=>x.id===logId);return hoursList.filter(h=>(h.logId===logId||(l&&!h.logId&&normWo(h.wo)===normWo(l.wo)))&&(!mouldId||h.mouldId===mouldId)).reduce((a,h)=>a+(Number(h.hours)||0),0)}
 function renderFormHours(){
@@ -7039,7 +7041,7 @@ function hrByWo(entries){const g={};
 // That row only names the job (no hours); the hours and totals are the search's alone.
 function hrWithMain(bw){if(hrFilter==="all")return bw;const out=[];
   for(const r of bw){if(r.l&&r.mid&&!out.some(x=>x.l===r.l&&!x.mid)){const l=r.l,m=moulds.find(x=>x.id===l.mouldId),st=l.status||"Complete";
-      out.push({l,mid:null,ctx:true,wo:l.wo,tool:m&&isGen(m)?mlabel(m):jobTool(l),company:String((m&&m.company)||"").trim(),desc:l.description||"",status:st,start:l.date||"",end:isDone(st)?(l.dateCompleted||""):"present",hours:0,byTech:[]})}
+      out.push({l,mid:null,ctx:true,wo:l.wo,tool:woMainLabel(l),company:String((m&&m.company)||"").trim(),desc:l.description||"",status:st,start:l.date||"",end:isDone(st)?(l.dateCompleted||""):"present",hours:0,byTech:[]})}
     out.push(r)}
   return out}
 function hrMonthName(mon){return new Date(mon+"-01T00:00:00").toLocaleDateString(undefined,{month:"long",year:"numeric"})}
@@ -7824,7 +7826,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.18-156";
+const APP_VERSION="2026.11.18-157";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
