@@ -4571,7 +4571,9 @@ function ensureTokenClient(){
 // ---- Stay connected: the GT Hub server function keeps Google Drive's long-lived login (encrypted) and hands this
 // app a fresh one-hour Drive pass whenever it needs one, so there are no sign-in popups. Turned on once in Account.
 // srvDrive: null = not checked yet, true = on, false = off (or the server function isn't set up)
-let srvDrive=null,srvBusy=null,srvRenewT=0,srvFailAt=0;
+let srvDrive=null,srvBusy=null,srvRenewT=0,srvFailAt=0,srvChecked=false;
+const srvOn=()=>srvDrive===true||(srvDrive===null&&srvHint());
+const srvHint=v=>{try{if(v===undefined)return localStorage.getItem("ml_srvdrive")==="1";localStorage.setItem("ml_srvdrive",v?"1":"0")}catch(e){return false}};
 const FN_BASE=`https://australia-southeast1-${(CFG.firebase||{}).projectId||"mould-log"}.cloudfunctions.net/`;
 async function callFn(name,data){
   const id=authApi&&authApi.idToken?await authApi.idToken():null;if(!id)throw {code:"unauthenticated",message:"Sign in first"};
@@ -4584,12 +4586,13 @@ function srvTake(r){gToken=r.access_token;gExp=Date.now()+(Number(r.expires_in)|
   try{localStorage.setItem("ml_tok",JSON.stringify({token:gToken,exp:gExp,drive:driveOk}));localStorage.setItem("ml_drive_ever","1")}catch(e){}
   clearTimeout(srvRenewT);srvRenewT=setTimeout(()=>{if(document.visibilityState==="visible")srvRenew()},Math.max(60000,gExp-Date.now()-5*60000))}
 // Renew silently through the server. Resolves true when there's a valid Drive pass afterwards.
-function srvRenew(){
-  if(hasToken()&&gExp>Date.now()+5*60000)return Promise.resolve(true);
+// force: ask the server even with a valid pass (once per launch, so the app knows whether it's on)
+function srvRenew(force){
+  if(!force&&hasToken()&&gExp>Date.now()+5*60000)return Promise.resolve(true);
   if(srvDrive===false||!currentUser||!navigator.onLine||Date.now()-srvFailAt<60000)return Promise.resolve(false);
   if(srvBusy)return srvBusy;
   const had=hasToken();
-  srvBusy=callFn("driveToken").then(r=>{srvDrive=!!(r&&r.linked);if(!srvDrive){renderDriveLink();return false}
+  srvBusy=callFn("driveToken").then(r=>{srvChecked=true;srvDrive=!!(r&&r.linked);srvHint(srvDrive);if(!srvDrive){renderDriveLink();return hasToken()}
       srvTake(r);renderDriveLink();if(!had){onDriveConnected();renderAccount()}return true})
     .catch(e=>{// not set up (or unreachable while online): behave as before for this session
       if(/not set up|http_404|NOT_FOUND/i.test(String(e.message)+e.code)||(e.code==="offline"&&navigator.onLine&&srvDrive!==true))srvDrive=false;else srvFailAt=Date.now();renderDriveLink();return false})
@@ -4605,16 +4608,17 @@ function linkDrive(){
     callback:async r=>{
       if(!r||r.error||!r.code){toast("Google Drive wasn't linked");done();return}
       try{const res=await callFn("driveLink",{code:r.code,origin:location.origin});
-        if(res&&res.linked){srvDrive=true;const had=hasToken();srvTake(res);if(!had)onDriveConnected();renderAccount();toast("Google Drive will stay connected")}
+        if(res&&res.linked){srvDrive=true;srvHint(true);const had=hasToken();srvTake(res);if(!had)onDriveConnected();renderAccount();toast("Google Drive will stay connected")}
         else if(res&&res.again){dropToken();toast("Google needs one more approval. Tap “Stay connected” again.")}
       }catch(e){toast("Couldn't link Google Drive: "+(e.message||e.code))}
       done()},
     error_callback:()=>{toast("Google Drive wasn't linked");done()}}).requestCode()}
   catch(e){toast("Couldn't open Google's window");done()}}
-async function unlinkDrive(){try{await callFn("driveUnlink");srvDrive=false;clearTimeout(srvRenewT);toast("Drive will now ask you to sign in again when its pass runs out")}catch(e){toast("Couldn't turn it off: "+(e.message||e.code))}renderDriveLink()}
+async function unlinkDrive(){try{await callFn("driveUnlink");srvDrive=false;srvHint(false);clearTimeout(srvRenewT);toast("Drive will now ask you to sign in again when its pass runs out")}catch(e){toast("Couldn't turn it off: "+(e.message||e.code))}renderDriveLink()}
 function renderDriveLink(){const el=$("#acct-linkbox");if(!el)return;
   el.hidden=!currentUser;
-  el.innerHTML=srvDrive===true?`<div><b>Stay connected to Google Drive: on.</b> Drive renews itself, so you won't get Google sign-in windows.</div><div><button type="button" class="linkish" id="acct-unlink">Turn off</button></div>`
+  const on=srvDrive===true||(srvDrive===null&&srvHint());
+  el.innerHTML=on?`<div><b>Stay connected to Google Drive: on.</b> Drive renews itself, so you won't get Google sign-in windows.</div><div><button type="button" class="linkish" id="acct-unlink">Turn off</button></div>`
     :`<div><b>Stay connected to Google Drive</b>${srvDrive===null?"":": off"}. Approve once and Drive renews itself, with no more sign-in windows.</div><div><button type="button" class="btn ghost" id="acct-link">Stay connected</button></div>`}
 document.addEventListener("click",e=>{if(e.target.closest("#acct-link"))linkDrive();else if(e.target.closest("#acct-unlink"))unlinkDrive()});
 
@@ -4625,7 +4629,7 @@ document.addEventListener("click",e=>{if(e.target.closest("#acct-link"))linkDriv
 let autoRenewAt=0,autoRenewBusy=false;
 const driveEver=()=>{try{return localStorage.getItem("ml_drive_ever")==="1"}catch(e){return false}};
 document.addEventListener("click",e=>{
-  if(autoRenewBusy||!currentUser||!driveEver()||!driveOk||!navigator.onLine||srvDrive===true)return;
+  if(autoRenewBusy||!currentUser||!driveEver()||!driveOk||!navigator.onLine||srvOn())return;
   if(gToken&&gExp>Date.now()+10*60000)return;
   if(Date.now()<autoRenewAt)return;
   if(e.target.closest&&e.target.closest("[data-dconnect],[data-dconsent],[data-gphotos],[data-rptgo],[data-woren],#signin,#acct-signout,#acct-wipe,#drive-connect"))return;
@@ -4647,7 +4651,7 @@ async function pickForDrive(input){
 function driveErrMsg(err){const t=String((err&&(err.type||err.message||err.code))||err||"");return /popup/i.test(t)?"Google Drive needs signing in again. Tap the button again to reconnect.":t||"error"}
 async function requestToken(prompt){
   // only when it's known to be on: an extra network wait first would make the browser block Google's window
-  if(!prompt&&srvDrive===true&&currentUser&&await srvRenew())return gToken;
+  if(!prompt&&srvOn()&&currentUser&&await srvRenew())return gToken;
   return requestTokenGis(prompt)}
 function requestTokenGis(prompt){
   return new Promise((resolve,reject)=>{
@@ -7881,7 +7885,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.19-159";
+const APP_VERSION="2026.11.19-160";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -8331,7 +8335,7 @@ window.MouldApp={
     currentUser=user;db=adapter;hideGate();
     $("#exportbtn").hidden=false;
     startData();renderAccount();refreshQueue().then(processQueue);setTimeout(processBackups,6000);
-    setTimeout(()=>srvRenew().then(ok=>{if(ok)processQueue()}),1200);
+    setTimeout(()=>srvRenew(true).then(ok=>{if(ok)processQueue()}),1200);
   },
   syncPending(n){syncCount=n;clearTimeout(syncTimer);
     // only mention it if the server is slow to confirm
