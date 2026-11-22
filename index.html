@@ -6900,9 +6900,9 @@ function calMonthHtml(y,m,todayS){
     cls.push("has");const ph=es.some(e=>e.files.length),img=calImg[ds];if(img)cls.push("ph");
     cells+=`<button type="button" class="${cls.join(" ")}" data-cald="${ds}"${ph?" data-calph":""} aria-label="${lbl}: ${es.length} update${es.length===1?"":"s"}${dl}">${dm}${img?`<img class="calimg" src="${esc(img)}" referrerpolicy="no-referrer" alt="" draggable="false">`:""}<span class="caln">${d}</span>${es.length>1?`<b class="calcount">${es.length}</b>`:""}<span class="caljobs" aria-hidden="true">${es.slice(0,es.length>3?2:3).map(e=>`<span>${e.wo?`#${esc(e.wo)} `:""}${esc(e.tool)}</span>`).join("")}${es.length>3?`<small>+${es.length-2} more</small>`:""}</span></button>`}
   return `<section class="calmonth" data-calm="${mk}"><h3>${esc(first.toLocaleDateString(undefined,{month:"long",year:"numeric"}))}</h3><div class="calgrid">${cells}</div></section>`}
-// Months from calStart to this month (or the last dated update if later). It opens on the last 6 months;
+// Months from calStart to 3 months ahead (or the last update / due date if later). It opens on the last 6 months;
 // scrolling up to the top loads 6 more at a time, as far back as you like, so only what you've looked at is built.
-const CAL_STEP=6;var calStart=null;let calTopIO=null;
+const CAL_STEP=6,CAL_AHEAD=3;var calStart=null;let calTopIO=null;
 const calMAdd=(o,n)=>{const d=new Date(o.y,o.m+n,1);return {y:d.getFullYear(),m:d.getMonth()}};
 function calMonthsHtml(a,b,todayS){let h="",c={...a};while(c.y<b.y||(c.y===b.y&&c.m<=b.m)){h+=calMonthHtml(c.y,c.m,todayS);c=calMAdd(c,1)}return h}
 function calWatch(root){if(calIO)root.querySelectorAll(".calc[data-calph]").forEach(b=>calIO.observe(b));else root.querySelectorAll(".calc[data-calph]").forEach(b=>{b.classList.add("vis");calCellImg(b)})}
@@ -6912,7 +6912,11 @@ function renderCal(){
   calDueIdx=dueIndex();
   const hdr=document.querySelector("header.top");if(hdr)document.documentElement.style.setProperty("--hdrh",hdr.offsetHeight+"px");
   calIdx=calBuild();const days=Object.keys(calIdx).sort(),now=new Date(),todayS=calISO(now);
-  const last=days.length?days[days.length-1]:todayS,endD=last>todayS?new Date(last+"T00:00:00"):now,end={y:endD.getFullYear(),m:endD.getMonth()};
+  // runs a few months into the future (CAL_AHEAD), further if something is due later (up to two years ahead)
+  const last=days.length?days[days.length-1]:todayS,dues=Object.keys(calDueIdx).sort(),lastDue=dues.length?dues[dues.length-1]:"";
+  const ahead=calMAdd({y:now.getFullYear(),m:now.getMonth()},CAL_AHEAD),cap=calMAdd({y:now.getFullYear(),m:now.getMonth()},24);
+  const mo=s=>s?{y:+s.slice(0,4),m:+s.slice(5,7)-1}:null,later=(a,b)=>!b||a.y>b.y||(a.y===b.y&&a.m>b.m)?a:b;
+  let end=later(ahead,later(mo(last)||ahead,mo(lastDue)||ahead));if(end.y>cap.y||(end.y===cap.y&&end.m>cap.m))end=cap;
   if(!calStart)calStart=calMAdd({y:now.getFullYear(),m:now.getMonth()},-(CAL_STEP-1));
   $("#calmonths").innerHTML=calMonthsHtml(calStart,end,todayS);
   if(calIO)calIO.disconnect();
@@ -7947,7 +7951,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.22-164";
+const APP_VERSION="2026.11.22-165";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
