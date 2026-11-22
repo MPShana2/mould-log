@@ -14,6 +14,7 @@
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,"SF Mono",Consolas,monospace}
 @media (prefers-color-scheme:dark){:root{--bg:#141414;--card:#1e1e1e;--ink:#ece9e4;--muted:#a49f97;--line:#33312e;--soft:#262523;--flag:#3d2a17}}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--sans);-webkit-text-size-adjust:100%}
 .band{background:var(--band);color:#fff;border-bottom:3px solid var(--accent)}
 .band .in{max-width:860px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:12px}
@@ -53,6 +54,20 @@ h2{font-size:17px;margin:6px 0 2px;padding-left:10px;border-left:3px solid var(-
 .figs .fig.xh{display:none}
 .more{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:5px 14px;cursor:pointer}
 .more .chev{transition:transform .15s}.more[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.tabs{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.tabs .in{max-width:860px;margin:0 auto;padding:0 16px;display:flex;gap:4px}
+.tabs button{font:inherit;font-size:15px;font-weight:600;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:11px 12px 9px;cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabs .n{font-weight:500;color:var(--muted);margin-left:4px}
+.gal .figs{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+@media (min-width:700px){.gal .figs{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}}
+.gal .gh{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin:14px 0 2px}
+.gal .gh:first-child{margin-top:0}.gal .gh b{font-size:15px}.gal .gh small{color:var(--muted);font-size:12.5px}
+.gal .gt{font-size:13.5px;color:var(--muted);white-space:pre-wrap;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.gal .go{font:inherit;font-size:12.5px;background:none;border:0;color:#1a5fb4;text-decoration:underline;cursor:pointer;padding:0}
+.lbx .nav{position:fixed;top:50%;transform:translateY(-50%);width:48px;height:64px;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;font-size:30px;padding:0;right:auto}
+.lbx .nav.p{left:10px}.lbx .nav.n{right:10px;left:auto}
+.lbx .nav[hidden]{display:none}
 h3{font-size:14.5px;margin:14px 0 4px;padding-bottom:4px;border-bottom:1px solid var(--line)}.fig figcaption b{color:var(--ink);margin-right:6px}
 table{border-collapse:collapse;width:100%;font-size:14px;margin-top:4px}
 th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}th{font-size:12px;color:var(--muted);background:var(--soft)}
@@ -74,7 +89,9 @@ footer{max-width:860px;margin:0 auto;padding:0 16px 30px;color:var(--muted);font
 </head>
 <body>
 <div class="band"><div class="in"><img src="icons/icon-192.png" alt=""><div><b id="org">GT Hub</b><small>Mould maintenance · work order</small></div><span class="ro">View only</span></div></div>
+<nav class="tabs" id="tabs" hidden><div class="in" role="tablist"><button type="button" role="tab" data-tab="wo" aria-selected="true">Work order</button><button type="button" role="tab" data-tab="ph" aria-selected="false">Photos<span class="n" id="phn"></span></button></div></nav>
 <main id="main"><div class="msg">Loading…</div></main>
+<main id="gal" class="gal" hidden></main>
 <footer id="foot"></footer>
 <script>
 (function(){
@@ -94,7 +111,7 @@ function block(b){
     case "sub":return `<div class="subhd"><div><b>${esc((b.no?b.no+"  ":"")+b.name)}</b>${b.meta?`<small>${esc(b.meta)}</small>`:""}</div>${pill(b.status)}</div>`;
     case "field":return (b.label?`<div class="lab">${esc(b.label)}</div>`:"")+(b.tags?`<div class="tags">${String(b.text||"").split(/,\s*/).filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join("")}</div>`:`<div class="txt">${esc(b.text)}</div>`);
     case "upd":{const r=figRef(b.figs),more=b.figs?b.more:b.n;
-      return (b.h3?`<h3>Updates</h3>`:b.label?`<div class="lab">${esc(b.label)}</div>`:"")+`<div class="upd"><span class="d">${esc(b.date)}</span>${r||more?`<span class="r">${esc([r,more?more+" more photo"+(more===1?"":"s")+" not shown":""].filter(Boolean).join(" · "))}</span>`:""}${b.text?`<div class="txt">${esc(b.text)}</div>`:""}${figs(b.figs)}</div>`}
+      return (b.h3?`<h3>Updates</h3>`:b.label?`<div class="lab">${esc(b.label)}</div>`:"")+`<div class="upd" data-u="${b.__i}"><span class="d">${esc(b.date)}</span>${r||more?`<span class="r">${esc([r,more?more+" more photo"+(more===1?"":"s")+" not shown":""].filter(Boolean).join(" · "))}</span>`:""}${b.text?`<div class="txt">${esc(b.text)}</div>`:""}${figs(b.figs)}</div>`}
     case "table":return (b.label?`<div class="lab">${esc(b.label)}</div>`:"")+`<div class="tw"><table><thead><tr>${b.cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${b.rows.map((r,i)=>`<tr class="${(b.flagged||[]).includes(i)?"flag":""}">${r.map(v=>`<td>${esc(Array.isArray(v)?v.map(x=>typeof x==="object"?x.t:x).join("\n"):v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
     case "note":return `<div class="txt" style="color:var(--muted);font-style:italic">${esc(b.text)}</div>`;
     case "parts":return `<div class="lab">${esc(b.label)}</div><ul class="parts">${b.items.map(p=>`<li>${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.text||p.url)}</a>`:esc(p.text)}</li>`).join("")}</ul>`;
@@ -102,7 +119,7 @@ function block(b){
     default:return ""}}
 function render(d){const s=d.snap;if(!s){$("#main").innerHTML=`<div class="msg"><b>Nothing to show yet</b>This work order hasn't been prepared for viewing.</div>`;return}
   document.title=s.title+" · "+s.subtitle;$("#org").textContent=s.org||"GT Hub";
-  const bl=s.blocks||[],grid=bl.find(b=>b.t==="grid"),rest=bl.filter(b=>b!==grid);
+  const bl=s.blocks||[],grid=bl.find(b=>b.t==="grid"),rest=bl.filter(b=>b!==grid);bl.forEach((b,i)=>b.__i=i);
   // sections: everything up to each heading goes in one card
   const cards=[];let cur=[];for(const b of rest){if(b.t==="h"&&cur.length){cards.push(cur);cur=[]}cur.push(b)}if(cur.length)cards.push(cur);
   // updates get their own section after the one they were in (with readings taken alongside them);
@@ -116,11 +133,18 @@ function render(d){const s=d.snap;if(!s){$("#main").innerHTML=`<div class="msg">
   if(s.summary)h+=`<div class="card"><h2>Summary</h2>${s.summary.map(x=>`<div class="sumi"><div class="toprow"><b>${esc((x.no?x.no+"  ":"")+x.name)}</b>${pill(x.status)}</div>${[["Description",x.desc],["Inspection / faults found",x.insp],["Work done",x.work]].filter(y=>y[1]).map(y=>`<div class="lab">${y[0]}</div><div class="txt">${esc(y[1])}</div>`).join("")}</div>`).join("")}</div>`;
   h+=cards.map(c=>`<div class="card">${c.map(block).join("")}</div>`).join("");
   if((s.groups||[]).length)h+=`<div class="card"><h2>Photos</h2>${s.groups.map(g=>(g.title?`<div class="lab">${esc(g.title)}</div>`:"")+figs(g.imgs)).join("")}</div>`;
-  $("#main").innerHTML=h;clamp();
+  $("#main").innerHTML=h;
+  // Photos tab: every shared photo in figure order, by the update it belongs to (then the rest)
+  const sets=[];bl.forEach((b,i)=>{if(b.t==="upd"&&(b.figs||[]).length){let who="";for(let j=i;j>=0;j--)if(bl[j].t==="sub"){who=(bl[j].no?bl[j].no+"  ":"")+bl[j].name;break}sets.push({title:b.date,sub:who,text:b.text,imgs:b.figs,u:i})}});
+  (s.groups||[]).forEach(g=>{if(g.imgs.length)sets.push({title:"Other photos",sub:g.title,imgs:g.imgs})});
+  ALL=sets.flatMap(x=>x.imgs);
+  if(ALL.length){$("#tabs").hidden=false;$("#phn").textContent=ALL.length;
+    $("#gal").innerHTML=`<div class="card">${sets.map(x=>`<div class="gh"><b>${esc(x.title)}${x.sub?` <small>${esc(x.sub)}</small>`:""}</b><small>${esc(figRef(x.imgs))}${x.u!=null?` · <button type="button" class="go" data-u="${x.u}">Read update</button>`:""}</small></div>${x.text?`<div class="gt">${esc(x.text)}</div>`:""}<div class="figs nofold">${x.imgs.map(f=>`<figure class="fig" data-id="${esc(f.id)}" data-cap="Fig. ${f.fig}${f.date?" · "+esc(f.date):""}"><div class="ph"><img src="${photo(f.id)}" alt="Fig. ${f.fig}" loading="lazy"></div><figcaption><b>Fig. ${f.fig}</b>${esc(f.date||"")}</figcaption></figure>`).join("")}</div>`).join("")}</div>`}
+  clamp();
   const upd=d.updatedAt?new Date(d.updatedAt):null,exp=d.expires?new Date(d.expires):null,f=x=>x.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
   $("#foot").textContent=["Shared from GT Hub. View only.",upd?"Last updated "+f(upd)+" "+upd.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})+".":"",exp?"This link works until "+f(exp)+".":""].filter(Boolean).join(" ")}
 const open=new Set();
-function clamp(){document.querySelectorAll(".figs").forEach((el,i)=>{el.dataset.k=el.dataset.k||String(i);const k=el.dataset.k;
+function clamp(){document.querySelectorAll("#main .figs").forEach((el,i)=>{el.dataset.k=el.dataset.k||String(i);const k=el.dataset.k;
   const tiles=[...el.children];tiles.forEach(x=>x.classList.remove("xh"));
   const top=tiles.length?tiles[0].offsetTop:0,extra=tiles.filter(x=>x.offsetTop>top+4);
   let btn=el.nextElementSibling;if(!(btn&&btn.classList.contains("more")))btn=null;
@@ -131,8 +155,21 @@ function clamp(){document.querySelectorAll(".figs").forEach((el,i)=>{el.dataset.
   btn.innerHTML=(isOpen?"Show fewer":`+${extra.length} more photo${extra.length===1?"":"s"}`)+' <span class="chev" aria-hidden="true">▾</span>'})}
 let rt=0;addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(clamp,120)});
 document.addEventListener("click",e=>{const m=e.target.closest(".more");if(m){const k=m.dataset.k;open.has(k)?open.delete(k):open.add(k);clamp();if(!open.has(k))m.previousElementSibling.scrollIntoView({block:"nearest"});return}});
-document.addEventListener("click",e=>{const fg=e.target.closest(".fig");if(fg){const o=document.createElement("div");o.className="lbx";o.innerHTML=`<img src="${photo(fg.dataset.id,true)}" alt=""><button type="button">Close</button><div class="cap">${fg.dataset.cap}</div>`;o.onclick=()=>o.remove();document.body.appendChild(o);return}});
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){const o=$(".lbx");if(o)o.remove()}});
+// full-size viewer: steps through the photos (arrows, keys or a swipe)
+let ALL=[],LBI=-1;
+function lbShow(i){LBI=i;const f=ALL[i];if(!f)return;let o=$(".lbx");
+  if(!o){o=document.createElement("div");o.className="lbx";o.innerHTML=`<img alt=""><button type="button" class="x">Close</button><button type="button" class="nav p" aria-label="Previous photo">‹</button><button type="button" class="nav n" aria-label="Next photo">›</button><div class="cap"></div>`;document.body.appendChild(o);
+    o.addEventListener("click",e=>{if(e.target.closest(".p"))lbShow(LBI-1);else if(e.target.closest(".n"))lbShow(LBI+1);else lbClose()});
+    let sx=null;o.addEventListener("touchstart",e=>{sx=e.touches[0].clientX},{passive:true});o.addEventListener("touchend",e=>{if(sx==null)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)>50){lbShow(LBI+(dx<0?1:-1))}})}
+  o.querySelector("img").src=photo(f.id,true);o.querySelector(".cap").textContent=`Fig. ${f.fig}${f.date?" · "+f.date:""}  (${i+1} of ${ALL.length})`;
+  o.querySelector(".p").hidden=i<=0;o.querySelector(".n").hidden=i>=ALL.length-1;
+  [ALL[i+1],ALL[i-1]].forEach(n=>{if(n)new Image().src=photo(n.id,true)})}
+function lbClose(){const o=$(".lbx");if(o)o.remove();LBI=-1}
+document.addEventListener("click",e=>{const fg=e.target.closest(".fig");if(fg){const i=ALL.findIndex(x=>x.id===fg.dataset.id);if(i>=0)lbShow(i);return}
+  const tb=e.target.closest("[data-tab]");if(tb){const ph=tb.dataset.tab==="ph";document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",String(b===tb)));$("#main").hidden=ph;$("#gal").hidden=!ph;scrollTo(0,0);if(!ph)clamp();return}
+  const go=e.target.closest(".go");if(go){const el=[...document.querySelectorAll("#main .upd")].find(x=>x.dataset.u===go.dataset.u);
+    document.querySelector('[data-tab="wo"]').click();if(el){el.scrollIntoView({block:"start"});scrollBy(0,-56)}}});
+document.addEventListener("keydown",e=>{if(LBI<0)return;if(e.key==="Escape")lbClose();else if(e.key==="ArrowRight")lbShow(LBI+1);else if(e.key==="ArrowLeft")lbShow(LBI-1)});
 if(!/^[A-Za-z0-9_-]{24,64}$/.test(t)){$("#main").innerHTML=`<div class="msg"><b>This link isn't complete</b>Check that the whole link was copied.</div>`;return}
 fetch(FN+"shareView",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({t})})
   .then(r=>r.json().then(j=>({ok:r.ok,j})))
