@@ -50,6 +50,9 @@ h2{font-size:17px;margin:6px 0 2px;padding-left:10px;border-left:3px solid var(-
 .fig img{width:100%;height:100%;object-fit:contain;display:block}
 .fig figcaption{font-size:11.5px;color:var(--muted);margin-top:3px}
 .fig .ph img{object-fit:cover}
+.figs .fig.xh{display:none}
+.more{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:5px 14px;cursor:pointer}
+.more .chev{transition:transform .15s}.more[aria-expanded="true"] .chev{transform:rotate(180deg)}
 h3{font-size:14.5px;margin:14px 0 4px;padding-bottom:4px;border-bottom:1px solid var(--line)}.fig figcaption b{color:var(--ink);margin-right:6px}
 table{border-collapse:collapse;width:100%;font-size:14px;margin-top:4px}
 th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}th{font-size:12px;color:var(--muted);background:var(--soft)}
@@ -113,9 +116,21 @@ function render(d){const s=d.snap;if(!s){$("#main").innerHTML=`<div class="msg">
   if(s.summary)h+=`<div class="card"><h2>Summary</h2>${s.summary.map(x=>`<div class="sumi"><div class="toprow"><b>${esc((x.no?x.no+"  ":"")+x.name)}</b>${pill(x.status)}</div>${[["Description",x.desc],["Inspection / faults found",x.insp],["Work done",x.work]].filter(y=>y[1]).map(y=>`<div class="lab">${y[0]}</div><div class="txt">${esc(y[1])}</div>`).join("")}</div>`).join("")}</div>`;
   h+=cards.map(c=>`<div class="card">${c.map(block).join("")}</div>`).join("");
   if((s.groups||[]).length)h+=`<div class="card"><h2>Photos</h2>${s.groups.map(g=>(g.title?`<div class="lab">${esc(g.title)}</div>`:"")+figs(g.imgs)).join("")}</div>`;
-  $("#main").innerHTML=h;
+  $("#main").innerHTML=h;clamp();
   const upd=d.updatedAt?new Date(d.updatedAt):null,exp=d.expires?new Date(d.expires):null,f=x=>x.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
   $("#foot").textContent=["Shared from GT Hub. View only.",upd?"Last updated "+f(upd)+" "+upd.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})+".":"",exp?"This link works until "+f(exp)+".":""].filter(Boolean).join(" ")}
+const open=new Set();
+function clamp(){document.querySelectorAll(".figs").forEach((el,i)=>{el.dataset.k=el.dataset.k||String(i);const k=el.dataset.k;
+  const tiles=[...el.children];tiles.forEach(x=>x.classList.remove("xh"));
+  const top=tiles.length?tiles[0].offsetTop:0,extra=tiles.filter(x=>x.offsetTop>top+4);
+  let btn=el.nextElementSibling;if(!(btn&&btn.classList.contains("more")))btn=null;
+  if(!extra.length){if(btn)btn.remove();return}
+  const isOpen=open.has(k);if(!isOpen)extra.forEach(x=>x.classList.add("xh"));
+  if(!btn){btn=document.createElement("button");btn.type="button";btn.className="more";el.after(btn)}
+  btn.dataset.k=k;btn.setAttribute("aria-expanded",String(isOpen));
+  btn.innerHTML=(isOpen?"Show fewer":`+${extra.length} more photo${extra.length===1?"":"s"}`)+' <span class="chev" aria-hidden="true">▾</span>'})}
+let rt=0;addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(clamp,120)});
+document.addEventListener("click",e=>{const m=e.target.closest(".more");if(m){const k=m.dataset.k;open.has(k)?open.delete(k):open.add(k);clamp();if(!open.has(k))m.previousElementSibling.scrollIntoView({block:"nearest"});return}});
 document.addEventListener("click",e=>{const fg=e.target.closest(".fig");if(fg){const o=document.createElement("div");o.className="lbx";o.innerHTML=`<img src="${photo(fg.dataset.id,true)}" alt=""><button type="button">Close</button><div class="cap">${fg.dataset.cap}</div>`;o.onclick=()=>o.remove();document.body.appendChild(o);return}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){const o=$(".lbx");if(o)o.remove()}});
 if(!/^[A-Za-z0-9_-]{24,64}$/.test(t)){$("#main").innerHTML=`<div class="msg"><b>This link isn't complete</b>Check that the whole link was copied.</div>`;return}
