@@ -4,7 +4,8 @@
 // Both files are made here in the app, so no extra libraries are needed and it works offline (photos aside).
 function rptOrg(){try{const v=localStorage.getItem("ml_rpt_org");return v===null?"Group Tooling":v}catch(e){return "Group Tooling"}}
 const rptHas=v=>v!==undefined&&v!==null&&String(v).trim()!=="";
-function reportModel(l,onlyId){
+// opt.updates=false leaves the updates out (hot runner readings taken with one stay, labelled with its date)
+function reportModel(l,onlyId,opt){opt=opt||{};const withUpd=opt.updates!==false;
   const ids=jobIds(l),names=jobNames(l),tabs=tabIdsFor(l.mouldId,l.extraMouldIds);
   const nameOf=id=>names[ids.indexOf(id)]||"Unknown mould";
   const mOf=id=>moulds.find(x=>x.id===id);
@@ -28,6 +29,8 @@ function reportModel(l,onlyId){
   if(typeof schedOf==="function"&&(single||onlyId))g("Mould stop",schedOf(l,onlyId||single)==="u"?"Unscheduled":"Scheduled");
   const d0=sub?sub.date:l.date,d1=sub?sub.dateCompleted:l.dateCompleted;
   g("Date started",d0?fmtDate(d0):"");g("Date completed",d1?fmtDate(d1):"");
+  // hours logged so far (Work hours): the whole work order, and this sub-job's share in a sub-job report
+  {const hs=rptHours(l);if(sub&&sub.no){const own=rptHours(l,sub.no);if(own)g("Hours logged (sub-job)",fmtH(own));if(hs)g("Hours logged (work order)",fmtH(hs))}else if(hs)g("Hours logged",fmtH(hs))}
   const showFields=id=>{const v=pmVal(l,id),m=mOf(id),out=[];
     if(!(m&&isGen(m))&&rptHas(v.shots))out.push({t:"field",label:"Shot count",text:fmtNum(v.shots)});
     if(rptHas(v.faults))out.push({t:"field",label:"Inspection / faults found",text:v.faults});
@@ -37,8 +40,9 @@ function reportModel(l,onlyId){
     if((v.actions||[]).length)out.push({t:"field",label:"Actions",text:v.actions.join(", "),tags:true});
     // Updates: each one dated, its text with its own line breaks, a photo count (the photos themselves are in
     // "Photos & files"), and any hot runner readings taken with it straight underneath
-    updClean(v.updates).forEach((x,i)=>{out.push({t:"upd",label:i?"":"Updates",date:fmtDate(x.date),text:x.text||"",n:(x.files||[]).length});
-      if(x.hrz)out.push({t:"table",label:"Hot runner readings",cols:hrzCols(x.hrz),rows:hrzRows(x.hrz),flagged:hrzFlagged(x.hrz)})});
+    updClean(v.updates).forEach((x,i)=>{
+      if(withUpd)out.push({t:"upd",label:i?"":"Updates",date:fmtDate(x.date),text:x.text||"",n:(x.files||[]).length,files:x.files||[],owner:id});
+      if(x.hrz)out.push({t:"table",label:withUpd?"Hot runner readings":"Hot runner readings · "+fmtDate(x.date),cols:hrzCols(x.hrz),rows:hrzRows(x.hrz),flagged:hrzFlagged(x.hrz)})});
     if(rptHas(v.notes))out.push({t:"field",label:"Notes",text:v.notes});
     const pl=cleanParts(v.partsList||partsFromText(v.parts)).map(p=>({...p,text:partLabel(p)}));if(pl.length)out.push({t:"parts",label:"Parts used",items:pl});
     setProcs(v).forEach(sn=>out.push({t:"check",label:sn.name,summary:procProgress(sn,sn.st||{}).txt,rows:procRptRows(sn),shots:v.shots}));
@@ -56,7 +60,8 @@ function reportModel(l,onlyId){
     B.push({t:"h",text:"Moulds & jobs"});
     for(const id of scope){
       const s=tabs.includes(id)?subMeta(l,id):null,m=mOf(id),f=showFields(id);
-      const meta=[s&&s.type&&s.type!==l.type?s.type:"",s&&s.date?"Started "+fmtDate(s.date):"",s&&s.dateCompleted?"Completed "+fmtDate(s.dateCompleted):"",m&&!isGen(m)&&m.part?m.part:""].filter(Boolean).join("   ·   ");
+      const sh=s&&s.no?rptHours(l,s.no):0;
+      const meta=[s&&s.type&&s.type!==l.type?s.type:"",s&&s.date?"Started "+fmtDate(s.date):"",s&&s.dateCompleted?"Completed "+fmtDate(s.dateCompleted):"",sh?fmtH(sh)+" logged":"",m&&!isGen(m)&&m.part?m.part:""].filter(Boolean).join("   ·   ");
       B.push({t:"sub",no:s&&s.no?subLabel(l,id):"",name:nameOf(id),status:s?s.status:"",meta});
       if(s&&rptHas(s.description))B.push({t:"field",label:"Description",text:s.description});
       if(f.length)B.push(...f);else if(!(s&&rptHas(s.description)))B.push({t:"note",text:"Nothing recorded yet."});
@@ -64,37 +69,58 @@ function reportModel(l,onlyId){
   }
   return R;
 }
-// Photos and files from the work order's Drive folder, grouped by subfolder (one per mould)
-async function rptDriveFiles(l,onlyId,withPhotos,progress){
+// Hours logged against a work order (from Work hours), or against one of its sub-jobs by number
+function rptHours(l,subNo){let t=0;for(const h of (typeof hoursList!=="undefined"?hoursList:[])){if(hrLog(h)!==l)continue;if(subNo!=null&&String(h.sub||"")!==String(subNo))continue;t+=Number(h.hours)||0}return Math.round(t*100)/100}
+// The work order's Drive folder as sets of items (the folder itself, then one per sub-job folder), for a report of
+// the whole order or of one sub-job (its folder and those of moulds that joined it). Cached while the dialog is open.
+let rptListCache=null;
+async function rptListing(l,onlyId){
+  const key=l.id+"|"+(onlyId||"");if(rptListCache&&rptListCache.key===key)return rptListCache.v;
   const num=woNum(l.wo);if(!num||!hasToken())return null;
-  const folder=await findWoFolder(num);if(!folder)return {groups:[],files:[],skipped:0};
-  const listAll=async id=>{let out=[],tok;do{const r=await dList(`'${dq(id)}' in parents and trashed=false`,tok);out=out.concat(r.files||[]);tok=r.nextPageToken}while(tok);return sortDriveItems(out)};
-  const tabs=tabIdsFor(l.mouldId,l.extraMouldIds),root=await listAll(folder.id);
-  const subTitle=name=>{const id=tabs.find(x=>subName(x)===name);return id?`${subLabel(l,id)}  ${jobNames(l)[jobIds(l).indexOf(id)]||name}`:name};
-  let sets=[];
-  if(onlyId&&tabs.includes(onlyId)){const mem=joinedOf(l,onlyId);
-    // the sub-job's folder, then a folder for each mould that joined it
-    for(const id of [onlyId,...mem]){const sf=root.find(f=>f.mimeType===FOLDER_MT&&f.name===subName(id));if(sf)sets.push({title:mem.length?mName(id):"",items:await listAll(sf.id)})}}
-  else{sets.push({title:tabs.length?"Work order":"",items:root.filter(f=>f.mimeType!==FOLDER_MT)});
-    for(const sf of root.filter(f=>f.mimeType===FOLDER_MT))sets.push({title:subTitle(sf.name),items:await listAll(sf.id)})}
+  const folder=await findWoFolder(num);let v={sets:[]};
+  if(folder){
+    const listAll=async id=>{let out=[],tok;do{const r=await dList(`'${dq(id)}' in parents and trashed=false`,tok);out=out.concat(r.files||[]);tok=r.nextPageToken}while(tok);return sortDriveItems(out)};
+    const tabs=tabIdsFor(l.mouldId,l.extraMouldIds),root=await listAll(folder.id);
+    const subTitle=name=>{const id=tabs.find(x=>subName(x)===name);return id?`${subLabel(l,id)}  ${jobNames(l)[jobIds(l).indexOf(id)]||name}`:name};
+    if(onlyId&&tabs.includes(onlyId)){const mem=joinedOf(l,onlyId);
+      for(const id of [onlyId,...mem]){const sf=root.find(f=>f.mimeType===FOLDER_MT&&f.name===subName(id));if(sf)v.sets.push({title:mem.length?mName(id):"",items:await listAll(sf.id)})}}
+    else{v.sets.push({title:tabs.length?"Work order":"",items:root.filter(f=>f.mimeType!==FOLDER_MT)});
+      const ord=sf=>{const i=tabs.findIndex(x=>subName(x)===sf.name);return i<0?999:i};
+      for(const sf of root.filter(f=>f.mimeType===FOLDER_MT).sort((a,b)=>ord(a)-ord(b)))v.sets.push({title:subTitle(sf.name),items:await listAll(sf.id)})}}
   const skip=f=>/ Work order\.md$/i.test(f.name||"")||/ report\.(pdf|docx)$/i.test(f.name||"");
-  const isImg=f=>String(f.mimeType||"").startsWith("image/");
-  const files=[];sets.forEach(s=>s.items.forEach(f=>{if(f.mimeType!==FOLDER_MT&&!skip(f)&&(!isImg(f)||!withPhotos))files.push({name:(s.title&&s.title!=="Work order"?s.title.replace(/\s+/g," ")+" / ":"")+f.name,url:f.webViewLink||""})}));
-  const groups=[];let skipped=0;
-  if(withPhotos){
-    const all=[];sets.forEach(s=>{const imgs=s.items.filter(f=>isImg(f)&&!skip(f));if(imgs.length){const gr={title:s.title,imgs:[]};groups.push(gr);imgs.forEach(f=>all.push({f,gr}))}});
-    const MAX=80,todo=all.slice(0,MAX);skipped=Math.max(0,all.length-MAX);
-    let done=0,next=0;const out=new Map();
-    const worker=async()=>{while(next<todo.length){const it=todo[next++];
-      try{const res=await driveFetch(DAPI+"files/"+encodeURIComponent(it.f.id)+"?alt=media&supportsAllDrives=true");out.set(it,await rptJpeg(await res.blob(),1400,.82))}
-      catch(e){if(e&&(e.code==="needs_token"||e.code==="offline"))throw e;out.set(it,null)}
-      done++;progress&&progress(`Adding photos… ${done} of ${todo.length}`)}};
-    progress&&progress(`Adding photos… 0 of ${todo.length}`);
-    await Promise.all([worker(),worker(),worker()]);
-    for(const it of todo){const im=out.get(it);if(im)it.gr.imgs.push({name:it.f.name,...im});else{files.push({name:it.f.name,note:"photo couldn't be added",url:it.f.webViewLink||""})}}
-  }
-  return {groups:groups.filter(g=>g.imgs.length),files,skipped};
-}
+  v.images=[];v.other=[];
+  v.sets.forEach(st=>st.items.forEach(f=>{if(f.mimeType===FOLDER_MT||skip(f))return;if(String(f.mimeType||"").startsWith("image/"))v.images.push({f,set:st});else v.other.push({f,set:st})}));
+  rptListCache={key,v};return v}
+const rptPhotoDate=f=>{const t=(f.imageMediaMetadata&&f.imageMediaMetadata.time)||f.createdTime||"";const m=/^(\d{4})[:-](\d\d)[:-](\d\d)/.exec(t);return m?fmtDate(`${m[1]}-${m[2]}-${m[3]}`):""};
+// The photos a report will hold: pick.mode is all / starred / chosen (pick.ids, Drive file ids) / none
+function rptPicked(v,pick){if(!v||!pick||pick.mode==="none")return [];
+  return v.images.filter(it=>pick.mode==="all"||(pick.mode==="starred"&&it.f.starred)||(pick.mode==="chosen"&&pick.ids.has(it.f.id)))}
+// Downloads and shrinks the picked photos; the files that aren't photos (or couldn't be added) are listed as links
+async function rptDriveFiles(l,onlyId,pick,progress){
+  const v=await rptListing(l,onlyId);if(!v)return null;
+  const files=v.other.map(({f,set})=>({name:(set.title&&set.title!=="Work order"?set.title.replace(/\s+/g," ")+" / ":"")+f.name,url:f.webViewLink||""}));
+  const all=rptPicked(v,pick),MAX=80,todo=all.slice(0,MAX),skipped=Math.max(0,all.length-MAX),got=[];
+  let done=0,next=0;const out=new Map();
+  const worker=async()=>{while(next<todo.length){const it=todo[next++];
+    try{const res=await driveFetch(DAPI+"files/"+encodeURIComponent(it.f.id)+"?alt=media&supportsAllDrives=true");out.set(it,await rptJpeg(await res.blob(),1400,.82))}
+    catch(e){if(e&&(e.code==="needs_token"||e.code==="offline"))throw e;out.set(it,null)}
+    done++;progress&&progress(`Adding photos… ${done} of ${todo.length}`)}};
+  if(todo.length){progress&&progress(`Adding photos… 0 of ${todo.length}`);await Promise.all([worker(),worker(),worker()])}
+  for(const it of todo){const im=out.get(it);if(im)got.push({name:it.f.name,date:rptPhotoDate(it.f),set:it.set.title,...im});else files.push({name:it.f.name,note:"photo couldn't be added",url:it.f.webViewLink||""})}
+  return {imgs:got,files,skipped,inDrive:v.images.length}}
+// Puts each photo with the update it belongs to (an update lists its photos by name); the rest go in the
+// Photos section, by folder. Figures are numbered in the order they appear, and each update names its figures.
+function rptPlace(R,photos){
+  const pool=photos?photos.imgs.slice():[],used=new Set();let n=0;
+  for(const b of R.blocks){if(b.t!=="upd"||!(b.files||[]).length)continue;
+    b.figs=[];for(const name of b.files){const im=pool.find(x=>!used.has(x)&&x.name===name);if(im){used.add(im);im.fig=++n;b.figs.push(im)}}
+    b.more=b.files.length-b.figs.length}
+  const groups=[];for(const im of pool){if(used.has(im))continue;im.fig=++n;let g=groups.find(x=>x.title===im.set);if(!g)groups.push(g={title:im.set,imgs:[]});g.imgs.push(im)}
+  return photos?{groups,files:photos.files,skipped:photos.skipped}:null}
+const rptFigRef=figs=>{const ns=figs.map(x=>x.fig);if(!ns.length)return "";
+  const parts=[];for(let i=0;i<ns.length;){let j=i;while(j+1<ns.length&&ns[j+1]===ns[j]+1)j++;parts.push(j>i?`${ns[i]}–${ns[j]}`:String(ns[i]));i=j+1}
+  return (ns.length>1?"Figs. ":"Fig. ")+parts.join(", ")};
+const rptUpdNote=b=>{const r=b.figs&&b.figs.length?rptFigRef(b.figs):"",m=b.figs?b.more:b.n;return [r,m?(r?`${m} more in Drive`:rptPhotos(m)):""].filter(Boolean).join("  ·  ")};
 // Any image the browser can open, shrunk to a sensible size and saved as JPEG (white behind transparency)
 async function rptJpeg(blob,max,q,bg){
   let src,url;
@@ -188,6 +214,14 @@ function buildPdf(R,photos,logo){
       lines.forEach((s,i)=>{need(LH);y+=LH;if(i===0&&L.mark){const mk=L.mark==="•"?(L.lvl%2?"-":"\u0095"):winBytes(L.mark);txt(mk,x0+L.lvl*14+1,y,"",FS,C.ink)}txt(s,x0+ind,y,f,FS,C.ink)});
     }}
   function label(s){need(LH+24);y+=14;txt(winBytes(s.toUpperCase()),M,y,"B",7.8,C.muted);y+=1}
+  // photos two to a row, each numbered "Fig. n" with its date underneath
+  function figs(list,indent){const x0=M+(indent||0),w0=CW-(indent||0),gap=12,cw=(w0-gap)/2,ch=cw*.75;
+    for(let i=0;i<list.length;i+=2){need(ch+30);y+=8;
+      list.slice(i,i+2).forEach((im,j)=>{const x=x0+j*(cw+gap);fill(x,y,cw,ch,C.soft);
+        const s=Math.min(cw/im.w,ch/im.h),w=im.w*s,h=im.h*s;img(im,x+(cw-w)/2,y+(ch-h)/2,w,h);
+        const lab=winBytes("Fig. "+im.fig),lw=pdfW(lab,"B",7.8);txt(lab,x,y+ch+11,"B",7.8,C.ink);
+        const cap=pdfWrap(winBytes(im.date||""),"",7.8,cw-lw-8)[0];if(cap)txt(cap,x+lw+6,y+ch+11,"",7.8,C.muted)});
+      y+=ch+14}}
   function box(x,yy,state){ // checkbox at baseline yy
     const s=9,top=yy-8;
     if(state==="done"){rrect(x,top,s,s,1.6,C.ink);op(`1 1 1 RG 1.3 w 1 J 1 j ${x+2} ${PH-top-4.6} m ${x+3.8} ${PH-top-6.6} l ${x+7.1} ${PH-top-2.4} l S`)}
@@ -209,11 +243,17 @@ function buildPdf(R,photos,logo){
       const hl=pdfWrap(head,"B",12,CW-30-pw)[0];txt(hl,M+12,y+18,"B",12,C.ink);if(b.status)pill(b.status,PW-M-8,y+6);
       if(b.meta)txt(winBytes(b.meta),M+12,y+32,"",8.8,C.muted);y+=h+2;continue}
     if(b.t==="field"){if(b.label)label(b.label);else y+=2;para(b.text);y+=4;continue}
-    if(b.t==="upd"){if(b.label)label(b.label);
-      need(LH*2+8);y+=b.label?LH:LH+8; // the date stays with the first line of its text
+    if(b.t==="upd"){
+      // the "Updates" label and the date stay with the first line of text (and a short update with its photos)
+      {const fh=b.figs&&b.figs.length?(CW-12-12)/2*.75+30:0,tl=b.text?rptLines(b.text).length:0,th=LH*(2+tl)+8+fh;
+        need((fh&&th<(BOT-M)*.45?th:LH*2+8)+(b.label?LH+16:0))}
+      if(b.label)label(b.label);
+      y+=b.label?LH:LH+8;
       const d=winBytes(b.date);txt(d,M,y,"B",FS,C.ink);
-      if(b.n)txt(winBytes(rptPhotos(b.n)),M+pdfW(d,"B",FS)+10,y,"",8.8,C.muted);
-      if(b.text)para(b.text,12,true);y+=4;continue}
+      {const nt=rptUpdNote(b);if(nt)txt(winBytes(nt),M+pdfW(d,"B",FS)+10,y,"",8.8,C.muted)}
+      if(b.text)para(b.text,12,true);
+      if(b.figs&&b.figs.length){figs(b.figs,12);y+=2}
+      y+=4;continue}
     if(b.t==="table"){if(b.label)label(b.label);const rh=17,c0=58;
       // column widths: given as fractions of the page width, or a narrow first column and the rest shared
       const ws=b.widths?b.widths.map(f=>f*CW):b.cols.map((_,i)=>i?(CW-c0)/(b.cols.length-1):c0),xs=ws.map((_,i)=>M+ws.slice(0,i).reduce((a,c)=>a+c,0));
@@ -275,16 +315,11 @@ function buildPdf(R,photos,logo){
   }
   // Photos
   if(photos&&(photos.groups.length||photos.files.length||photos.skipped)){
-    need(54);y+=26;fill(M,y-11,3,14,C.amber);txt("Photos & files",M+10,y,"B",12.5,C.ink);y+=7;hline(M,y,CW,C.line,.6);y+=6;
-    const gap=12,cw=(CW-gap)/2,ch=cw*.75;
+    need(photos.groups.length?54+(CW-12)/2*.75+46:54);y+=26;fill(M,y-11,3,14,C.amber);txt(photos.groups.length?"Photos & files":"Files",M+10,y,"B",12.5,C.ink);y+=7;hline(M,y,CW,C.line,.6);y+=6;
+    const ch=(CW-12)/2*.75;
     for(const gr of photos.groups){
       if(gr.title){need(LH+ch+30);y+=16;txt(winBytes(gr.title),M,y,"B",9.5,C.muted);y+=2}
-      for(let i=0;i<gr.imgs.length;i+=2){
-        need(ch+30);y+=8;
-        gr.imgs.slice(i,i+2).forEach((im,j)=>{const x=M+j*(cw+gap);fill(x,y,cw,ch,C.soft);
-          const s=Math.min(cw/im.w,ch/im.h),w=im.w*s,h=im.h*s;img(im,x+(cw-w)/2,y+(ch-h)/2,w,h);
-          const cap=pdfWrap(winBytes(im.name),"",7.8,cw)[0];txt(cap,x,y+ch+11,"",7.8,C.muted)});
-        y+=ch+14}}
+      figs(gr.imgs,0)}
     if(photos.files.length){label("Other files in the Drive folder");
       for(const f of photos.files){const s=pdfWrap(winBytes(f.name),"",FS,CW-14)[0];need(LH);y+=LH;txt("\u0095",M+1,y,"",FS,C.ink);txt(s,M+14,y,"",FS,f.url?C.link:C.ink);const w=pdfW(s,"",FS);if(f.url){hline(M+14,y+1.6,w,C.link,.5);link(M+14,y-10,w,13,f.url)}if(f.note)txt(winBytes("  ("+f.note+")"),M+14+w,y,"I",FS-1,C.muted)}}
     if(photos.skipped){need(LH+6);y+=LH+6;txt(winBytes(`${photos.skipped} more photo${photos.skipped===1?" is":"s are"} in the Drive folder.`),M,y,"I",9.5,C.muted)}
@@ -375,6 +410,12 @@ function buildDocx(R,photos,logo){
     const left=base+360+L.lvl*280;return P(run((L.mark==="•"?(L.lvl%2?"–":"•"):L.mark)+"\t",{sz:10.5,color:ink})+run(L.text,{sz:10.5,color:ink}),{after:40,line:276,ind:`<w:ind w:left="${left}" w:hanging="260"/>`,tabs:`<w:tabs><w:tab w:val="left" w:pos="${left}"/></w:tabs>`})}).join("")};
   const label=s=>P(run(s,{b:true,caps:true,sz:8,color:muted,spacing:10}),{before:200,after:60,keep:true});
   const heading=s=>P(run(s,{b:true,sz:13,color:ink}),{before:360,after:120,keep:true,bdr:`<w:pBdr><w:left w:val="single" w:sz="24" w:space="8" w:color="${amber}"/><w:bottom w:val="single" w:sz="4" w:space="6" w:color="DEDAD2"/></w:pBdr>`});
+  // photos two to a row, numbered, with their dates
+  const figTbl=(list,indent)=>{const tw=W-(indent||0),cw=Math.floor(tw/2),maxW=(cw-240)*EMU,maxH=Math.round(maxW*.75),rows=[];
+    for(let i=0;i<list.length;i+=2)rows.push("<w:tr><w:trPr><w:cantSplit/></w:trPr>"+[0,1].map(j=>{const im=list[i+j];if(!im)return tc(j?tw-cw:cw,P(""));
+      const s=Math.min(maxW/im.w,maxH/im.h);
+      return tc(j?tw-cw:cw,P(pic(im,Math.round(im.w*s),Math.round(im.h*s)),{jc:"center",after:60})+P(run("Fig. "+im.fig,{b:true,sz:8,color:ink})+(im.date?run("   "+im.date,{sz:8,color:muted}):""),{after:120}))}).join("")+"</w:tr>");
+    return `<w:tbl><w:tblPr><w:tblW w:w="${tw}" w:type="dxa"/>${indent?`<w:tblInd w:w="${indent}" w:type="dxa"/>`:""}<w:tblLayout w:type="fixed"/>${noB}<w:tblCellMar><w:top w:w="60" w:type="dxa"/><w:left w:w="60" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="60" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid><w:gridCol w:w="${cw}"/><w:gridCol w:w="${tw-cw}"/></w:tblGrid>${rows.join("")}</w:tbl>`};
   const box=st=>st==="done"?run("☑",{font:"Segoe UI Symbol",sz:11,color:ink}):st==="na"?run("N/A",{b:true,sz:7,color:muted}):run("☐",{font:"Segoe UI Symbol",sz:11,color:"8F8A82"});
   for(const b of R.blocks){
     if(b.t==="grid"){
@@ -388,8 +429,10 @@ function buildDocx(R,photos,logo){
       if(b.meta)body.push(P(run(b.meta,{sz:9,color:muted}),{after:80,keep:true,shd:"F3F1EC",bdr:`<w:pBdr><w:left w:val="single" w:sz="24" w:space="8" w:color="${amber}"/></w:pBdr>`,ind:`<w:ind w:left="170"/>`}));continue}
     if(b.t==="field"){if(b.label)body.push(label(b.label));body.push(lines(b.text));continue}
     if(b.t==="upd"){if(b.label)body.push(label(b.label));
-      body.push(P(run(b.date,{b:true,sz:10.5,color:ink})+(b.n?run("    "+rptPhotos(b.n),{sz:9,color:muted}):""),{before:b.label?0:200,after:40,keep:true}));
-      if(b.text)body.push(lines(b.text,{ind:240,sec:true}));continue}
+      {const nt=rptUpdNote(b);body.push(P(run(b.date,{b:true,sz:10.5,color:ink})+(nt?run("    "+nt,{sz:9,color:muted}):""),{before:b.label?0:200,after:40,keep:true}))}
+      if(b.text)body.push(lines(b.text,{ind:240,sec:true}));
+      if(b.figs&&b.figs.length){body.push(figTbl(b.figs,240));body.push(P("",{after:60}))}
+      continue}
     if(b.t==="note"){body.push(P(run(b.text,{i:true,sz:10.5,color:muted}),{before:80}));continue}
     if(b.t==="table"){body.push(label(b.label));const c0=1100,cw=Math.floor((W-c0)/(b.cols.length-1)),ws=b.cols.map((_,i)=>i?cw:c0);
       const bd=`<w:tblBorders><w:top w:val="single" w:sz="4" w:color="DEDAD2"/><w:left w:val="nil"/><w:bottom w:val="single" w:sz="4" w:color="DEDAD2"/><w:right w:val="nil"/><w:insideH w:val="single" w:sz="4" w:color="EEEBE5"/><w:insideV w:val="nil"/></w:tblBorders>`;
@@ -413,17 +456,10 @@ function buildDocx(R,photos,logo){
       continue}
   }
   if(photos&&(photos.groups.length||photos.files.length||photos.skipped)){
-    body.push(heading("Photos & files"));
-    const cw=Math.floor(W/2),maxW=(cw-240)*EMU,maxH=Math.round(maxW*.75);
+    body.push(heading(photos.groups.length?"Photos & files":"Files"));
     for(const gr of photos.groups){
       if(gr.title)body.push(P(run(gr.title,{b:true,sz:9.5,color:muted}),{before:160,after:80,keep:true}));
-      const rows=[];
-      for(let i=0;i<gr.imgs.length;i+=2){
-        rows.push("<w:tr><w:trPr><w:cantSplit/></w:trPr>"+[0,1].map(j=>{const im=gr.imgs[i+j];if(!im)return tc(cw,P(""));
-          const s=Math.min(maxW/im.w,maxH/im.h);
-          return tc(cw,P(pic(im,Math.round(im.w*s),Math.round(im.h*s)),{jc:"center",after:60})+P(run(im.name,{sz:8,color:muted}),{after:120}))}).join("")+"</w:tr>")}
-      body.push(tbl([cw,W-cw],rows,{mar:`<w:tblCellMar><w:top w:w="60" w:type="dxa"/><w:left w:w="60" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="60" w:type="dxa"/></w:tblCellMar>`}));
-    }
+      body.push(figTbl(gr.imgs,0))}
     if(photos.files.length){body.push(label("Other files in the Drive folder"));
       photos.files.forEach(f=>body.push(P(run("•\t",{sz:10.5})+(f.url?`<w:hyperlink r:id="${relLink(f.url)}">${run(f.name,{sz:10.5,color:"1A5FB4",u:true})}</w:hyperlink>`:run(f.name,{sz:10.5}))+(f.note?run("  ("+f.note+")",{i:true,sz:9.5,color:muted}):""),{after:40,ind:`<w:ind w:left="360" w:hanging="260"/>`,tabs:`<w:tabs><w:tab w:val="left" w:pos="360"/></w:tabs>`})))}
     if(photos.skipped)body.push(P(run(`${photos.skipped} more photo${photos.skipped===1?" is":"s are"} in the Drive folder.`,{i:true,sz:9.5,color:muted}),{before:120}));
@@ -442,16 +478,53 @@ function buildDocx(R,photos,logo){
 }
 
 // ---- Export dialog ----
-let rptFor=null,rptFile=null;
+let rptFor=null,rptFile=null,rptSel=new Set(),rptCan=false;
+const rptMode=()=>segVal("#rpt-pmode")||"all";
+const rptScopeId=()=>rptFor&&rptFor.sub&&segVal("#rpt-scope")==="sub"?rptFor.sub:null;
+// names of the photos on updates in the report's scope, with the update's date (to show where a photo will go)
+function rptUpdNames(l,only){const m=new Map(),R=reportModel(l,only);for(const b of R.blocks)if(b.t==="upd")(b.files||[]).forEach(n=>{if(!m.has(n))m.set(n,b.date)});return m}
+async function rptRefresh(){
+  const l=logs.find(x=>x.id===(rptFor&&rptFor.id));if(!l)return;
+  const mode=rptMode(),h=$("#rpt-photos-h"),pk=$("#rpt-pick");
+  pk.hidden=mode!=="chosen";
+  if(!rptCan){h.textContent="Connect Google Drive to include photos";return}
+  if(mode==="none"){h.textContent="No photos in the report";return}
+  if(!hasToken()){h.textContent="Checking the Drive folder…";const ok=typeof srvRenew==="function"?await srvRenew():false;if(!ok){h.textContent=mode==="chosen"?"Connect Google Drive to choose photos":"Photos come from the work order's Drive folder";return}}
+  h.textContent="Checking the Drive folder…";
+  let v;try{v=await rptListing(l,rptScopeId())}catch(e){h.textContent="Couldn't reach Google Drive";return}
+  if(rptMode()!==mode)return;
+  const n=v?v.images.length:0,picked=rptPicked(v,{mode,ids:rptSel}).length;
+  h.textContent=!n?"No photos in the Drive folder":mode==="all"?`All ${n} photo${n===1?"":"s"}${n>80?" (the first 80)":""}. Photos on an update go under it; the rest go in a Photos section.`
+    :mode==="starred"?(picked?`The ${picked} starred photo${picked===1?"":"s"}`:"None of the photos are starred. Star them in the gallery, or use Choose.")
+    :"Tap photos to put them in the report. Ones on an update go under it; the rest go in a Photos section.";
+  if(mode==="chosen")rptPickRender(l,v)}
+function rptPickRender(l,v){const grid=$("#rpt-pk-grid");if(!v||!v.images.length){grid.innerHTML=`<div class="small">No photos in the Drive folder.</div>`;$("#rpt-pk-n").textContent="0 chosen";return}
+  const names=rptUpdNames(l,rptScopeId()),bySet=new Map();v.images.forEach(it=>{if(!bySet.has(it.set))bySet.set(it.set,[]);bySet.get(it.set).push(it)});
+  grid.innerHTML=[...bySet].map(([st,list])=>`<div class="rpk-grp">${bySet.size>1||st.title?`<span class="label">${esc(st.title||"Work order")}</span>`:""}${list.map(({f})=>{const on=rptSel.has(f.id),u=names.get(f.name);
+    return `<button type="button" class="rpk-t${on?" on":""}" data-pkid="${esc(f.id)}" aria-pressed="${on}" title="${esc(f.name)}">${thumbUrl(f,240)?`<img src="${esc(thumbUrl(f,240))}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="nm">${esc(f.name)}</span>`}<span class="ck">${on?"✓":""}</span>${f.starred?'<span class="st">★</span>':""}${u?`<span class="up">Update ${esc(u)}</span>`:""}</button>`}).join("")}</div>`).join("");
+  $("#rpt-pk-n").textContent=`${rptSel.size} chosen`}
+$("#rpt-pmode").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;segSet("#rpt-pmode",b.dataset.v);try{localStorage.setItem("ml_rpt_pmode",b.dataset.v)}catch(err){}rptRefresh()});
+$("#rpt-scope").addEventListener("click",e=>{if(e.target.closest("button"))setTimeout(rptRefresh,0)});
+$("#rpt-pick").addEventListener("click",async e=>{const l=logs.find(x=>x.id===(rptFor&&rptFor.id));if(!l)return;
+  const t=e.target.closest("[data-pkid]");if(t){const id=t.dataset.pkid;rptSel.has(id)?rptSel.delete(id):rptSel.add(id);const on=rptSel.has(id);t.classList.toggle("on",on);t.setAttribute("aria-pressed",on);t.querySelector(".ck").textContent=on?"✓":"";$("#rpt-pk-n").textContent=`${rptSel.size} chosen`;return}
+  const q=e.target.closest("[data-pk]");if(!q)return;const v=await rptListing(l,rptScopeId()).catch(()=>null);if(!v)return;
+  if(q.dataset.pk==="none")rptSel.clear();
+  else if(q.dataset.pk==="starred")v.images.forEach(({f})=>{if(f.starred)rptSel.add(f.id)});
+  else if(q.dataset.pk==="upd"){const names=rptUpdNames(l,rptScopeId());v.images.forEach(({f})=>{if(names.has(f.name))rptSel.add(f.id)})}
+  rptPickRender(l,v)});
 function openReport(){
   if(!editingId){toast("Save the work order first");return}
   const l=logs.find(x=>x.id===editingId);if(!l)return;
   rptFor={id:l.id,sub:subPage||null};rptFile=null;
   $("#rpt-for").textContent=subPage?`Sub-job ${$("#f-wo").value.trim().toUpperCase()}-${formSubNo[subPage]} · ${$("#b-title").textContent}`:`Work order #${l.wo} · ${jobTool(l)}`;
   $("#rpt-scope-f").hidden=!subPage;segSet("#rpt-scope","sub");
-  const can=!!woNum(l.wo)&&!!driveRoot&&(hasToken()||driveEver());
-  $("#rpt-photos").disabled=!can;$("#rpt-photos").checked=can;$("#rpt-drive").disabled=!can;$("#rpt-drive").checked=false;
-  $("#rpt-photos-h").textContent=can?"From the work order's Drive folder":"Connect Google Drive to include photos";
+  const can=!!woNum(l.wo)&&!!driveRoot&&(hasToken()||driveEver()||(typeof srvOn==="function"&&srvOn()));rptCan=can;rptListCache=null;
+  $("#rpt-drive").disabled=!can;$("#rpt-drive").checked=false;$("#rpt-upd").checked=true;
+  // the photos chosen last time for this work order are kept with it
+  rptSel=new Set(Array.isArray(l.rptPhotos)?l.rptPhotos:[]);
+  let pm="all";try{pm=localStorage.getItem("ml_rpt_pmode")||"all"}catch(e){}if(rptSel.size)pm="chosen";if(!can)pm="none";
+  segSet("#rpt-pmode",pm);$("#rpt-pmode").querySelectorAll("button").forEach(b=>b.disabled=!can&&b.dataset.v!=="none");
+  $("#rpt-pk-grid").innerHTML="";rptRefresh();
   $("#rpt-status").textContent="";$("#rpt-done").hidden=true;$("#rpt-go").hidden=false;$("#rpt-go").disabled=false;
   $("#rptm").hidden=false;try{history.pushState({ml:"rpt"},"")}catch(e){}
 }
@@ -464,13 +537,16 @@ $("#rpt-go").onclick=async()=>{
   const l=logs.find(x=>x.id===(rptFor&&rptFor.id));if(!l)return;
   const st=$("#rpt-status"),go=$("#rpt-go");go.disabled=true;
   const fmt=segVal("#rpt-fmt")||"pdf",only=rptFor.sub&&segVal("#rpt-scope")==="sub"?rptFor.sub:null;
-  const wantPhotos=$("#rpt-photos").checked&&!$("#rpt-photos").disabled,toDrive=$("#rpt-drive").checked&&!$("#rpt-drive").disabled;
+  const pmode=rptCan?rptMode():"none",wantPhotos=pmode!=="none",toDrive=$("#rpt-drive").checked&&!$("#rpt-drive").disabled,withUpd=$("#rpt-upd").checked;
+  // keep this work order's chosen photos for next time (only that field changes)
+  if(pmode==="chosen"){const ids=[...rptSel],old=Array.isArray(l.rptPhotos)?l.rptPhotos:[];if(ids.length!==old.length||ids.some(x=>!old.includes(x)))db.collection("logs").doc(l.id).update({rptPhotos:ids}).catch(()=>{})}
   try{
     if((wantPhotos||toDrive)&&!hasToken()){st.textContent="Connecting to Google Drive…";try{await requestToken("")}catch(e){}}
-    const R=reportModel(l,only);
+    const R=reportModel(l,only,{updates:withUpd});
     let photos=null;
-    if(hasToken()&&(wantPhotos||toDrive)){st.textContent="Checking the Drive folder…";try{photos=await rptDriveFiles(l,only,wantPhotos,s=>st.textContent=s)}catch(e){photos=null;st.textContent="Couldn't reach Google Drive, so photos are left out."}}
-    if(!wantPhotos&&photos)photos={groups:[],files:photos.files,skipped:0};
+    if(hasToken()&&(wantPhotos||toDrive)){st.textContent="Checking the Drive folder…";try{photos=await rptDriveFiles(l,only,{mode:pmode,ids:rptSel},s=>st.textContent=s)}catch(e){photos=null;st.textContent="Couldn't reach Google Drive, so photos are left out."}}
+    if(wantPhotos&&pmode!=="all"&&photos&&!photos.imgs.length&&photos.inDrive)st.textContent=pmode==="chosen"?"No photos chosen":"No starred photos";
+    photos=rptPlace(R,photos);
     st.textContent="Making the report…";
     const logo=await rptLogo();
     const blob=fmt==="docx"?buildDocx(R,photos,logo):buildPdf(R,photos,logo);

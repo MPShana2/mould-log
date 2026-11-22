@@ -611,6 +611,20 @@ button.calc:not(.has):hover{background:var(--sunk)}
 .rptfor{margin:-8px 0 0;color:var(--muted)}
 .rptbox .field{margin:0}
 .rptchk{display:flex;gap:10px;align-items:flex-start;font-size:15px;cursor:pointer}
+.rpk{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.rpk-bar{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.rpk-bar b{color:var(--fg)}
+.rpk-grid{display:flex;flex-direction:column;gap:10px;max-height:46vh;overflow:auto;padding-right:2px}
+.rpk-grp{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px}
+.rpk-grp>.label{grid-column:1/-1;margin:2px 0 0}
+.rpk-t{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;border:2px solid transparent;background:var(--sunk);padding:0;cursor:pointer}
+.rpk-t img{width:100%;height:100%;object-fit:cover;display:block;opacity:.55;transition:opacity .12s}
+.rpk-t .nm{display:block;padding:24px 6px 6px;font-size:11px;color:var(--muted);word-break:break-all;text-align:left}
+.rpk-t.on{border-color:var(--accent)}.rpk-t.on img{opacity:1}
+.rpk-t .ck{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.45);border:2px solid #fff;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700}
+.rpk-t.on .ck{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.rpk-t .st{position:absolute;top:3px;left:5px;color:#ffcc33;font-size:14px;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.rpk-t .up{position:absolute;left:0;right:0;bottom:0;font-size:10.5px;line-height:1.2;padding:3px 4px;background:rgba(0,0,0,.6);color:#fff;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rptchk input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--accent);flex:none}
 .rptchk small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
 .rptchk:has(input:disabled){opacity:.6;cursor:default}
@@ -2028,7 +2042,15 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <p class="small rptfor" id="rpt-for"></p>
     <div class="field" id="rpt-scope-f" hidden><span class="label">Include</span><div class="seg" id="rpt-scope" role="group" aria-label="What to include"><button type="button" data-v="sub" aria-pressed="true">This sub-job</button><button type="button" data-v="all" aria-pressed="false">Whole work order</button></div></div>
     <div class="field"><span class="label">Format</span><div class="seg" id="rpt-fmt" role="group" aria-label="Format"><button type="button" data-v="pdf" aria-pressed="true">PDF</button><button type="button" data-v="docx" aria-pressed="false">Word (.docx)</button></div></div>
-    <label class="rptchk"><input type="checkbox" id="rpt-photos"><span>Include photos<small id="rpt-photos-h"></small></span></label>
+    <label class="rptchk"><input type="checkbox" id="rpt-upd" checked><span>Include updates<small>Each dated update, with its photos underneath</small></span></label>
+    <div class="field" id="rpt-pf"><span class="label">Photos</span>
+      <div class="seg" id="rpt-pmode" role="group" aria-label="Photos"><button type="button" data-v="none" aria-pressed="false">None</button><button type="button" data-v="starred" aria-pressed="false">Starred</button><button type="button" data-v="chosen" aria-pressed="false">Choose</button><button type="button" data-v="all" aria-pressed="true">All</button></div>
+      <div class="hint" id="rpt-photos-h"></div>
+      <div id="rpt-pick" class="rpk" hidden>
+        <div class="rpk-bar"><b id="rpt-pk-n">0 chosen</b><span>Quick pick: <button type="button" class="linkish" data-pk="starred">Starred</button> · <button type="button" class="linkish" data-pk="upd">With updates</button> · <button type="button" class="linkish" data-pk="none">Clear</button></span></div>
+        <div class="rpk-grid" id="rpt-pk-grid"></div>
+      </div>
+    </div>
     <label class="rptchk"><input type="checkbox" id="rpt-drive"><span>Save a copy to the work order's Drive folder</span></label>
     <div class="rptstatus" id="rpt-status" role="status" aria-live="polite"></div>
     <div class="rptbtns"><button class="btn" id="rpt-go" type="button" data-rptgo="1">Create report</button>
@@ -7885,7 +7907,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.19-160";
+const APP_VERSION="2026.11.22-161";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
