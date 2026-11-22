@@ -2051,6 +2051,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <div class="rpk-grid" id="rpt-pk-grid"></div>
       </div>
     </div>
+    <label class="rptchk"><input type="checkbox" id="rpt-files"><span>List other files in the Drive folder<small>Quotes, drawings and other files that aren't photos, as links</small></span></label>
     <label class="rptchk"><input type="checkbox" id="rpt-drive"><span>Save a copy to the work order's Drive folder</span></label>
     <div class="rptstatus" id="rpt-status" role="status" aria-live="polite"></div>
     <div class="rptbtns"><button class="btn" id="rpt-go" type="button" data-rptgo="1">Create report</button>
@@ -7907,7 +7908,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.22-161";
+const APP_VERSION="2026.11.22-162";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){

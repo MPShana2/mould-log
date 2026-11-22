@@ -98,7 +98,7 @@ function rptPicked(v,pick){if(!v||!pick||pick.mode==="none")return [];
 // Downloads and shrinks the picked photos; the files that aren't photos (or couldn't be added) are listed as links
 async function rptDriveFiles(l,onlyId,pick,progress){
   const v=await rptListing(l,onlyId);if(!v)return null;
-  const files=v.other.map(({f,set})=>({name:(set.title&&set.title!=="Work order"?set.title.replace(/\s+/g," ")+" / ":"")+f.name,url:f.webViewLink||""}));
+  const files=v.other.map(({f,set})=>({other:true,name:(set.title&&set.title!=="Work order"?set.title.replace(/\s+/g," ")+" / ":"")+f.name,url:f.webViewLink||""}));
   const all=rptPicked(v,pick),MAX=80,todo=all.slice(0,MAX),skipped=Math.max(0,all.length-MAX),got=[];
   let done=0,next=0;const out=new Map();
   const worker=async()=>{while(next<todo.length){const it=todo[next++];
@@ -503,6 +503,7 @@ function rptPickRender(l,v){const grid=$("#rpt-pk-grid");if(!v||!v.images.length
   grid.innerHTML=[...bySet].map(([st,list])=>`<div class="rpk-grp">${bySet.size>1||st.title?`<span class="label">${esc(st.title||"Work order")}</span>`:""}${list.map(({f})=>{const on=rptSel.has(f.id),u=names.get(f.name);
     return `<button type="button" class="rpk-t${on?" on":""}" data-pkid="${esc(f.id)}" aria-pressed="${on}" title="${esc(f.name)}">${thumbUrl(f,240)?`<img src="${esc(thumbUrl(f,240))}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="nm">${esc(f.name)}</span>`}<span class="ck">${on?"✓":""}</span>${f.starred?'<span class="st">★</span>':""}${u?`<span class="up">Update ${esc(u)}</span>`:""}</button>`}).join("")}</div>`).join("");
   $("#rpt-pk-n").textContent=`${rptSel.size} chosen`}
+$("#rpt-files").addEventListener("change",()=>{try{localStorage.setItem("ml_rpt_files",$("#rpt-files").checked?"1":"0")}catch(e){}});
 $("#rpt-pmode").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;segSet("#rpt-pmode",b.dataset.v);try{localStorage.setItem("ml_rpt_pmode",b.dataset.v)}catch(err){}rptRefresh()});
 $("#rpt-scope").addEventListener("click",e=>{if(e.target.closest("button"))setTimeout(rptRefresh,0)});
 $("#rpt-pick").addEventListener("click",async e=>{const l=logs.find(x=>x.id===(rptFor&&rptFor.id));if(!l)return;
@@ -520,6 +521,7 @@ function openReport(){
   $("#rpt-scope-f").hidden=!subPage;segSet("#rpt-scope","sub");
   const can=!!woNum(l.wo)&&!!driveRoot&&(hasToken()||driveEver()||(typeof srvOn==="function"&&srvOn()));rptCan=can;rptListCache=null;
   $("#rpt-drive").disabled=!can;$("#rpt-drive").checked=false;$("#rpt-upd").checked=true;
+  let lf=true;try{lf=localStorage.getItem("ml_rpt_files")!=="0"}catch(e){}$("#rpt-files").disabled=!can;$("#rpt-files").checked=can&&lf;
   // the photos chosen last time for this work order are kept with it
   rptSel=new Set(Array.isArray(l.rptPhotos)?l.rptPhotos:[]);
   let pm="all";try{pm=localStorage.getItem("ml_rpt_pmode")||"all"}catch(e){}if(rptSel.size)pm="chosen";if(!can)pm="none";
@@ -537,15 +539,16 @@ $("#rpt-go").onclick=async()=>{
   const l=logs.find(x=>x.id===(rptFor&&rptFor.id));if(!l)return;
   const st=$("#rpt-status"),go=$("#rpt-go");go.disabled=true;
   const fmt=segVal("#rpt-fmt")||"pdf",only=rptFor.sub&&segVal("#rpt-scope")==="sub"?rptFor.sub:null;
-  const pmode=rptCan?rptMode():"none",wantPhotos=pmode!=="none",toDrive=$("#rpt-drive").checked&&!$("#rpt-drive").disabled,withUpd=$("#rpt-upd").checked;
+  const pmode=rptCan?rptMode():"none",wantPhotos=pmode!=="none",wantFiles=$("#rpt-files").checked&&!$("#rpt-files").disabled,toDrive=$("#rpt-drive").checked&&!$("#rpt-drive").disabled,withUpd=$("#rpt-upd").checked;
   // keep this work order's chosen photos for next time (only that field changes)
   if(pmode==="chosen"){const ids=[...rptSel],old=Array.isArray(l.rptPhotos)?l.rptPhotos:[];if(ids.length!==old.length||ids.some(x=>!old.includes(x)))db.collection("logs").doc(l.id).update({rptPhotos:ids}).catch(()=>{})}
   try{
-    if((wantPhotos||toDrive)&&!hasToken()){st.textContent="Connecting to Google Drive…";try{await requestToken("")}catch(e){}}
+    if((wantPhotos||wantFiles||toDrive)&&!hasToken()){st.textContent="Connecting to Google Drive…";try{await requestToken("")}catch(e){}}
     const R=reportModel(l,only,{updates:withUpd});
     let photos=null;
-    if(hasToken()&&(wantPhotos||toDrive)){st.textContent="Checking the Drive folder…";try{photos=await rptDriveFiles(l,only,{mode:pmode,ids:rptSel},s=>st.textContent=s)}catch(e){photos=null;st.textContent="Couldn't reach Google Drive, so photos are left out."}}
+    if(hasToken()&&(wantPhotos||wantFiles||toDrive)){st.textContent="Checking the Drive folder…";try{photos=await rptDriveFiles(l,only,{mode:pmode,ids:rptSel},s=>st.textContent=s)}catch(e){photos=null;st.textContent="Couldn't reach Google Drive, so photos are left out."}}
     if(wantPhotos&&pmode!=="all"&&photos&&!photos.imgs.length&&photos.inDrive)st.textContent=pmode==="chosen"?"No photos chosen":"No starred photos";
+    if(photos&&!wantFiles)photos.files=photos.files.filter(f=>!f.other);
     photos=rptPlace(R,photos);
     st.textContent="Making the report…";
     const logo=await rptLogo();
