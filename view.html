@@ -43,11 +43,14 @@ h2{font-size:17px;margin:6px 0 2px;padding-left:10px;border-left:3px solid var(-
 .upd:first-of-type{border-top:0;margin-top:0}
 .upd .d{font-weight:700}.upd .r{color:var(--muted);font-size:12.5px;margin-left:8px}
 .upd .txt{margin:4px 0 0 2px}
-.figs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:10px}
+.figs{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:8px}
+@media (min-width:700px){.figs{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
 .fig{margin:0;cursor:zoom-in}
 .fig .ph{aspect-ratio:4/3;background:var(--soft);border-radius:8px;overflow:hidden;display:grid;place-items:center}
 .fig img{width:100%;height:100%;object-fit:contain;display:block}
-.fig figcaption{font-size:12px;color:var(--muted);margin-top:4px}.fig figcaption b{color:var(--ink);margin-right:6px}
+.fig figcaption{font-size:11.5px;color:var(--muted);margin-top:3px}
+.fig .ph img{object-fit:cover}
+h3{font-size:14.5px;margin:14px 0 4px;padding-bottom:4px;border-bottom:1px solid var(--line)}.fig figcaption b{color:var(--ink);margin-right:6px}
 table{border-collapse:collapse;width:100%;font-size:14px;margin-top:4px}
 th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}th{font-size:12px;color:var(--muted);background:var(--soft)}
 td:first-child{font-weight:700}tr.flag td{background:var(--flag)}
@@ -88,7 +91,7 @@ function block(b){
     case "sub":return `<div class="subhd"><div><b>${esc((b.no?b.no+"  ":"")+b.name)}</b>${b.meta?`<small>${esc(b.meta)}</small>`:""}</div>${pill(b.status)}</div>`;
     case "field":return (b.label?`<div class="lab">${esc(b.label)}</div>`:"")+(b.tags?`<div class="tags">${String(b.text||"").split(/,\s*/).filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join("")}</div>`:`<div class="txt">${esc(b.text)}</div>`);
     case "upd":{const r=figRef(b.figs),more=b.figs?b.more:b.n;
-      return (b.label?`<div class="lab">${esc(b.label)}</div>`:"")+`<div class="upd"><span class="d">${esc(b.date)}</span>${r||more?`<span class="r">${esc([r,more?more+" more photo"+(more===1?"":"s")+" not shown":""].filter(Boolean).join(" · "))}</span>`:""}${b.text?`<div class="txt">${esc(b.text)}</div>`:""}${figs(b.figs)}</div>`}
+      return (b.h3?`<h3>Updates</h3>`:b.label?`<div class="lab">${esc(b.label)}</div>`:"")+`<div class="upd"><span class="d">${esc(b.date)}</span>${r||more?`<span class="r">${esc([r,more?more+" more photo"+(more===1?"":"s")+" not shown":""].filter(Boolean).join(" · "))}</span>`:""}${b.text?`<div class="txt">${esc(b.text)}</div>`:""}${figs(b.figs)}</div>`}
     case "table":return (b.label?`<div class="lab">${esc(b.label)}</div>`:"")+`<div class="tw"><table><thead><tr>${b.cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${b.rows.map((r,i)=>`<tr class="${(b.flagged||[]).includes(i)?"flag":""}">${r.map(v=>`<td>${esc(Array.isArray(v)?v.map(x=>typeof x==="object"?x.t:x).join("\n"):v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
     case "note":return `<div class="txt" style="color:var(--muted);font-style:italic">${esc(b.text)}</div>`;
     case "parts":return `<div class="lab">${esc(b.label)}</div><ul class="parts">${b.items.map(p=>`<li>${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.text||p.url)}</a>`:esc(p.text)}</li>`).join("")}</ul>`;
@@ -99,6 +102,13 @@ function render(d){const s=d.snap;if(!s){$("#main").innerHTML=`<div class="msg">
   const bl=s.blocks||[],grid=bl.find(b=>b.t==="grid"),rest=bl.filter(b=>b!==grid);
   // sections: everything up to each heading goes in one card
   const cards=[];let cur=[];for(const b of rest){if(b.t==="h"&&cur.length){cards.push(cur);cur=[]}cur.push(b)}if(cur.length)cards.push(cur);
+  // updates get their own section after the one they were in (with readings taken alongside them);
+  // on a work order with several sub-jobs they stay with their sub-job, under their own heading
+  const multi=rest.some(b=>b.t==="sub");
+  if(!multi)for(let i=0;i<cards.length;i++){const c=cards[i],u=[];
+    for(let k=0;k<c.length;k++){if(c[k].t==="upd"){u.push(c[k]);while(c[k+1]&&c[k+1].t==="table"&&!c[k+1].insp){u.push(c[k+1]);k++}}}
+    if(u.length){cards[i]=c.filter(b=>!u.includes(b));cards.splice(i+1,0,[{t:"h",text:"Updates"},...u.map(b=>b.t==="upd"?{...b,label:""}:b)]);i++}}
+  else rest.forEach(b=>{if(b.t==="upd"&&b.label)b.h3=true});
   let h=`<div class="card"><div class="toprow"><div><h1>${esc(s.title)}</h1><div class="sub">${esc(s.subtitle)}</div></div>${pill(s.status)}</div>${grid?block(grid):""}</div>`;
   if(s.summary)h+=`<div class="card"><h2>Summary</h2>${s.summary.map(x=>`<div class="sumi"><div class="toprow"><b>${esc((x.no?x.no+"  ":"")+x.name)}</b>${pill(x.status)}</div>${[["Description",x.desc],["Inspection / faults found",x.insp],["Work done",x.work]].filter(y=>y[1]).map(y=>`<div class="lab">${y[0]}</div><div class="txt">${esc(y[1])}</div>`).join("")}</div>`).join("")}</div>`;
   h+=cards.map(c=>`<div class="card">${c.map(block).join("")}</div>`).join("");
