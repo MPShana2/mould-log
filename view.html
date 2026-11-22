@@ -122,7 +122,8 @@ function block(b){
     case "parts":return `<div class="lab">${esc(b.label)}</div><ul class="parts">${b.items.map(p=>`<li>${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.text||p.url)}</a>`:esc(p.text)}</li>`).join("")}</ul>`;
     case "check":return `<div class="lab">${esc(b.label)}</div><div><b>${esc(b.summary)}</b></div><ul class="chk">${b.rows.map(r=>r.note?`<li class="note">Note: ${esc(r.note)}</li>`:r.sec?`<li class="sec">${esc(r.sec)}</li>`:r.group?`<li class="sec" style="font-weight:400;color:var(--ink)">${esc(r.t)}</li>`:`<li class="${r.st==="done"?"done":r.st==="na"?"na":""} ${r.lvl?"lv1":""}">${esc(r.t)}</li>`).join("")}</ul>`;
     default:return ""}}
-function render(d){const s=d.snap;if(!s){$("#main").innerHTML=`<div class="msg"><b>Nothing to show yet</b>This work order hasn't been prepared for viewing.</div>`;return}
+const dec=v=>Array.isArray(v)?v.map(dec):v&&typeof v==="object"?(Array.isArray(v.__a)&&Object.keys(v).length===1?dec(v.__a):Object.fromEntries(Object.entries(v).map(([k,x])=>[k,dec(x)]))):v;
+function render(d){d.snap=d.snap&&dec(d.snap);const s=d.snap;if(!s){$("#main").innerHTML=`<div class="msg"><b>Nothing to show yet</b>This work order hasn't been prepared for viewing.</div>`;return}
   document.title=s.title+" · "+s.subtitle;$("#org").textContent=s.org||"GT Hub";
   const bl=s.blocks||[],grid=bl.find(b=>b.t==="grid"),rest=bl.filter(b=>b!==grid);bl.forEach((b,i)=>b.__i=i);
   // sections: everything up to each heading goes in one card

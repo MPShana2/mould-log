@@ -598,7 +598,10 @@ function shareSnap(l,sh){
   for(const b of R.blocks){if(b.t==="sub"){cur={no:b.no,name:b.name,status:b.status};summary.push(cur);continue}
     if(cur&&b.t==="field"&&b.text){const k={"Description":"desc","Inspection / faults found":"insp","Work done":"work"}[b.label];if(k)cur[k]=b.text}}
   const sumOut=summary.filter(x=>x.desc||x.insp||x.work);
-  return {snap:{title:R.title,subtitle:R.subtitle,status:R.status,org:R.org,wo:R.wo,summary:sumOut.length?sumOut:null,blocks,groups:(ph.groups||[]).map(g=>({title:g.title||"",imgs:g.imgs.map(fig)}))},photoIds:meta.map(m=>m.id)}}
+  return {snap:shEnc({title:R.title,subtitle:R.subtitle,status:R.status,org:R.org,wo:R.wo,summary:sumOut.length?sumOut:null,blocks,groups:(ph.groups||[]).map(g=>({title:g.title||"",imgs:g.imgs.map(fig)}))}),photoIds:meta.map(m=>m.id)}}
+// The database can't hold a list inside a list (a table's rows), so an inner list is stored as {__a:[…]}; view.html undoes it
+function shEnc(v,inArr){if(Array.isArray(v)){const a=v.map(x=>shEnc(x,true));return inArr?{__a:a}:a}
+  if(v&&typeof v==="object"){const o={};for(const k in v)if(v[k]!==undefined)o[k]=shEnc(v[k],false);return o}return v}
 const shLabel=(l,sh)=>{const sub=sh.sub&&tabIdsFor(l.mouldId,l.extraMouldIds).includes(sh.sub)?subMeta(l,sh.sub):null;return "#"+(sub&&sub.no?subLabel(l,sh.sub):l.wo)+" · "+(sh.sub?mName(sh.sub):jobTool(l))};
 // Photo details (names, dates, folders) for the work order's photos, from the Drive listing
 async function sharePhotoMeta(l,sub){const v=await rptListing(l,sub);return v?v.images.map(({f,set})=>({id:f.id,name:f.name,t:fileTaken(f),date:rptPhotoDate(f),set:set.title||""})):null}

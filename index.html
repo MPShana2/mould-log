@@ -607,6 +607,7 @@ button.calc:not(.has):hover{background:var(--sunk)}
 .eb-btns{display:flex;gap:6px;flex:none}
 .rptm{position:fixed;inset:0;z-index:25;background:rgba(8,12,16,.55);display:flex;align-items:flex-end;justify-content:center;padding:0}
 .rptbox{background:var(--surface);color:var(--fg);width:100%;max-width:460px;border-radius:16px 16px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;max-height:92vh;overflow:auto;box-shadow:0 -8px 30px rgba(0,0,0,.25)}
+.rptbox>*{flex-shrink:0} /* a long dialog scrolls; its parts never squash into each other */
 .rptbox h2{margin:0;font-size:19px}
 .rptfor{margin:-8px 0 0;color:var(--muted)}
 .rptbox .field{margin:0}
@@ -7951,7 +7952,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.22-165";
+const APP_VERSION="2026.11.22-166";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
