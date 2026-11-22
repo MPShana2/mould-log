@@ -59,8 +59,13 @@ h2{font-size:17px;margin:6px 0 2px;padding-left:10px;border-left:3px solid var(-
 .tabs button{font:inherit;font-size:15px;font-weight:600;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:11px 12px 9px;cursor:pointer}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 .tabs .n{font-weight:500;color:var(--muted);margin-left:4px}
-.gal .figs{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
-@media (min-width:700px){.gal .figs{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+@media (min-width:700px){.pgrid{grid-template-columns:repeat(5,1fr);gap:4px}}
+.pgrid button{aspect-ratio:1;padding:0;border:0;background:var(--soft);cursor:zoom-in;overflow:hidden;display:block}
+.pgrid img{width:100%;height:100%;object-fit:cover;display:block}
+#gal{padding:12px 0 40px}
+@media (min-width:700px){#gal{padding:16px 16px 60px}}
+.lbx .cap{line-height:1.45}.lbx .cap b{color:#fff}.lbx .cap small{display:block;color:#aaa;font-size:12.5px}
 .gal .gh{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin:14px 0 2px}
 .gal .gh:first-child{margin-top:0}.gal .gh b{font-size:15px}.gal .gh small{color:var(--muted);font-size:12.5px}
 .gal .gt{font-size:13.5px;color:var(--muted);white-space:pre-wrap;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
@@ -139,7 +144,9 @@ function render(d){const s=d.snap;if(!s){$("#main").innerHTML=`<div class="msg">
   (s.groups||[]).forEach(g=>{if(g.imgs.length)sets.push({title:"Other photos",sub:g.title,imgs:g.imgs})});
   ALL=sets.flatMap(x=>x.imgs);
   if(ALL.length){$("#tabs").hidden=false;$("#phn").textContent=ALL.length;
-    $("#gal").innerHTML=`<div class="card">${sets.map(x=>`<div class="gh"><b>${esc(x.title)}${x.sub?` <small>${esc(x.sub)}</small>`:""}</b><small>${esc(figRef(x.imgs))}${x.u!=null?` · <button type="button" class="go" data-u="${x.u}">Read update</button>`:""}</small></div>${x.text?`<div class="gt">${esc(x.text)}</div>`:""}<div class="figs nofold">${x.imgs.map(f=>`<figure class="fig" data-id="${esc(f.id)}" data-cap="Fig. ${f.fig}${f.date?" · "+esc(f.date):""}"><div class="ph"><img src="${photo(f.id)}" alt="Fig. ${f.fig}" loading="lazy"></div><figcaption><b>Fig. ${f.fig}</b>${esc(f.date||"")}</figcaption></figure>`).join("")}</div>`).join("")}</div>`}
+    // where each photo came from, for the full-size view
+    sets.forEach(x=>x.imgs.forEach(f=>{FROM[f.id]=x.u!=null?{upd:x.title,sub:x.sub,u:x.u}:{sub:x.sub}}));
+    $("#gal").innerHTML=`<div class="pgrid">${ALL.map(f=>`<button type="button" class="fig" data-id="${esc(f.id)}" aria-label="Fig. ${f.fig}"><img src="${photo(f.id)}" alt="" loading="lazy"></button>`).join("")}</div>`}
   clamp();
   const upd=d.updatedAt?new Date(d.updatedAt):null,exp=d.expires?new Date(d.expires):null,f=x=>x.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
   $("#foot").textContent=["Shared from GT Hub. View only.",upd?"Last updated "+f(upd)+" "+upd.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})+".":"",exp?"This link works until "+f(exp)+".":""].filter(Boolean).join(" ")}
@@ -156,18 +163,19 @@ function clamp(){document.querySelectorAll("#main .figs").forEach((el,i)=>{el.da
 let rt=0;addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(clamp,120)});
 document.addEventListener("click",e=>{const m=e.target.closest(".more");if(m){const k=m.dataset.k;open.has(k)?open.delete(k):open.add(k);clamp();if(!open.has(k))m.previousElementSibling.scrollIntoView({block:"nearest"});return}});
 // full-size viewer: steps through the photos (arrows, keys or a swipe)
-let ALL=[],LBI=-1;
+let ALL=[],LBI=-1,FROM={};
 function lbShow(i){LBI=i;const f=ALL[i];if(!f)return;let o=$(".lbx");
   if(!o){o=document.createElement("div");o.className="lbx";o.innerHTML=`<img alt=""><button type="button" class="x">Close</button><button type="button" class="nav p" aria-label="Previous photo">‹</button><button type="button" class="nav n" aria-label="Next photo">›</button><div class="cap"></div>`;document.body.appendChild(o);
-    o.addEventListener("click",e=>{if(e.target.closest(".p"))lbShow(LBI-1);else if(e.target.closest(".n"))lbShow(LBI+1);else lbClose()});
+    o.addEventListener("click",e=>{if(e.target.closest(".p"))lbShow(LBI-1);else if(e.target.closest(".n"))lbShow(LBI+1);else if(e.target.closest(".go"))return;else lbClose()});
     let sx=null;o.addEventListener("touchstart",e=>{sx=e.touches[0].clientX},{passive:true});o.addEventListener("touchend",e=>{if(sx==null)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)>50){lbShow(LBI+(dx<0?1:-1))}})}
-  o.querySelector("img").src=photo(f.id,true);o.querySelector(".cap").textContent=`Fig. ${f.fig}${f.date?" · "+f.date:""}  (${i+1} of ${ALL.length})`;
+  o.querySelector("img").src=photo(f.id,true);const fr=FROM[f.id]||{};
+  o.querySelector(".cap").innerHTML=`<b>Fig. ${f.fig}</b>${f.date?" · taken "+esc(f.date):""} · ${i+1} of ${ALL.length}<small>${fr.upd?"From the update on "+esc(fr.upd):"Other photos"}${fr.sub?" · "+esc(fr.sub):""}${fr.u!=null?` · <button type="button" class="go" data-u="${fr.u}" style="color:#9cc3ff">Read update</button>`:""}</small>`;
   o.querySelector(".p").hidden=i<=0;o.querySelector(".n").hidden=i>=ALL.length-1;
   [ALL[i+1],ALL[i-1]].forEach(n=>{if(n)new Image().src=photo(n.id,true)})}
 function lbClose(){const o=$(".lbx");if(o)o.remove();LBI=-1}
 document.addEventListener("click",e=>{const fg=e.target.closest(".fig");if(fg){const i=ALL.findIndex(x=>x.id===fg.dataset.id);if(i>=0)lbShow(i);return}
   const tb=e.target.closest("[data-tab]");if(tb){const ph=tb.dataset.tab==="ph";document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",String(b===tb)));$("#main").hidden=ph;$("#gal").hidden=!ph;scrollTo(0,0);if(!ph)clamp();return}
-  const go=e.target.closest(".go");if(go){const el=[...document.querySelectorAll("#main .upd")].find(x=>x.dataset.u===go.dataset.u);
+  const go=e.target.closest(".go");if(go){lbClose();const el=[...document.querySelectorAll("#main .upd")].find(x=>x.dataset.u===go.dataset.u);
     document.querySelector('[data-tab="wo"]').click();if(el){el.scrollIntoView({block:"start"});scrollBy(0,-56)}}});
 document.addEventListener("keydown",e=>{if(LBI<0)return;if(e.key==="Escape")lbClose();else if(e.key==="ArrowRight")lbShow(LBI+1);else if(e.key==="ArrowLeft")lbShow(LBI-1)});
 if(!/^[A-Za-z0-9_-]{24,64}$/.test(t)){$("#main").innerHTML=`<div class="msg"><b>This link isn't complete</b>Check that the whole link was copied.</div>`;return}
