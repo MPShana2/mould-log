@@ -38,6 +38,7 @@ h2{font-size:17px;margin:6px 0 2px;padding-left:10px;border-left:3px solid var(-
 .subhd b{font-size:16px}.subhd small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
 .lab{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 3px}
 .txt{white-space:pre-wrap;overflow-wrap:anywhere}
+.ln,.bl{display:block}.bl{position:relative;padding-left:calc(1.15em + var(--l,0)*1.3em)}.bl::before{content:attr(data-m);position:absolute;left:calc(var(--l,0)*1.3em + .2em)}.bl.num{padding-left:calc(1.5em + var(--l,0)*1.3em)}.bl.num::before{left:calc(var(--l,0)*1.3em)}
 .tags{display:flex;flex-wrap:wrap;gap:6px}.tags span{background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:13.5px}
 .sumi{padding:10px 0;border-top:1px solid var(--line)}.sumi:first-of-type{border-top:0}.sumi .lab{margin-top:6px}
 .upd{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
@@ -104,6 +105,10 @@ const FN="https://australia-southeast1-mould-log.cloudfunctions.net/";
 const t=(location.hash||"").replace(/^#/,"").trim();
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// Text with "- ", "• ", "* " or "1. " at the start of a line shows those lines as indented points, like the exported report
+const bulHtml=s=>String(s??"").replace(/\r/g,"").replace(/\s+$/,"").split("\n").map(ln=>{const m=ln.match(/^(\s*)(?:([•●◦▪\-*])|(\d+[.)]))\s+(.*)$/);
+  if(!m)return `<span class="ln">${ln.trim()?esc(ln):"<br>"}</span>`;const l=Math.min(3,Math.floor(m[1].replace(/\t/g,"    ").length/2));
+  return `<span class="bl${m[3]?" num":""}" style="--l:${l}" data-m="${m[3]?esc(m[3]):l%2?"–":"•"}">${esc(m[4])}</span>`}).join("");
 const photo=(id,big)=>FN+"sharePhoto?t="+encodeURIComponent(t)+"&id="+encodeURIComponent(id)+(big?"&s=l":"");
 const pillCls=s=>/complete|done|closed/i.test(s)?"done":/hold|wait|parts/i.test(s)?"hold":/pending|not started/i.test(s)?"wait":"";
 const pill=s=>s?`<span class="pill ${pillCls(s)}">${esc(s)}</span>`:"";
@@ -114,11 +119,11 @@ function block(b){
     case "grid":return `<div class="grid">${b.items.map(i=>`<div class="${i.full?"full":""}"><span class="k">${esc(i.k)}</span><span class="v">${esc(i.v)}</span></div>`).join("")}</div>`;
     case "h":return `<h2>${esc(b.text)}</h2>`;
     case "sub":return `<div class="subhd"><div><b>${esc((b.no?b.no+"  ":"")+b.name)}</b>${b.meta?`<small>${esc(b.meta)}</small>`:""}</div>${pill(b.status)}</div>`;
-    case "field":return (b.label?`<div class="lab">${esc(b.label)}</div>`:"")+(b.tags?`<div class="tags">${String(b.text||"").split(/,\s*/).filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join("")}</div>`:`<div class="txt">${esc(b.text)}</div>`);
+    case "field":return (b.label?`<div class="lab">${esc(b.label)}</div>`:"")+(b.tags?`<div class="tags">${String(b.text||"").split(/,\s*/).filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join("")}</div>`:`<div class="txt">${bulHtml(b.text)}</div>`);
     case "upd":{const r=figRef(b.figs),more=b.figs?b.more:b.n;
-      return (b.h3?`<h3>Updates</h3>`:b.label?`<div class="lab">${esc(b.label)}</div>`:"")+`<div class="upd" data-u="${b.__i}"><span class="d">${esc(b.date)}</span>${r||more?`<span class="r">${esc([r,more?more+" more photo"+(more===1?"":"s")+" not shown":""].filter(Boolean).join(" · "))}</span>`:""}${b.text?`<div class="txt">${esc(b.text)}</div>`:""}${figs(b.figs)}</div>`}
+      return (b.h3?`<h3>Updates</h3>`:b.label?`<div class="lab">${esc(b.label)}</div>`:"")+`<div class="upd" data-u="${b.__i}"><span class="d">${esc(b.date)}</span>${r||more?`<span class="r">${esc([r,more?more+" more photo"+(more===1?"":"s")+" not shown":""].filter(Boolean).join(" · "))}</span>`:""}${b.text?`<div class="txt">${bulHtml(b.text)}</div>`:""}${figs(b.figs)}</div>`}
     case "table":return (b.label?`<div class="lab">${esc(b.label)}</div>`:"")+`<div class="tw"><table><thead><tr>${b.cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${b.rows.map((r,i)=>`<tr class="${(b.flagged||[]).includes(i)?"flag":""}">${r.map(v=>`<td>${esc(Array.isArray(v)?v.map(x=>typeof x==="object"?x.t:x).join("\n"):v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
-    case "note":return `<div class="txt" style="color:var(--muted);font-style:italic">${esc(b.text)}</div>`;
+    case "note":return `<div class="txt" style="color:var(--muted);font-style:italic">${bulHtml(b.text)}</div>`;
     case "parts":return `<div class="lab">${esc(b.label)}</div><ul class="parts">${b.items.map(p=>`<li>${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.text||p.url)}</a>`:esc(p.text)}</li>`).join("")}</ul>`;
     case "check":return `<div class="lab">${esc(b.label)}</div><div><b>${esc(b.summary)}</b></div><ul class="chk">${b.rows.map(r=>r.note?`<li class="note">Note: ${esc(r.note)}</li>`:r.sec?`<li class="sec">${esc(r.sec)}</li>`:r.group?`<li class="sec" style="font-weight:400;color:var(--ink)">${esc(r.t)}</li>`:`<li class="${r.st==="done"?"done":r.st==="na"?"na":""} ${r.lvl?"lv1":""}">${esc(r.t)}</li>`).join("")}</ul>`;
     default:return ""}}
@@ -136,7 +141,7 @@ function render(d){d.snap=d.snap&&dec(d.snap);const s=d.snap;if(!s){$("#main").i
     if(u.length){cards[i]=c.filter(b=>!u.includes(b));cards.splice(i+1,0,[{t:"h",text:"Updates"},...u.map(b=>b.t==="upd"?{...b,label:""}:b)]);i++}}
   else rest.forEach(b=>{if(b.t==="upd"&&b.label)b.h3=true});
   let h=`<div class="card"><div class="toprow"><div><h1>${esc(s.title)}</h1><div class="sub">${esc(s.subtitle)}</div></div>${pill(s.status)}</div>${grid?block(grid):""}</div>`;
-  if(s.summary)h+=`<div class="card"><h2>Summary</h2>${s.summary.map(x=>`<div class="sumi"><div class="toprow"><b>${esc((x.no?x.no+"  ":"")+x.name)}</b>${pill(x.status)}</div>${[["Description",x.desc],["Inspection / faults found",x.insp],["Work done",x.work]].filter(y=>y[1]).map(y=>`<div class="lab">${y[0]}</div><div class="txt">${esc(y[1])}</div>`).join("")}</div>`).join("")}</div>`;
+  if(s.summary)h+=`<div class="card"><h2>Summary</h2>${s.summary.map(x=>`<div class="sumi"><div class="toprow"><b>${esc((x.no?x.no+"  ":"")+x.name)}</b>${pill(x.status)}</div>${[["Description",x.desc],["Inspection / faults found",x.insp],["Work done",x.work]].filter(y=>y[1]).map(y=>`<div class="lab">${y[0]}</div><div class="txt">${bulHtml(y[1])}</div>`).join("")}</div>`).join("")}</div>`;
   h+=cards.map(c=>`<div class="card">${c.map(block).join("")}</div>`).join("");
   if((s.groups||[]).length)h+=`<div class="card"><h2>Photos</h2>${s.groups.map(g=>(g.title?`<div class="lab">${esc(g.title)}</div>`:"")+figs(g.imgs)).join("")}</div>`;
   $("#main").innerHTML=h;

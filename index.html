@@ -413,6 +413,7 @@ textarea.autogrow{resize:none;overflow:hidden}
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .upddate{color:#b36f00}}
 .updacts{font-size:12px;color:var(--muted);white-space:nowrap}.updacts .linkish{font-size:12px;color:var(--muted)}
 .updtext{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px}
+.ln,.bl{display:block}.bl{position:relative;padding-left:calc(1.15em + var(--l,0)*1.3em)}.bl::before{content:attr(data-m);position:absolute;left:calc(var(--l,0)*1.3em + .2em)}.bl.num{padding-left:calc(1.5em + var(--l,0)*1.3em)}.bl.num::before{left:calc(var(--l,0)*1.3em)}
 .mupd{margin-bottom:18px}.mupdhint{margin:-6px 0 10px;color:var(--muted)}
 .updhrz{margin-top:8px}
 details.updhrz>summary{padding:10px 12px;font-size:14px}
@@ -2124,6 +2125,10 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 <script>
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// Text with "- ", "• ", "* " or "1. " at the start of a line shows those lines as indented points, like the exported report
+const bulHtml=s=>String(s??"").replace(/\r/g,"").replace(/\s+$/,"").split("\n").map(ln=>{const m=ln.match(/^(\s*)(?:([•●◦▪\-*])|(\d+[.)]))\s+(.*)$/);
+  if(!m)return `<span class="ln">${ln.trim()?esc(ln):"<br>"}</span>`;const l=Math.min(3,Math.floor(m[1].replace(/\t/g,"    ").length/2));
+  return `<span class="bl${m[3]?" num":""}" style="--l:${l}" data-m="${m[3]?esc(m[3]):l%2?"–":"•"}">${esc(m[4])}</span>`}).join("");
 const JOBTYPES=["Preventive","Service","Repair","Clean","Inspection","Insert change","Modification","Misc."];
 let db=null, moulds=[], logs=[], loaded={m:false,l:false}, current=null, confirmDel=null;
 
@@ -3837,7 +3842,7 @@ function renderHist(){
        <button type="button" data-etab="${esc(l.id)}" data-t="att" aria-pressed="${entryTab[l.id]==="att"}">Photos &amp; files</button>
      </div>
      <div class="epanel">${entryTab[l.id]==="att"?attPanel(l,m.id):`
-     ${(sm.description||l.description)?`<p class="edesc">${esc(sm.description||l.description)}</p>`:`<p class="edesc none">No description</p>`}
+     ${(sm.description||l.description)?`<p class="edesc">${bulHtml(sm.description||l.description)}</p>`:`<p class="edesc none">No description</p>`}
      ${tg.length?`<div class="tagchips etags">${tg.map(([t,k])=>`<span class="tagc tag-${k}">${esc(t)}</span>`).join("")}</div>`:""}
      ${(l.todos||[]).length?`<div class="small">To-do: ${l.todos.filter(i=>i.done).length} of ${l.todos.length} ticked</div>`:""}`}</div>
      ${lastUpd(l)}
@@ -5717,7 +5722,7 @@ function renderUpd(p){
   if(!el.querySelector(".updlistw"))el.innerHTML=`<div class="updcomp"></div><div class="updlistw"></div>`;
   const open=updOpen&&updOpen.p===p?updOpen:null,list=updNewest(updList(p));
   const selOn=updSel&&updSel.p===p&&!open;if(updSel&&updSel.p===p)updSel.ids.forEach(id=>{if(!list.some(u=>u.id===id))updSel.ids.delete(id)});
-  el.querySelector(".updlistw").innerHTML=list.length?(selOn?updSelBar(p):"")+`<div class="updlist">${list.map(u=>open&&open.id===u.id?"":`<div class="upditem${selOn&&updSel.ids.has(u.id)?" picked":""}"><div class="updhead">${selOn?`<label class="updpick"><input type="checkbox" data-updpick="${p}|${esc(u.id)}"${updSel.ids.has(u.id)?" checked":""} aria-label="Select this update"></label>`:""}<span class="upddate">${esc(fmtDate(u.date))}</span><span class="updacts">${selOn?"":`<button type="button" class="linkish" data-updedit="${p}|${esc(u.id)}">Edit</button> · ${p==="m"?"":`<button type="button" class="linkish" data-updmv="${p}|${esc(u.id)}">Move</button> · `}<button type="button" class="linkish" data-upddel="${p}|${esc(u.id)}">Delete</button>`}</span></div>${u.text?`<div class="updtext">${esc(u.text)}</div>`:""}${updHrzView(p,u)}${updThumbs(p,u.files,false)}</div>`).join("")}</div>`:"";
+  el.querySelector(".updlistw").innerHTML=list.length?(selOn?updSelBar(p):"")+`<div class="updlist">${list.map(u=>open&&open.id===u.id?"":`<div class="upditem${selOn&&updSel.ids.has(u.id)?" picked":""}"><div class="updhead">${selOn?`<label class="updpick"><input type="checkbox" data-updpick="${p}|${esc(u.id)}"${updSel.ids.has(u.id)?" checked":""} aria-label="Select this update"></label>`:""}<span class="upddate">${esc(fmtDate(u.date))}</span><span class="updacts">${selOn?"":`<button type="button" class="linkish" data-updedit="${p}|${esc(u.id)}">Edit</button> · ${p==="m"?"":`<button type="button" class="linkish" data-updmv="${p}|${esc(u.id)}">Move</button> · `}<button type="button" class="linkish" data-upddel="${p}|${esc(u.id)}">Delete</button>`}</span></div>${u.text?`<div class="updtext">${bulHtml(u.text)}</div>`:""}${updHrzView(p,u)}${updThumbs(p,u.files,false)}</div>`).join("")}</div>`:"";
   const comp=el.querySelector(".updcomp");
   if(!open){if(dict&&dict.p==="u"+p)dictStop();comp.dataset.for="";comp.innerHTML=`<button type="button" class="addmould" data-updadd="${p}">+ Add an update</button>`+updFillHtml(p);return}
   if(comp.dataset.for!==open.draft){ // build the box once; later refreshes only redraw its photos
@@ -6030,7 +6035,7 @@ function renderResView(){const el=$("#resbody");if(!el||$("#v-resview").hidden)r
   const files=r.files||[];
   el.innerHTML=`<div class="panel stackcol">
     <div class="reshead"><div>${r.cat?`<span class="rescat">${esc(r.cat)}</span>`:""}<h2>${esc(r.title||"Untitled")}</h2>${r.chart&&r.chart.src?`<div class="small" style="margin-top:4px">Source: ${esc(r.chart.src)}</div>`:""}</div><button type="button" class="btn ghost" data-resedit="1">Edit</button></div>
-    ${r.notes?`<div class="resnotes">${esc(r.notes)}</div>`:""}
+    ${r.notes?`<div class="resnotes">${bulHtml(r.notes)}</div>`:""}
     <div class="field" style="margin:0"><div class="row" style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><span class="label" style="margin:0">Files${files.length?` · ${files.length}`:""}</span><button type="button" class="linkish" data-resup="1">+ Add files</button></div>
       ${files.length?`<div class="resfiles">${files.map(f=>{const img=/^image\//.test(f.mimeType||""),armed=resFileArmed===f.id;return `<div class="resfile"><span class="fi" aria-hidden="true">${img?"🖼️":/pdf/.test(f.mimeType||"")?"📕":"📄"}</span>${img?`<button type="button" class="fn" data-resview="${esc(f.id)}">${esc(f.name||"Photo")}</button>`:`<a class="fn" href="${esc(f.url||("https://drive.google.com/file/d/"+f.id+"/view"))}" target="_blank" rel="noopener">${esc(f.name||"File")} ↗</a>`}<button type="button" class="linkish${armed?" armed":""}" data-resrm="${esc(f.id)}">${armed?"Tap to remove":"Remove"}</button></div>`}).join("")}</div>`
         :`<div class="hint">PDF manuals, scans or photos of pages. Saved to the <b>${RES_FOLDER}</b> folder in your Drive Work Orders folder.</div>`}
@@ -6263,7 +6268,7 @@ function renderInbox(){
   if(ibSel.size)sel.innerHTML=`<span><b>${ibSel.size}</b> selected</span><button type="button" class="btn" data-ibassignsel="1">Assign ${ibSel.size} to…</button><button type="button" class="btn ghost${ibDelArmed==="sel"?" danger":""}" data-ibdelsel="1">${ibDelArmed==="sel"?"Tap again to delete":"Delete"}</button><button type="button" class="linkish" data-ibclear="1">Clear</button>`;
   el.innerHTML=list.length?list.map(n=>ibEdit===n.id?`<div class="ibcard editing" data-ib="${esc(n.id)}"><input type="date" class="ibd" value="${esc(n.date||today())}" aria-label="Date"><textarea class="autogrow ibt" rows="3">${esc(n.text||"")}</textarea><div class="attbtns" style="margin:0"><button type="button" class="btn" data-ibsave="${esc(n.id)}">Save</button><button type="button" class="btn ghost" data-ibcancel="1">Cancel</button></div></div>`
     :`<div class="ibcard${ibSel.has(n.id)?" picked":""}" data-ib="${esc(n.id)}"><label class="ibpick"><input type="checkbox" data-ibpick="${esc(n.id)}"${ibSel.has(n.id)?" checked":""} aria-label="Select"></label>
-      <div class="ibmain"><div class="upddate">${esc(fmtDate(n.date))}${n.source?` <span class="ibsrc">${esc(n.source)}</span>`:""}</div>${n.title?`<div class="ibtitle">${esc(n.title)}</div>`:""}${n.text?`<div class="updtext">${esc(n.text)}</div>`:""}${ibThumbs(n.files)}
+      <div class="ibmain"><div class="upddate">${esc(fmtDate(n.date))}${n.source?` <span class="ibsrc">${esc(n.source)}</span>`:""}</div>${n.title?`<div class="ibtitle">${esc(n.title)}</div>`:""}${n.text?`<div class="updtext">${bulHtml(n.text)}</div>`:""}${ibThumbs(n.files)}
       ${n.suggest&&n.suggest.logId&&suggestLabel(n.suggest)?`<div class="ibsug"><span>Suggested: <b>${esc(suggestLabel(n.suggest))}</b></span><button type="button" class="btn" data-ibsug="${esc(n.id)}">Assign here</button></div>`:n.suggest&&suggestLabel(n.suggest)?`<div class="ibsug"><span>Mould: ${esc(suggestLabel(n.suggest))}</span></div>`:""}
       <div class="ibacts"><button type="button" class="btn${n.suggest&&n.suggest.logId?" ghost":""}" data-ibassign="${esc(n.id)}">${n.suggest&&n.suggest.logId?"Other…":"Assign to…"}</button><button type="button" class="linkish" data-ibedit="${esc(n.id)}">Edit</button> · <button type="button" class="linkish" data-ibdel="${esc(n.id)}"${ibDelArmed===n.id?' style="color:var(--bad)"':""}>${ibDelArmed===n.id?"Tap again to delete":"Delete"}</button></div></div></div>`).join("")
     :`<div class="empty"><strong>Nothing to sort</strong>Tap <b>+ Update</b> on the Dashboard to jot something down quickly, then assign it here later.</div>`;
@@ -7952,7 +7957,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.22-166";
+const APP_VERSION="2026.11.23-167";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
