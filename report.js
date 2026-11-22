@@ -90,6 +90,8 @@ async function rptListing(l,onlyId){
   const skip=f=>/ Work order\.md$/i.test(f.name||"")||/ report\.(pdf|docx)$/i.test(f.name||"");
   v.images=[];v.other=[];
   v.sets.forEach(st=>st.items.forEach(f=>{if(f.mimeType===FOLDER_MT||skip(f))return;if(String(f.mimeType||"").startsWith("image/"))v.images.push({f,set:st});else v.other.push({f,set:st})}));
+  // oldest first (Drive lists newest first), so figures and the picker run in the order the photos were taken
+  {const ord=new Map(v.sets.map((st,i)=>[st,i]));v.images.sort((a,b)=>ord.get(a.set)-ord.get(b.set)||fileTaken(a.f).localeCompare(fileTaken(b.f))||String(a.f.name).localeCompare(String(b.f.name),undefined,{numeric:true}))}
   rptListCache={key,v};return v}
 const rptPhotoDate=f=>{const t=(f.imageMediaMetadata&&f.imageMediaMetadata.time)||f.createdTime||"";const m=/^(\d{4})[:-](\d\d)[:-](\d\d)/.exec(t);return m?fmtDate(`${m[1]}-${m[2]}-${m[3]}`):""};
 // The photos a report will hold: pick.mode is all / starred / chosen (pick.ids, Drive file ids) / none
@@ -106,14 +108,15 @@ async function rptDriveFiles(l,onlyId,pick,progress){
     catch(e){if(e&&(e.code==="needs_token"||e.code==="offline"))throw e;out.set(it,null)}
     done++;progress&&progress(`Adding photos… ${done} of ${todo.length}`)}};
   if(todo.length){progress&&progress(`Adding photos… 0 of ${todo.length}`);await Promise.all([worker(),worker(),worker()])}
-  for(const it of todo){const im=out.get(it);if(im)got.push({name:it.f.name,date:rptPhotoDate(it.f),set:it.set.title,...im});else files.push({name:it.f.name,note:"photo couldn't be added",url:it.f.webViewLink||""})}
+  for(const it of todo){const im=out.get(it);if(im)got.push({name:it.f.name,date:rptPhotoDate(it.f),t:fileTaken(it.f),set:it.set.title,...im});else files.push({name:it.f.name,note:"photo couldn't be added",url:it.f.webViewLink||""})}
   return {imgs:got,files,skipped,inDrive:v.images.length}}
 // Puts each photo with the update it belongs to (an update lists its photos by name); the rest go in the
 // Photos section, by folder. Figures are numbered in the order they appear, and each update names its figures.
 function rptPlace(R,photos){
   const pool=photos?photos.imgs.slice():[],used=new Set();let n=0;
   for(const b of R.blocks){if(b.t!=="upd"||!(b.files||[]).length)continue;
-    b.figs=[];for(const name of b.files){const im=pool.find(x=>!used.has(x)&&x.name===name);if(im){used.add(im);im.fig=++n;b.figs.push(im)}}
+    b.figs=[];for(const name of b.files){const im=pool.find(x=>!used.has(x)&&x.name===name);if(im){used.add(im);b.figs.push(im)}}
+    b.figs.sort((a,c)=>String(a.t||"").localeCompare(String(c.t||"")));b.figs.forEach(im=>im.fig=++n);
     b.more=b.files.length-b.figs.length}
   const groups=[];for(const im of pool){if(used.has(im))continue;im.fig=++n;let g=groups.find(x=>x.title===im.set);if(!g)groups.push(g={title:im.set,imgs:[]});g.imgs.push(im)}
   return photos?{groups,files:photos.files,skipped:photos.skipped}:null}
