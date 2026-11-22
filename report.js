@@ -501,21 +501,23 @@ async function rptRefresh(){
     :mode==="starred"?(picked?`The ${picked} starred photo${picked===1?"":"s"}`:"None of the photos are starred. Star them in the gallery, or use Choose.")
     :"Tap photos to put them in the report. Ones on an update go under it; the rest go in a Photos section.";
   if(mode==="chosen")rptPickRender(l,v)}
-function rptPickRender(l,v){const grid=$("#rpt-pk-grid");if(!v||!v.images.length){grid.innerHTML=`<div class="small">No photos in the Drive folder.</div>`;$("#rpt-pk-n").textContent="0 chosen";return}
-  const names=rptUpdNames(l,rptScopeId()),bySet=new Map();v.images.forEach(it=>{if(!bySet.has(it.set))bySet.set(it.set,[]);bySet.get(it.set).push(it)});
+function rptPickRender(l,v,root,only){root=root||$("#rpt-pick");if(only===undefined)only=rptScopeId();const grid=root.querySelector(".rpk-grid"),cnt=root.querySelector(".rpk-n");
+  if(!v||!v.images.length){grid.innerHTML=`<div class="small">No photos in the Drive folder.</div>`;cnt.textContent="0 chosen";return}
+  const names=rptUpdNames(l,only),bySet=new Map();v.images.forEach(it=>{if(!bySet.has(it.set))bySet.set(it.set,[]);bySet.get(it.set).push(it)});
   grid.innerHTML=[...bySet].map(([st,list])=>`<div class="rpk-grp">${bySet.size>1||st.title?`<span class="label">${esc(st.title||"Work order")}</span>`:""}${list.map(({f})=>{const on=rptSel.has(f.id),u=names.get(f.name);
     return `<button type="button" class="rpk-t${on?" on":""}" data-pkid="${esc(f.id)}" aria-pressed="${on}" title="${esc(f.name)}">${thumbUrl(f,240)?`<img src="${esc(thumbUrl(f,240))}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="nm">${esc(f.name)}</span>`}<span class="ck">${on?"✓":""}</span>${f.starred?'<span class="st">★</span>':""}${u?`<span class="up">Update ${esc(u)}</span>`:""}</button>`}).join("")}</div>`).join("");
-  $("#rpt-pk-n").textContent=`${rptSel.size} chosen`}
+  cnt.textContent=`${rptSel.size} chosen`}
 $("#rpt-files").addEventListener("change",()=>{try{localStorage.setItem("ml_rpt_files",$("#rpt-files").checked?"1":"0")}catch(e){}});
 $("#rpt-pmode").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;segSet("#rpt-pmode",b.dataset.v);try{localStorage.setItem("ml_rpt_pmode",b.dataset.v)}catch(err){}rptRefresh()});
 $("#rpt-scope").addEventListener("click",e=>{if(e.target.closest("button"))setTimeout(rptRefresh,0)});
-$("#rpt-pick").addEventListener("click",async e=>{const l=logs.find(x=>x.id===(rptFor&&rptFor.id));if(!l)return;
-  const t=e.target.closest("[data-pkid]");if(t){const id=t.dataset.pkid;rptSel.has(id)?rptSel.delete(id):rptSel.add(id);const on=rptSel.has(id);t.classList.toggle("on",on);t.setAttribute("aria-pressed",on);t.querySelector(".ck").textContent=on?"✓":"";$("#rpt-pk-n").textContent=`${rptSel.size} chosen`;return}
-  const q=e.target.closest("[data-pk]");if(!q)return;const v=await rptListing(l,rptScopeId()).catch(()=>null);if(!v)return;
+async function rpkClick(e,root,l,only){
+  const t=e.target.closest("[data-pkid]");if(t){const id=t.dataset.pkid;rptSel.has(id)?rptSel.delete(id):rptSel.add(id);const on=rptSel.has(id);t.classList.toggle("on",on);t.setAttribute("aria-pressed",on);t.querySelector(".ck").textContent=on?"✓":"";root.querySelector(".rpk-n").textContent=`${rptSel.size} chosen`;return true}
+  const q=e.target.closest("[data-pk]");if(!q)return false;const v=await rptListing(l,only).catch(()=>null);if(!v)return false;
   if(q.dataset.pk==="none")rptSel.clear();
   else if(q.dataset.pk==="starred")v.images.forEach(({f})=>{if(f.starred)rptSel.add(f.id)});
-  else if(q.dataset.pk==="upd"){const names=rptUpdNames(l,rptScopeId());v.images.forEach(({f})=>{if(names.has(f.name))rptSel.add(f.id)})}
-  rptPickRender(l,v)});
+  else if(q.dataset.pk==="upd"){const names=rptUpdNames(l,only);v.images.forEach(({f})=>{if(names.has(f.name))rptSel.add(f.id)})}
+  rptPickRender(l,v,root,only);return true}
+$("#rpt-pick").addEventListener("click",e=>{const l=logs.find(x=>x.id===(rptFor&&rptFor.id));if(l)rpkClick(e,$("#rpt-pick"),l,rptScopeId())});
 function openReport(){
   if(!editingId){toast("Save the work order first");return}
   const l=logs.find(x=>x.id===editingId);if(!l)return;
@@ -577,3 +579,88 @@ $("#rpt-go").onclick=async()=>{
 $("#rpt-dl").onclick=()=>{if(!rptFile)return;const a=document.createElement("a");a.href=URL.createObjectURL(rptFile);a.download=rptFile.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)};
 $("#rpt-share").onclick=async()=>{if(!rptFile)return;try{await navigator.share({files:[rptFile],title:rptFile.name})}catch(e){if(e&&e.name!=="AbortError")toast("Couldn't share. Try Download instead.")}};
 
+
+// ---- Share: a view-only link to this work order (view.html, served through the GT Hub server functions) ----
+let shFor=null;
+const shUrl=id=>location.origin+location.pathname.replace(/[^/]*$/,"")+"view.html#"+id;
+const shScopeId=()=>shFor&&shFor.sub&&segVal("#sh-scope")==="sub"?shFor.sub:null;
+const shExisting=()=>shares.find(s=>shareLive(s)&&s.logId===(shFor&&shFor.id)&&(s.sub||null)===shScopeId());
+function shToken(){const b=new Uint8Array(24);crypto.getRandomValues(b);return btoa(String.fromCharCode(...b)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
+// What a shared link shows: the report's content (with the chosen photos placed under their updates), as plain data
+function shareSnap(l,sh){
+  const R=reportModel(l,sh.sub||null,{updates:true});
+  const ids=new Set(sh.photos==="none"?[]:(l.rptPhotos||[])),meta=(sh.pm||[]).filter(m=>ids.has(m.id)).map(m=>({...m}));
+  const ph=rptPlace(R,{imgs:meta,files:[],skipped:0});
+  const fig=im=>({id:im.id,fig:im.fig,date:im.date||""});
+  const blocks=R.blocks.map(b=>{const o={...b};delete o.files;delete o.owner;if(b.figs)o.figs=b.figs.map(fig);return o});
+  // a work order with sub-jobs gets a summary at the top: each sub-job's status, description, inspection and work done
+  const summary=[];let cur=null;
+  for(const b of R.blocks){if(b.t==="sub"){cur={no:b.no,name:b.name,status:b.status};summary.push(cur);continue}
+    if(cur&&b.t==="field"&&b.text){const k={"Description":"desc","Inspection / faults found":"insp","Work done":"work"}[b.label];if(k)cur[k]=b.text}}
+  const sumOut=summary.filter(x=>x.desc||x.insp||x.work);
+  return {snap:{title:R.title,subtitle:R.subtitle,status:R.status,org:R.org,wo:R.wo,summary:sumOut.length?sumOut:null,blocks,groups:(ph.groups||[]).map(g=>({title:g.title||"",imgs:g.imgs.map(fig)}))},photoIds:meta.map(m=>m.id)}}
+const shLabel=(l,sh)=>{const sub=sh.sub&&tabIdsFor(l.mouldId,l.extraMouldIds).includes(sh.sub)?subMeta(l,sh.sub):null;return "#"+(sub&&sub.no?subLabel(l,sh.sub):l.wo)+" · "+(sh.sub?mName(sh.sub):jobTool(l))};
+// Photo details (names, dates, folders) for the work order's photos, from the Drive listing
+async function sharePhotoMeta(l,sub){const v=await rptListing(l,sub);return v?v.images.map(({f,set})=>({id:f.id,name:f.name,t:fileTaken(f),date:rptPhotoDate(f),set:set.title||""})):null}
+let shareBusy=false;
+async function shareSyncAll(){if(shareBusy)return;shareBusy=true;
+  try{for(const sh of shares.filter(shareLive)){const l=logs.find(x=>x.id===sh.logId);if(!l)continue;
+      let pm=sh.pm||[];
+      // photos chosen since the last listing need their details from Drive
+      if(sh.photos!=="none"&&(l.rptPhotos||[]).some(id=>!pm.some(m=>m.id===id))&&hasToken()){rptListCache=null;const m=await sharePhotoMeta(l,sh.sub||null).catch(()=>null);if(m)pm=m}
+      const {snap,photoIds}=shareSnap(l,{...sh,pm}),label=shLabel(l,sh);
+      if(JSON.stringify(snap)===JSON.stringify(sh.snap||null)&&JSON.stringify(photoIds)===JSON.stringify(sh.photoIds||[])&&pm===sh.pm&&label===sh.label)continue;
+      await db.collection("shares").doc(sh.id).update({snap,photoIds,pm,label,updatedAt:new Date().toISOString()}).catch(()=>{})}}
+  finally{shareBusy=false}}
+function shRender(){const l=logs.find(x=>x.id===(shFor&&shFor.id));if(!l)return;const ex=shExisting();
+  $("#sh-live").hidden=!ex;$("#sh-go").textContent=ex?"Save changes":"Create link";$("#sh-exp-f").hidden=!!ex;
+  if(ex){$("#sh-url").value=shUrl(ex.id);$("#sh-open").href=shUrl(ex.id);$("#sh-exp").textContent=`The link works until ${fmtDate(String(ex.expires).slice(0,10))}.`;segSet("#sh-pmode",ex.photos==="none"?"none":"chosen")}
+  shPhotos()}
+async function shPhotos(){const l=logs.find(x=>x.id===(shFor&&shFor.id));if(!l)return;const mode=segVal("#sh-pmode"),h=$("#sh-photos-h");
+  $("#sh-pick").hidden=mode!=="chosen";if(mode!=="chosen"){h.textContent="Photos aren't shown.";return}
+  if(!hasToken()){const ok=typeof srvRenew==="function"?await srvRenew():false;if(!ok){h.textContent="Connect Google Drive to choose photos.";return}}
+  h.textContent="Checking the Drive folder…";let v;try{v=await rptListing(l,shScopeId())}catch(e){h.textContent="Couldn't reach Google Drive";return}
+  h.textContent="Tap photos to show them. These are also the photos chosen for this work order's reports. Ones on an update show under it.";rptPickRender(l,v,$("#sh-pick"),shScopeId())}
+function openShare(){
+  if(!editingId){toast("Save the work order first");return}
+  const l=logs.find(x=>x.id===editingId);if(!l)return;
+  if(!woNum(l.wo)){toast("Give the work order a number first");return}
+  shFor={id:l.id,sub:subPage||null};rptListCache=null;rptSel=new Set(Array.isArray(l.rptPhotos)?l.rptPhotos:[]);
+  $("#sh-for").textContent=subPage?`Sub-job ${$("#f-wo").value.trim().toUpperCase()}-${formSubNo[subPage]} · ${$("#b-title").textContent}`:`Work order #${l.wo} · ${jobTool(l)}`;
+  $("#sh-scope-f").hidden=!subPage;segSet("#sh-scope","sub");segSet("#sh-days","30");segSet("#sh-pmode","chosen");
+  $("#sh-status").textContent="";$("#sh-go").disabled=false;
+  $("#shm").hidden=false;try{history.pushState({ml:"shm"},"")}catch(e){}
+  shRender()}
+function closeShare(fromBack){if($("#shm").hidden)return;$("#shm").hidden=true;shFor=null;if(fromBack!==true){try{if(history.state&&history.state.ml==="shm"){skipPop++;history.back()}}catch(e){}}}
+segBind("#sh-scope");segBind("#sh-days");segBind("#sh-pmode");
+$("#sh-scope").addEventListener("click",e=>{if(e.target.closest("button"))setTimeout(()=>{rptListCache=null;shRender()},0)});
+$("#sh-pmode").addEventListener("click",e=>{if(e.target.closest("button"))setTimeout(shPhotos,0)});
+$("#sh-pick").addEventListener("click",e=>{const l=logs.find(x=>x.id===(shFor&&shFor.id));if(l)rpkClick(e,$("#sh-pick"),l,shScopeId())});
+$("#sh-close").onclick=()=>closeShare();
+$("#shm").addEventListener("click",e=>{if(e.target.id==="shm")closeShare()});
+$("#sh-go").onclick=async()=>{const l=logs.find(x=>x.id===(shFor&&shFor.id));if(!l)return;const st=$("#sh-status"),go=$("#sh-go");go.disabled=true;
+  try{
+    const sub=shScopeId(),photos=segVal("#sh-pmode")==="none"?"none":"chosen",ids=[...rptSel];
+    // the chosen photos belong to the work order (they're the report's too); only that field changes
+    const old=Array.isArray(l.rptPhotos)?l.rptPhotos:[];
+    if(photos==="chosen"&&(ids.length!==old.length||ids.some(x=>!old.includes(x)))){await db.collection("logs").doc(l.id).update({rptPhotos:ids});l.rptPhotos=ids}
+    st.textContent="Preparing the shared view…";
+    let pm=[];if(photos==="chosen"&&ids.length){if(!hasToken())await requestToken("");pm=(await sharePhotoMeta(l,sub))||[]}
+    const ex=shExisting(),now=new Date().toISOString(),sh={sub,photos,pm},{snap,photoIds}=shareSnap(l,sh),label=shLabel(l,sh);
+    if(ex){await db.collection("shares").doc(ex.id).update({photos,pm,snap,photoIds,label,updatedAt:now});Object.assign(ex,{photos,pm,snap,photoIds,label});st.textContent="Saved. The link shows the changes now."}
+    else{const id=shToken(),days=+(segVal("#sh-days")||30),expires=new Date(Date.now()+days*864e5).toISOString();
+      const doc={uid:(currentUser&&currentUser.uid)||"",logId:l.id,wo:l.wo,sub,photos,pm,snap,photoIds,label,createdAt:now,updatedAt:now,expires,revoked:false};
+      await db.collection("shares").doc(id).set(doc);if(!shares.some(x=>x.id===id))shares.push({id,...doc});
+      st.textContent="Link created. Share or copy it below."}
+    shRender()}
+  catch(e){st.textContent="Couldn't share: "+((e&&e.message)||e.code||"error")}
+  go.disabled=false};
+$("#sh-copy").onclick=async()=>{try{await navigator.clipboard.writeText($("#sh-url").value);toast("Link copied")}catch(e){$("#sh-url").select();toast("Select the link and copy it")}};
+$("#sh-send").onclick=async()=>{const l=logs.find(x=>x.id===(shFor&&shFor.id)),url=$("#sh-url").value,ttl=`Work order #${l?l.wo:""}`;
+  if(navigator.share){try{await navigator.share({title:ttl,text:`${ttl}: view-only link from GT Hub`,url})}catch(e){}}else location.href=`mailto:?subject=${encodeURIComponent(ttl)}&body=${encodeURIComponent(ttl+": view-only link\n"+url)}`};
+$("#sh-extend").onclick=async()=>{const ex=shExisting();if(!ex)return;const base=Math.max(Date.now(),Date.parse(ex.expires)||0),expires=new Date(base+30*864e5).toISOString();
+  try{await db.collection("shares").doc(ex.id).update({expires,updatedAt:new Date().toISOString()});ex.expires=expires;shRender();toast("Extended by 30 days")}catch(e){toast("Couldn't extend")}};
+$("#sh-stop").onclick=async()=>{const ex=shExisting(),b=$("#sh-stop");if(!ex)return;
+  if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Tap again to stop sharing";setTimeout(()=>{b.classList.remove("armed");b.textContent="Stop sharing"},4000);return}
+  b.classList.remove("armed");b.textContent="Stop sharing";
+  try{await db.collection("shares").doc(ex.id).update({revoked:true,updatedAt:new Date().toISOString()});ex.revoked=true;shRender();toast("Sharing stopped. The link no longer works.")}catch(e){toast("Couldn't stop sharing")}};

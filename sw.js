@@ -1,5 +1,5 @@
 // GT Hub service worker: lets the app open offline and install as an app.
-const VERSION="mould-log-v186";
+const VERSION="mould-log-v187";
 const LIBS="mould-log-libs"; // Firebase and fonts: kept across app versions (their addresses change when they do)
 const THUMBS="gt-thumbs";    // small copies of Drive photo thumbnails, kept across app versions for offline use
 const THUMB_MAX=15000; // thumbnails (about 30 KB each): room for completed jobs too
@@ -31,6 +31,8 @@ self.addEventListener("fetch",e=>{
   if(url.origin===self.location.origin&&url.pathname.includes("/gtthumb/")){e.respondWith(thumb(url));return}
   // App files: open instantly from the saved copy (new versions arrive through the worker update above);
   // anything not saved yet comes from the network and is kept for next time
+  // a shared, view-only work order page is always fetched fresh (and never swapped for the app)
+  if(url.origin===self.location.origin&&/\/view\.html$/.test(url.pathname))return;
   if(url.origin===self.location.origin){
     const nav=req.mode==="navigate";
     e.respondWith(caches.open(VERSION).then(c=>c.match(nav?"index.html":req,{ignoreSearch:nav}).then(hit=>hit||

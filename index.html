@@ -1363,7 +1363,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <div class="editbar" id="editbar">
       <div class="eb-text"><span class="wonav" id="wonav"><button type="button" id="woprev" class="wonavbtn" aria-label="Previous work order">‹</button><span id="edittitle">New job</span><button type="button" id="wonextbtn" class="wonavbtn" aria-label="Next work order">›</button></span><span id="savestate" class="savestate" role="status" aria-live="polite">Autosaves once a mould and work order no. are set</span></div>
       <div class="wotabrow"><div class="wotabs" id="wotabs" role="tablist" aria-label="Work order sections"><button type="button" role="tab" data-wotab="details" aria-selected="true">Details</button><button type="button" role="tab" data-wotab="photos" aria-selected="false">Photos &amp; files<span class="wotabn" id="wotabn"></span></button></div>
-      <div class="eb-btns"><button class="btn ghost" id="exportrpt" type="button" hidden>Export</button><button class="btn ghost" id="canceledit" type="button" hidden>Done</button></div></div>
+      <div class="eb-btns"><button class="btn ghost" id="sharewo" type="button" hidden>Share</button><button class="btn ghost" id="exportrpt" type="button" hidden>Export</button><button class="btn ghost" id="canceledit" type="button" hidden>Done</button></div></div>
     </div>
     <form id="logform" autocomplete="off">
       <div class="fcol fcol-main">
@@ -1688,6 +1688,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <div class="panel stackcol">
       <div class="acct" id="acct">Not signed in.</div>
       <div class="stackcol small" id="acct-linkbox" hidden style="gap:6px"></div>
+      <div class="stackcol small" id="acct-shares" hidden style="gap:8px"></div>
       <div class="attbtns" style="margin:0">
         <button class="btn ghost" id="acct-drive" type="button">Connect Google Drive</button>
         <button class="btn ghost" id="acct-signout" type="button">Sign out</button>
@@ -2036,6 +2037,31 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
   </div>
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
+<div class="rptm" id="shm" hidden role="dialog" aria-modal="true" aria-labelledby="sh-title">
+  <div class="rptbox">
+    <h2 id="sh-title">Share a view-only link</h2>
+    <p class="small rptfor" id="sh-for"></p>
+    <p class="small" style="margin:0">Anyone with the link can see this work order (no sign-in), but can't change anything. It stays up to date as you add updates and photos.</p>
+    <div id="sh-live" class="stackcol" style="gap:10px" hidden>
+      <div class="field" style="margin:0"><span class="label">Link</span><input id="sh-url" readonly class="mono" aria-label="Share link"></div>
+      <div class="small" id="sh-exp"></div>
+      <div class="rptbtns" style="margin:0"><button class="btn" id="sh-send" type="button">Share link</button><button class="btn ghost" id="sh-copy" type="button">Copy</button><a class="btn ghost" id="sh-open" target="_blank" rel="noopener">Open</a></div>
+      <div class="small"><button type="button" class="linkish" id="sh-extend">Extend 30 days</button> · <button type="button" class="linkish danger" id="sh-stop">Stop sharing</button></div>
+    </div>
+    <div class="field" id="sh-scope-f" hidden><span class="label">Share</span><div class="seg" id="sh-scope" role="group" aria-label="What to share"><button type="button" data-v="sub" aria-pressed="true">This sub-job</button><button type="button" data-v="all" aria-pressed="false">Whole work order</button></div></div>
+    <div class="field"><span class="label">Photos</span>
+      <div class="seg" id="sh-pmode" role="group" aria-label="Photos"><button type="button" data-v="chosen" aria-pressed="true">Chosen photos</button><button type="button" data-v="none" aria-pressed="false">No photos</button></div>
+      <div class="hint" id="sh-photos-h"></div>
+      <div id="sh-pick" class="rpk" hidden>
+        <div class="rpk-bar"><b class="rpk-n">0 chosen</b><span>Quick pick: <button type="button" class="linkish" data-pk="starred">Starred</button> · <button type="button" class="linkish" data-pk="upd">With updates</button> · <button type="button" class="linkish" data-pk="none">Clear</button></span></div>
+        <div class="rpk-grid"></div>
+      </div>
+    </div>
+    <div class="field" id="sh-exp-f"><span class="label">Link works for</span><div class="seg" id="sh-days" role="group" aria-label="Link works for"><button type="button" data-v="7" aria-pressed="false">7 days</button><button type="button" data-v="30" aria-pressed="true">30 days</button><button type="button" data-v="90" aria-pressed="false">90 days</button></div></div>
+    <div class="rptstatus" id="sh-status" role="status" aria-live="polite"></div>
+    <div class="rptbtns"><button class="btn" id="sh-go" type="button">Create link</button><button class="btn ghost" id="sh-close" type="button">Close</button></div>
+  </div>
+</div>
 <div class="rptm" id="rptm" hidden role="dialog" aria-modal="true" aria-labelledby="rpt-title">
   <div class="rptbox">
     <h2 id="rpt-title">Export report</h2>
@@ -2047,7 +2073,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <div class="seg" id="rpt-pmode" role="group" aria-label="Photos"><button type="button" data-v="none" aria-pressed="false">None</button><button type="button" data-v="starred" aria-pressed="false">Starred</button><button type="button" data-v="chosen" aria-pressed="false">Choose</button><button type="button" data-v="all" aria-pressed="true">All</button></div>
       <div class="hint" id="rpt-photos-h"></div>
       <div id="rpt-pick" class="rpk" hidden>
-        <div class="rpk-bar"><b id="rpt-pk-n">0 chosen</b><span>Quick pick: <button type="button" class="linkish" data-pk="starred">Starred</button> · <button type="button" class="linkish" data-pk="upd">With updates</button> · <button type="button" class="linkish" data-pk="none">Clear</button></span></div>
+        <div class="rpk-bar"><b id="rpt-pk-n" class="rpk-n">0 chosen</b><span>Quick pick: <button type="button" class="linkish" data-pk="starred">Starred</button> · <button type="button" class="linkish" data-pk="upd">With updates</button> · <button type="button" class="linkish" data-pk="none">Clear</button></span></div>
         <div class="rpk-grid" id="rpt-pk-grid"></div>
       </div>
     </div>
@@ -2995,6 +3021,7 @@ window.addEventListener("popstate",async()=>{
   if(!$("#usheet").hidden){closeUnPick(true);return}
   if(!$("#upsheet").hidden){closeUpdPick(true);return}
   if(!$("#rptm").hidden){closeReport(true);return}
+  if(!$("#shm").hidden){if(typeof closeShare==="function")closeShare(true);return}
   if(subPage&&!$("#v-log").hidden){closeSub(true);return}
   if(!$("#asheet").hidden){closeAssign();return}
   if(!$("#invsheet").hidden){closeInvItem();return}
@@ -3174,7 +3201,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#moresheet").hi
 // Used for the main tabs (Dashboard ↔ Calendar ↔ All jobs ↔ Moulds) and a work order's Details ↔ Photos.
 function swipePager(o){let s=null;
   const blocked=t=>{const f=t.closest("input,textarea,select,[contenteditable]");return (f&&(f===document.activeElement||f.matches("input[type=range],select")))||t.closest(".updphotos,.noswipe,nav.tabs,header.top"+(o.skip?","+o.skip:""))};
-  const overlay=()=>!$("#moresheet").hidden||!$("#usheet").hidden||!$("#upsheet").hidden||!$("#lb").hidden||!$("#qsheet").hidden||!$("#asheet").hidden||!$("#rptm").hidden;
+  const overlay=()=>!$("#moresheet").hidden||!$("#usheet").hidden||!$("#upsheet").hidden||!$("#lb").hidden||!$("#qsheet").hidden||!$("#asheet").hidden||!$("#rptm").hidden||!$("#shm").hidden;
   function scrollsX(n){for(;n&&n!==document.body;n=n.parentElement){if(n.scrollWidth>n.clientWidth+2){const ov=getComputedStyle(n).overflowX;if(ov==="auto"||ov==="scroll")return true}}return false}
   const reset=(el,anim)=>{el.style.transition=anim?"transform .24s cubic-bezier(.2,.8,.2,1),opacity .24s ease":"";el.style.transform="";el.style.opacity="";el.style.willChange="";if(anim)setTimeout(()=>{if(!s||s.el!==el)el.style.transition=""},260)};
   document.addEventListener("touchstart",e=>{s=null;if(e.touches.length!==1||overlay()||!o.on())return;
@@ -4365,7 +4392,7 @@ function updateEditBar(){
   const wo=!$("#f-womerge").hidden&&typeof wmOwnNo==="function"?wmOwnNo():$("#f-wo").value.trim(); // asking "Add to #2552?": still this job
   const subNo=subPage?`${wo||"#"}-${formSubNo[subPage]}`:"";
   $("#edittitle").textContent=subPage?(editingId?"Editing ":"New sub-job ")+subNo:(editingId?("Editing "+(wo||"job")):"New job");
-  $("#canceledit").hidden=!editingId&&!subPage;$("#exportrpt").hidden=!editingId;$("#canceledit").textContent=subPage?"Back":"Done";
+  $("#canceledit").hidden=!editingId&&!subPage;$("#exportrpt").hidden=!editingId;$("#sharewo").hidden=!editingId;$("#canceledit").textContent=subPage?"Back":"Done";
   $("#savebtn").textContent=editingId?"Done":"Save job";
   woNavUpdate();
   renderFormHours();renderWoRename();woHint();
@@ -4542,6 +4569,17 @@ $("#mouldform").addEventListener("submit",async e=>{
 // Photos and files live in Google Drive, in the work order's folder inside the Work Orders folder
 // (named like "#2549 - Biax 215 Pod Gen 2"). New uploads wait in an on-device queue until they reach Drive.
 let pickTarget=null, uploading=0, driveRoot=null, currentUser=null;
+// ---- Shared work orders (view-only links). The shared copy of a work order is rebuilt here whenever it, its hours or
+// its chosen photos change (report.js does the building), so the link always shows the latest.
+let shares=[],shareT=0;
+const shareLive=s=>s&&!s.revoked&&!(s.expires&&Date.parse(s.expires)<Date.now());
+function shareKick(){clearTimeout(shareT);if(!shares.some(shareLive))return;shareT=setTimeout(async()=>{if(!currentUser||!loaded.l)return shareKick();try{await lazy("report");await shareSyncAll()}catch(e){}},2500)}
+function renderShareList(){const el=$("#acct-shares");if(!el)return;const act=shares.filter(shareLive).sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+  el.hidden=!act.length;if(!act.length){el.innerHTML="";return}
+  el.innerHTML=`<span class="label" style="margin:0">Shared work orders</span>`+act.map(s=>`<div class="row" style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><span>${esc(s.label||("#"+(s.wo||"")))}<br><small class="small">Link works until ${esc(fmtDate(String(s.expires||"").slice(0,10)))}</small></span><button type="button" class="linkish danger" data-shstop="${esc(s.id)}">Stop sharing</button></div>`).join("")}
+document.addEventListener("click",async e=>{const b=e.target.closest("[data-shstop]");if(!b)return;
+  if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Tap to stop";setTimeout(()=>{if(b.isConnected){b.classList.remove("armed");b.textContent="Stop sharing"}},4000);return}
+  try{await db.collection("shares").doc(b.dataset.shstop).update({revoked:true,updatedAt:new Date().toISOString()});toast("Sharing stopped. The link no longer works.")}catch(err){toast("Couldn't stop sharing: "+(err.message||err.code))}});
 const IS_MOBILE=/Android|iPhone|iPad/i.test(navigator.userAgent);
 // Background uploads (see "Background uploads" further down): Chrome on Android only
 const BG_UP=/Android/i.test(navigator.userAgent)&&"serviceWorker" in navigator&&"SyncManager" in window&&!!(navigator.locks&&navigator.locks.request);
@@ -6403,7 +6441,7 @@ const updFabP=()=>subPage?"b":($("#pmmain").classList.contains("off")?null:"f");
 function updFabShow(){const b=$("#updfab");if(!b)return;
   const typing=document.activeElement&&document.activeElement.matches("#v-log input:not([type=checkbox]):not([type=date]),#v-log textarea,#v-log select");
   const hasJob=!!$("#f-mould").value;
-  b.hidden=$("#v-log").hidden||!hasJob||!!updOpen||typing||!$("#lb").hidden||!$("#rptm").hidden;
+  b.hidden=$("#v-log").hidden||!hasJob||!!updOpen||typing||!$("#lb").hidden||!$("#rptm").hidden||!$("#shm").hidden;
   if(b.hidden)$("#updfabmenu").hidden=true}
 function updStart(p){
   if(woTab!=="details")setWoTab("details");
@@ -7356,6 +7394,7 @@ document.addEventListener("click",e=>{const t=e.target;
 aiSumBtns();
 
 // Reports (PDF / Word) live in report.js and load the first time Export is tapped
+$("#sharewo").onclick=async()=>{await flushSave();const b=$("#sharewo");b.disabled=true;try{await lazy("report");openShare()}catch(err){toast(err.message)}finally{b.disabled=false}};
 $("#exportrpt").onclick=async()=>{await flushSave();const b=$("#exportrpt");b.disabled=true;try{await lazy("report");openReport()}catch(err){toast(err.message)}finally{b.disabled=false}};
 // ---------- Changing a work order's number ----------
 // The new number is checked against other work orders, work hours follow automatically, and the Drive
@@ -7908,7 +7947,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.22-163";
+const APP_VERSION="2026.11.22-164";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -7931,7 +7970,7 @@ $("#signin").addEventListener("click",async()=>{
   }catch(e){$("#gate-msg").textContent=(e&&e.code==="popup_closed")?"Sign-in was cancelled.":((e&&e.message)||"Sign-in failed. Try again.")}
   btn.disabled=false;
 });
-function stopData(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[];inventory=[];resources=[];moulds=[];logs=[];hoursList=[];procedures=[];loaded={m:false,l:false};driveRoot=null}
+function stopData(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[];inventory=[];resources=[];shares=[];moulds=[];logs=[];hoursList=[];procedures=[];loaded={m:false,l:false};driveRoot=null}
 function dataError(err){
   if(err&&err.code==="permission-denied"){
     stopData();
@@ -7942,10 +7981,11 @@ function dataError(err){
 function startData(){
   stopData();
   unsubs.push(db.collection("moulds").onSnapshot(s=>{moulds=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>mlabel(a).localeCompare(mlabel(b),undefined,{numeric:true,sensitivity:"base"}));loaded.m=true;renderAll();renderImportHint();nwSyncSoon()},e=>{loaded.m=true;renderAll();dataError(e)}));
-  unsubs.push(db.collection("logs").onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint();formRemoteCheck();nwSyncSoon()},e=>dataError(e)));
+  unsubs.push(db.collection("logs").onSnapshot(s=>{logs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||"").localeCompare(a.createdAt||""));loaded.l=true;renderAll();renderImportHint();formRemoteCheck();nwSyncSoon();shareKick()},e=>dataError(e)));
   unsubs.push(db.collection("procedures").onSnapshot(s=>{procedures=s.docs.map(d=>({id:d.id,...d.data()}));renderProcLists();renderProc();renderList();ensureServiceProc()},e=>dataError(e)));
-  unsubs.push(db.collection("hours").onSnapshot(s=>{hoursList=s.docs.map(d=>({id:d.id,...d.data()}));renderHours();renderFormHours()},e=>dataError(e)));
+  unsubs.push(db.collection("hours").onSnapshot(s=>{hoursList=s.docs.map(d=>({id:d.id,...d.data()}));renderHours();renderFormHours();shareKick()},e=>dataError(e)));
   unsubs.push(db.collection("inventory").onSnapshot(s=>{inventory=s.docs.map(d=>({id:d.id,...d.data()}));loaded.inv=true;renderInv();plStockRefresh();renderInvBadge();if(!$("#v-hist").hidden)renderHistParts();if(!$("#invsheet").hidden&&ivEdit)ivUsed()},e=>dataError(e)));
+  unsubs.push(db.collection("shares").onSnapshot(s=>{shares=s.docs.map(d=>({id:d.id,...d.data()}));shareKick();renderShareList()},e=>dataError(e)));
   unsubs.push(db.collection("resources").onSnapshot(s=>{resources=s.docs.map(d=>({id:d.id,...d.data()}));renderRes();renderResView()},e=>dataError(e)));
   unsubs.push(db.collection("inbox").onSnapshot(s=>{inbox=s.docs.map(d=>({id:d.id,...d.data()}));renderInbox();calRefresh()},e=>dataError(e)));
   unsubs.push(db.collection("todolists").onSnapshot(s=>{todoLists=s.docs.map(d=>({id:d.id,...d.data()}));renderTodo()},e=>dataError(e)));
@@ -8438,7 +8478,7 @@ else{
     idToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.resolve(null),
     wipe:async()=>{try{await F.terminate(fs)}catch(e){}try{await F.clearIndexedDbPersistence(fs)}catch(e){}}
   });
-  A.onAuthStateChanged(auth,u=>{if(u)window.MouldApp.start(adapter,{email:u.email,name:u.displayName});else window.MouldApp.signedOut()});
+  A.onAuthStateChanged(auth,u=>{if(u)window.MouldApp.start(adapter,{email:u.email,name:u.displayName,uid:u.uid});else window.MouldApp.signedOut()});
 }
 </script>
 </body>

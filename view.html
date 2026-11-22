@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Work order</title>
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<style>
+/* GT Hub: a shared work order, view only. Opened from a link the owner created in the app.
+   It reads one work order through the GT Hub server (shareView / sharePhoto) and can't change anything. */
+:root{--bg:#f3f1ec;--card:#fff;--ink:#1f2328;--muted:#6b6762;--line:#e3dfd7;--soft:#f5f4f1;--accent:#e5970f;--band:#1c1c1c;--flag:#fbe9da;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,"SF Mono",Consolas,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#141414;--card:#1e1e1e;--ink:#ece9e4;--muted:#a49f97;--line:#33312e;--soft:#262523;--flag:#3d2a17}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--sans);-webkit-text-size-adjust:100%}
+.band{background:var(--band);color:#fff;border-bottom:3px solid var(--accent)}
+.band .in{max-width:860px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:12px}
+.band img{width:36px;height:36px;border-radius:8px}
+.band b{display:block;font-size:17px}.band small{color:#f0a21c;font-size:12.5px}
+.band .ro{margin-left:auto;font-size:12px;color:#c9c5bd;border:1px solid #444;border-radius:999px;padding:3px 10px;white-space:nowrap}
+main{max-width:860px;margin:0 auto;padding:18px 16px 60px;display:flex;flex-direction:column;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+h1{font-size:26px;line-height:1.2;margin:0}
+.sub{color:var(--muted);margin-top:4px}
+.toprow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.pill{display:inline-block;font-size:12.5px;font-weight:700;border-radius:999px;padding:3px 11px;white-space:nowrap;background:#e8eef8;color:#1a4f9c}
+.pill.done{background:#dff3e6;color:#17582f}.pill.hold{background:#fff0d6;color:#7a4b00}.pill.wait{background:#eee;color:#555}
+.meta{font-size:12.5px;color:var(--muted);margin-top:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:2px;border-radius:10px;overflow:hidden;margin-top:14px}
+.grid div{background:var(--soft);padding:9px 12px}.grid .full{grid-column:1/-1}
+.k{display:block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.v{white-space:pre-wrap}
+h2{font-size:17px;margin:6px 0 2px;padding-left:10px;border-left:3px solid var(--accent)}
+.subhd{background:var(--soft);border-left:3px solid var(--accent);border-radius:6px;padding:10px 12px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.subhd b{font-size:16px}.subhd small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.lab{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 3px}
+.txt{white-space:pre-wrap;overflow-wrap:anywhere}
+.tags{display:flex;flex-wrap:wrap;gap:6px}.tags span{background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:13.5px}
+.sumi{padding:10px 0;border-top:1px solid var(--line)}.sumi:first-of-type{border-top:0}.sumi .lab{margin-top:6px}
+.upd{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+.upd:first-of-type{border-top:0;margin-top:0}
+.upd .d{font-weight:700}.upd .r{color:var(--muted);font-size:12.5px;margin-left:8px}
+.upd .txt{margin:4px 0 0 2px}
+.figs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:10px}
+.fig{margin:0;cursor:zoom-in}
+.fig .ph{aspect-ratio:4/3;background:var(--soft);border-radius:8px;overflow:hidden;display:grid;place-items:center}
+.fig img{width:100%;height:100%;object-fit:contain;display:block}
+.fig figcaption{font-size:12px;color:var(--muted);margin-top:4px}.fig figcaption b{color:var(--ink);margin-right:6px}
+table{border-collapse:collapse;width:100%;font-size:14px;margin-top:4px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}th{font-size:12px;color:var(--muted);background:var(--soft)}
+td:first-child{font-weight:700}tr.flag td{background:var(--flag)}
+.tw{overflow-x:auto}
+.chk{list-style:none;margin:4px 0 0;padding:0}.chk li{padding:2px 0 2px 24px;position:relative}
+.chk li::before{content:"☐";position:absolute;left:0;color:var(--muted)}.chk li.done::before{content:"☑";color:var(--ink)}.chk li.na::before{content:"N/A";font-size:9px;font-weight:700;top:6px}
+.chk li.lv1{margin-left:18px}.chk .sec{padding-left:0;font-weight:700;color:var(--muted);font-size:13px;margin-top:6px}.chk .sec::before{content:""}
+.chk .note{padding:6px 10px;background:var(--flag);border-left:3px solid var(--accent);font-weight:600;margin:6px 0}.chk .note::before{content:""}
+.parts{margin:4px 0 0;padding-left:20px}a{color:#1a5fb4}
+.msg{text-align:center;color:var(--muted);padding:60px 16px}.msg b{display:block;color:var(--ink);font-size:20px;margin-bottom:6px}
+.lbx{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:9;padding:12px}
+.lbx img{max-width:100%;max-height:100%;object-fit:contain}
+.lbx button{position:fixed;top:12px;right:12px;font:inherit;font-size:15px;background:#fff;border:0;border-radius:999px;padding:8px 16px;cursor:pointer}
+.lbx .cap{position:fixed;left:0;right:0;bottom:14px;text-align:center;color:#ddd;font-size:14px}
+footer{max-width:860px;margin:0 auto;padding:0 16px 30px;color:var(--muted);font-size:12px;text-align:center}
+@media print{.band .ro,.lbx{display:none}body{background:#fff}.card{border:0;padding:0}}
+</style>
+</head>
+<body>
+<div class="band"><div class="in"><img src="icons/icon-192.png" alt=""><div><b id="org">GT Hub</b><small>Mould maintenance · work order</small></div><span class="ro">View only</span></div></div>
+<main id="main"><div class="msg">Loading…</div></main>
+<footer id="foot"></footer>
+<script>
+(function(){
+const FN="https://australia-southeast1-mould-log.cloudfunctions.net/";
+const t=(location.hash||"").replace(/^#/,"").trim();
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const photo=(id,big)=>FN+"sharePhoto?t="+encodeURIComponent(t)+"&id="+encodeURIComponent(id)+(big?"&s=l":"");
+const pillCls=s=>/complete|done|closed/i.test(s)?"done":/hold|wait|parts/i.test(s)?"hold":/pending|not started/i.test(s)?"wait":"";
+const pill=s=>s?`<span class="pill ${pillCls(s)}">${esc(s)}</span>`:"";
+const figRef=f=>{const ns=(f||[]).map(x=>x.fig);if(!ns.length)return "";const p=[];for(let i=0;i<ns.length;){let j=i;while(j+1<ns.length&&ns[j+1]===ns[j]+1)j++;p.push(j>i?ns[i]+"–"+ns[j]:String(ns[i]));i=j+1}return (ns.length>1?"Figs. ":"Fig. ")+p.join(", ")};
+const figs=list=>list&&list.length?`<div class="figs">${list.map(f=>`<figure class="fig" data-id="${esc(f.id)}" data-cap="Fig. ${f.fig}${f.date?" · "+esc(f.date):""}"><div class="ph"><img src="${photo(f.id)}" alt="Fig. ${f.fig}" loading="lazy"></div><figcaption><b>Fig. ${f.fig}</b>${esc(f.date||"")}</figcaption></figure>`).join("")}</div>`:"";
+function block(b){
+  switch(b.t){
+    case "grid":return `<div class="grid">${b.items.map(i=>`<div class="${i.full?"full":""}"><span class="k">${esc(i.k)}</span><span class="v">${esc(i.v)}</span></div>`).join("")}</div>`;
+    case "h":return `<h2>${esc(b.text)}</h2>`;
+    case "sub":return `<div class="subhd"><div><b>${esc((b.no?b.no+"  ":"")+b.name)}</b>${b.meta?`<small>${esc(b.meta)}</small>`:""}</div>${pill(b.status)}</div>`;
+    case "field":return (b.label?`<div class="lab">${esc(b.label)}</div>`:"")+(b.tags?`<div class="tags">${String(b.text||"").split(/,\s*/).filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join("")}</div>`:`<div class="txt">${esc(b.text)}</div>`);
+    case "upd":{const r=figRef(b.figs),more=b.figs?b.more:b.n;
+      return (b.label?`<div class="lab">${esc(b.label)}</div>`:"")+`<div class="upd"><span class="d">${esc(b.date)}</span>${r||more?`<span class="r">${esc([r,more?more+" more photo"+(more===1?"":"s")+" not shown":""].filter(Boolean).join(" · "))}</span>`:""}${b.text?`<div class="txt">${esc(b.text)}</div>`:""}${figs(b.figs)}</div>`}
+    case "table":return (b.label?`<div class="lab">${esc(b.label)}</div>`:"")+`<div class="tw"><table><thead><tr>${b.cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${b.rows.map((r,i)=>`<tr class="${(b.flagged||[]).includes(i)?"flag":""}">${r.map(v=>`<td>${esc(Array.isArray(v)?v.map(x=>typeof x==="object"?x.t:x).join("\n"):v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    case "note":return `<div class="txt" style="color:var(--muted);font-style:italic">${esc(b.text)}</div>`;
+    case "parts":return `<div class="lab">${esc(b.label)}</div><ul class="parts">${b.items.map(p=>`<li>${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.text||p.url)}</a>`:esc(p.text)}</li>`).join("")}</ul>`;
+    case "check":return `<div class="lab">${esc(b.label)}</div><div><b>${esc(b.summary)}</b></div><ul class="chk">${b.rows.map(r=>r.note?`<li class="note">Note: ${esc(r.note)}</li>`:r.sec?`<li class="sec">${esc(r.sec)}</li>`:r.group?`<li class="sec" style="font-weight:400;color:var(--ink)">${esc(r.t)}</li>`:`<li class="${r.st==="done"?"done":r.st==="na"?"na":""} ${r.lvl?"lv1":""}">${esc(r.t)}</li>`).join("")}</ul>`;
+    default:return ""}}
+function render(d){const s=d.snap;if(!s){$("#main").innerHTML=`<div class="msg"><b>Nothing to show yet</b>This work order hasn't been prepared for viewing.</div>`;return}
+  document.title=s.title+" · "+s.subtitle;$("#org").textContent=s.org||"GT Hub";
+  const bl=s.blocks||[],grid=bl.find(b=>b.t==="grid"),rest=bl.filter(b=>b!==grid);
+  // sections: everything up to each heading goes in one card
+  const cards=[];let cur=[];for(const b of rest){if(b.t==="h"&&cur.length){cards.push(cur);cur=[]}cur.push(b)}if(cur.length)cards.push(cur);
+  let h=`<div class="card"><div class="toprow"><div><h1>${esc(s.title)}</h1><div class="sub">${esc(s.subtitle)}</div></div>${pill(s.status)}</div>${grid?block(grid):""}</div>`;
+  if(s.summary)h+=`<div class="card"><h2>Summary</h2>${s.summary.map(x=>`<div class="sumi"><div class="toprow"><b>${esc((x.no?x.no+"  ":"")+x.name)}</b>${pill(x.status)}</div>${[["Description",x.desc],["Inspection / faults found",x.insp],["Work done",x.work]].filter(y=>y[1]).map(y=>`<div class="lab">${y[0]}</div><div class="txt">${esc(y[1])}</div>`).join("")}</div>`).join("")}</div>`;
+  h+=cards.map(c=>`<div class="card">${c.map(block).join("")}</div>`).join("");
+  if((s.groups||[]).length)h+=`<div class="card"><h2>Photos</h2>${s.groups.map(g=>(g.title?`<div class="lab">${esc(g.title)}</div>`:"")+figs(g.imgs)).join("")}</div>`;
+  $("#main").innerHTML=h;
+  const upd=d.updatedAt?new Date(d.updatedAt):null,exp=d.expires?new Date(d.expires):null,f=x=>x.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
+  $("#foot").textContent=["Shared from GT Hub. View only.",upd?"Last updated "+f(upd)+" "+upd.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})+".":"",exp?"This link works until "+f(exp)+".":""].filter(Boolean).join(" ")}
+document.addEventListener("click",e=>{const fg=e.target.closest(".fig");if(fg){const o=document.createElement("div");o.className="lbx";o.innerHTML=`<img src="${photo(fg.dataset.id,true)}" alt=""><button type="button">Close</button><div class="cap">${fg.dataset.cap}</div>`;o.onclick=()=>o.remove();document.body.appendChild(o);return}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){const o=$(".lbx");if(o)o.remove()}});
+if(!/^[A-Za-z0-9_-]{24,64}$/.test(t)){$("#main").innerHTML=`<div class="msg"><b>This link isn't complete</b>Check that the whole link was copied.</div>`;return}
+fetch(FN+"shareView",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({t})})
+  .then(r=>r.json().then(j=>({ok:r.ok,j})))
+  .then(({ok,j})=>{if(!ok){$("#main").innerHTML=`<div class="msg"><b>Not available</b>${esc(j.error||"This link doesn't work.")}</div>`;return}render(j)})
+  .catch(()=>{$("#main").innerHTML=`<div class="msg"><b>Couldn't load</b>Check your connection and try again.</div>`});
+})();
+</script>
+</body>
+</html>

@@ -96,3 +96,67 @@ exports.driveUnlink = onCall(OPTS, async req => {
   }
   return {linked: false};
 });
+
+// ---- Shared work orders: a view-only page for supervisors ----
+// The owner's app writes shares/<random link id> = {uid, logId, sub, expires, revoked, snap, photoIds}: snap is the
+// work order as it should be shown (built and kept up to date by the app), photoIds the Drive photos it may show.
+// These two functions are the only way in: no sign-in, but only with the link's id, and never more than that.
+const {onRequest} = require("firebase-functions/v2/https");
+const SHARE_OPTS = {region: "australia-southeast1", cors: true, secrets: [CLIENT_SECRET, TOKEN_KEY], maxInstances: 4, memory: "256MiB", timeoutSeconds: 60};
+const shareRef = t => getFirestore().collection("shares").doc(t);
+const tokOk = t => typeof t === "string" && /^[A-Za-z0-9_-]{24,64}$/.test(t);
+async function liveShare(t) {
+  if (!tokOk(t)) return null;
+  const s = await shareRef(t).get();
+  if (!s.exists) return null;
+  const d = s.data();
+  if (d.revoked || (d.expires && Date.parse(d.expires) < Date.now())) return {gone: true};
+  return d;
+}
+// a Drive pass for the share owner's account (the stored, encrypted long-lived login)
+const passCache = new Map();
+async function ownerPass(uid) {
+  const c = passCache.get(uid);
+  if (c && c.exp > Date.now() + 60000) return c.tok;
+  const snap = await docFor(uid).get();
+  if (!snap.exists) return null;
+  const r = await google({refresh_token: open(snap.data()), grant_type: "refresh_token"});
+  if (!r.ok) return null;
+  passCache.set(uid, {tok: r.j.access_token, exp: Date.now() + (r.j.expires_in || 3600) * 1000});
+  return r.j.access_token;
+}
+
+exports.shareView = onRequest(SHARE_OPTS, async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const t = String((req.body && req.body.t) || req.query.t || "");
+  const d = await liveShare(t).catch(() => null);
+  if (!d) return res.status(404).json({error: "This link doesn't exist."});
+  if (d.gone) return res.status(410).json({error: "This link has expired or sharing was stopped."});
+  res.json({snap: d.snap || null, expires: d.expires || null, updatedAt: d.updatedAt || null});
+});
+
+exports.sharePhoto = onRequest(SHARE_OPTS, async (req, res) => {
+  const t = String(req.query.t || ""), id = String(req.query.id || ""), big = req.query.s === "l";
+  const d = await liveShare(t).catch(() => null);
+  if (!d || d.gone || !/^[A-Za-z0-9_-]{10,100}$/.test(id) || !(d.photoIds || []).includes(id)) return res.status(404).send("Not found");
+  const tok = await ownerPass(d.uid).catch(() => null);
+  if (!tok) return res.status(503).send("Photos are unavailable right now");
+  const H = {Authorization: "Bearer " + tok};
+  try {
+    // a sized copy from Drive's thumbnail service; the original file if that isn't available
+    const m = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=thumbnailLink,mimeType&supportsAllDrives=true`, {headers: H});
+    const meta = m.ok ? await m.json() : {};
+    let r = null;
+    if (meta.thumbnailLink) {
+      r = await fetch(meta.thumbnailLink.replace(/=s\d+(-[a-z]+)?$/, "") + (big ? "=s2000" : "=s800"), {headers: H});
+      if (!r.ok || !String(r.headers.get("content-type") || "").startsWith("image/")) r = null;
+    }
+    if (!r) r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true`, {headers: H});
+    if (!r.ok) return res.status(404).send("Not found");
+    res.set("Content-Type", r.headers.get("content-type") || meta.mimeType || "image/jpeg");
+    res.set("Cache-Control", "private, max-age=86400");
+    res.send(Buffer.from(await r.arrayBuffer()));
+  } catch (e) {
+    res.status(502).send("Couldn't load the photo");
+  }
+});
