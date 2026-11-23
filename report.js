@@ -35,14 +35,14 @@ function reportModel(l,onlyId,opt){opt=opt||{};const withUpd=opt.updates!==false
     if(!(m&&isGen(m))&&rptHas(v.shots))out.push({t:"field",label:"Shot count",text:fmtNum(v.shots)});
     if(rptHas(v.faults))out.push({t:"field",label:"Inspection / faults found",text:v.faults});
     if((v.defects||[]).length)out.push({t:"field",label:"Defects",text:v.defects.join(", "),tags:true});
-    {const hz=hrzClean(v.hrz);if(hrzHasData(hz))out.push({t:"table",label:"Hot runner readings",cols:hrzCols(hz),rows:hrzRows(hz),flagged:hrzFlagged(hz),insp:true})}
+    {const hz=hrzClean(v.hrz);if(hrzHasData(hz))for(const k of hrzKinds(hz))out.push({t:"table",label:k==="i"?hrzMegTitle(hz):"Hot runner readings",cols:hrzCols(hz,k),rows:hrzRows(hz,k),flagged:hrzFlagged(hz),insp:true})}
     if(rptHas(v.work))out.push({t:"field",label:"Work done",text:v.work});
     if((v.actions||[]).length)out.push({t:"field",label:"Actions",text:v.actions.join(", "),tags:true});
     // Updates: each one dated, its text with its own line breaks, a photo count (the photos themselves are in
     // "Photos & files"), and any hot runner readings taken with it straight underneath
     updClean(v.updates).forEach((x,i)=>{
       if(withUpd)out.push({t:"upd",label:i?"":"Updates",date:fmtDate(x.date),text:x.text||"",n:(x.files||[]).length,files:x.files||[],owner:id});
-      if(x.hrz)out.push({t:"table",label:withUpd?"Hot runner readings":"Hot runner readings · "+fmtDate(x.date),cols:hrzCols(x.hrz),rows:hrzRows(x.hrz),flagged:hrzFlagged(x.hrz)})});
+      if(x.hrz){const hz=hrzClean(x.hrz);for(const k of hrzKinds(hz)){const lb=k==="i"?hrzMegTitle(hz):"Hot runner readings";out.push({t:"table",label:withUpd?lb:lb+" · "+fmtDate(x.date),cols:hrzCols(hz,k),rows:hrzRows(hz,k),flagged:hrzFlagged(hz)})}}});
     if(rptHas(v.notes))out.push({t:"field",label:"Notes",text:v.notes});
     const pl=cleanParts(v.partsList||partsFromText(v.parts)).map(p=>({...p,text:partLabel(p)}));if(pl.length)out.push({t:"parts",label:"Parts used",items:pl});
     setProcs(v).forEach(sn=>out.push({t:"check",label:sn.name,summary:procProgress(sn,sn.st||{}).txt,rows:procRptRows(sn),shots:v.shots}));

@@ -457,6 +457,17 @@ details.updhrz>summary{padding:10px 12px;font-size:14px}
 .hrzc.ol input{border-color:var(--bad);color:var(--bad);font-weight:700;background:var(--bad-bg)}
 .hrzol{flex:none;font:inherit;font-size:10.5px;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:6px;padding:5px 5px;cursor:pointer}
 .hrzol[aria-pressed="true"]{background:var(--bad);border-color:var(--bad);color:#fff}
+.hrzmode{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
+.hrzmode button{font:inherit;font-size:12.5px;font-weight:600;padding:6px 11px;border:0;background:none;color:var(--muted);cursor:pointer;min-height:32px}
+.hrzmode button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.hrziv{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.hrziv label{flex:1;min-width:150px}.hrziv input{width:84px;padding:6px 8px;font-size:15px;text-align:center}
+.hrzc.over input{border-color:var(--accent);font-weight:700}
+.hrzc.over .hrzol[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.hrzkey i.k-over{background:var(--accent)}
+.hrzrot{padding:8px 10px 2px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+.hrzhist .hrzmeg{font-family:var(--mono);font-size:12px;color:var(--fg);flex-basis:100%;padding-left:102px;box-sizing:border-box;margin-top:-4px}
+.hrzv small+small{display:block}
 .hrzfoot{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:8px 10px;font-size:12px;color:var(--muted);border-top:1px solid var(--line)}
 .hrzfoot .linkish{margin-left:auto;font-size:12px;color:var(--muted)}
 .hrzkey{display:inline-flex;align-items:center;gap:4px}.hrzkey i{width:10px;height:10px;border-radius:3px;display:inline-block}
@@ -2016,6 +2027,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
   <div id="ugrid" class="ugridw"></div>
   <div class="attbtns" style="margin:0"><button type="button" class="btn" id="u-add" disabled>Add photos</button><button type="button" class="btn ghost" id="u-cancel">Cancel</button></div>
 </div></div>
+<datalist id="hrzivl"><option value="250"><option value="500"><option value="1000"></datalist>
 <div class="dictbar" id="dictbar" hidden role="status" aria-live="polite">
   <span class="dictdot" aria-hidden="true"></span>
   <div class="dictmain"><b id="dictcell">Zone 1 heater</b><small id="dictheard">Say a reading…</small></div>
@@ -2691,7 +2703,7 @@ function hrReadings(m){const out=[],push=(v,date,src)=>{v=hrzClean(v);if(hrzHasD
   return out.sort((a,b)=>String(a.date).localeCompare(String(b.date)))}
 // per zone: its readings in date order, and what stands out (rules, not guesses)
 function hrZones(m){const spec=(m.hr&&m.hr.zones)||[],rs=hrReadings(m),n=Math.max(spec.length,0,...rs.map(r=>hrzUsed(r.v)));
-  return Array.from({length:n},(_,i)=>{const s=spec[i]||{},pts=rs.map(r=>({date:r.date,src:r.src,z:r.v.z[i]})).filter(x=>x.z&&(x.z.h||x.z.t||x.z.ho||x.z.to));
+  return Array.from({length:n},(_,i)=>{const s=spec[i]||{},all=rs.map(r=>({date:r.date,src:r.src,iv:r.v.iv,z:r.v.z[i]})).filter(x=>hrzMeterIn(x.z)||hrzMegIn(x.z)),pts=all.filter(x=>hrzMeterIn(x.z)),megs=all.filter(x=>hrzMegIn(x.z)),lastI=megs[megs.length-1];
     const label=(s.l||"").trim()||[...pts].reverse().map(x=>x.z.l).find(Boolean)||"",exp=hrExp(s);
     const hs=pts.filter(x=>hrNum(x.z.h)!=null&&!x.z.ho),ts=pts.filter(x=>hrNum(x.z.t)!=null&&!x.z.to),last=pts[pts.length-1],flags=[];
     if(last){const h=hrNum(last.z.h),t=hrNum(last.z.t);
@@ -2701,7 +2713,7 @@ function hrZones(m){const spec=(m.hr&&m.hr.zones)||[],rs=hrReadings(m),n=Math.ma
       if(last.z.to)flags.push("T/C open (OL)");
       else if(t!=null&&ts.length>1){const b=hrNum(ts[0].z.t);if(b&&t-b>1&&(t-b)/b>.5)flags.push(`T/C up ${Math.round(100*(t-b)/b)}% since ${nwWhen(ts[0].date)}`)}
       if(last.z.f)flags.push("Flagged on the last reading")}
-    return {i,label,exp,pts,hs,last,flags}})}
+    return {i,label,exp,pts,all,lastI,hs,last,flags}})}
 function hrSpark(z){const vals=z.hs.map(x=>hrNum(x.z.h));if(!vals.length)return `<span class="hrspark none"></span>`;
   const all=z.exp?[...vals,z.exp]:vals,lo=Math.min(...all),hi=Math.max(...all),W=96,H=26,pad=3,rng=hi-lo||Math.max(1,hi*.05);
   const X=i=>vals.length<2?W/2:pad+i*(W-2*pad)/(vals.length-1),Y=v=>H-pad-(v-lo)*(H-2*pad)/rng;
@@ -2720,9 +2732,10 @@ function renderHistHr(m){const el=$("#h-hr");if(!el)return;
     ${head?`<div class="hrhead">${esc(head)}</div>`:""}${hr.idNo?`<div class="hrid">ID no. <b>${esc(hr.idNo)}</b></div>`:""}${hr.notes?`<div class="small hrnotes">${esc(hr.notes)}</div>`:""}
     <div class="small">${rs.length?`${rs.length} set${rs.length===1?"":"s"} of readings · last ${esc(nwWhen(rs[rs.length-1].date))}${nflag?` · <b class="hrbad">${nflag} zone${nflag===1?"":"s"} to look at</b>`:""}`:"No readings yet. Readings taken on its work orders and updates show here."}</div>
     ${zs.length?`<div class="hrzlist">${zs.map(z=>{const h=z.last&&(z.last.z.ho?"OL":hrNum(z.last.z.h)!=null?hrFmt(hrNum(z.last.z.h))+" Ω":"–"),t=z.last&&(z.last.z.to?"OL":hrNum(z.last.z.t)!=null?hrFmt(hrNum(z.last.z.t))+" Ω":"");const open=hrOpenZ.has(z.i);
-      return `<div class="hrzrow${z.flags.length?" bad":""}"><button type="button" class="hrztop" data-hrz-open="${z.i}" aria-expanded="${open}"><span class="hrzn">Z${z.i+1}${z.label?` <small>${esc(z.label)}</small>`:""}</span>${hrSpark(z)}<span class="hrzv"><b>${z.last?esc(h):"–"}</b><small>${z.exp?`exp ${hrFmt(z.exp)} Ω`:""}${t?`${z.exp?" · ":""}T/C ${esc(t)}`:""}</small></span></button>
+      const ir=z.lastI&&[["H",z.lastI.z.iho?"OL":z.lastI.z.ih],["T/C",z.lastI.z.ito?"OL":z.lastI.z.it]].filter(x=>x[1]).map(x=>x[0]+" "+x[1]).join(" · ");
+      return `<div class="hrzrow${z.flags.length?" bad":""}"><button type="button" class="hrztop" data-hrz-open="${z.i}" aria-expanded="${open}"><span class="hrzn">Z${z.i+1}${z.label?` <small>${esc(z.label)}</small>`:""}</span>${hrSpark(z)}<span class="hrzv"><b>${z.last?esc(h):"–"}</b><small>${z.exp?`exp ${hrFmt(z.exp)} Ω`:""}${t?`${z.exp?" · ":""}T/C ${esc(t)}`:""}</small>${ir?`<small>Megger ${esc(ir)} MΩ</small>`:""}</span></button>
         ${z.flags.length?`<div class="hrzflags">${z.flags.map(f=>`<span>⚑ ${esc(f)}</span>`).join("")}</div>`:""}
-        ${open?`<div class="hrzhist">${z.pts.length?[...z.pts].reverse().map(x=>`<div><span>${esc(fmtDate(x.date))}</span><span>${x.src.id?`<button type="button" class="linkish" data-hrz-go="${esc(x.src.id)}|${esc(x.src.sub||"")}">${esc(x.src.lab)}</button>`:esc(x.src.lab)}</span><span>H ${esc(x.z.ho?"OL":hrFmt(hrNum(x.z.h)))}</span><span>T/C ${esc(x.z.to?"OL":hrFmt(hrNum(x.z.t)))}</span>${x.z.f?"<span>⚑</span>":""}</div>`).join(""):`<div class="small">No readings for this zone yet.</div>`}</div>`:""}</div>`}).join("")}</div>`:""}
+        ${open?`<div class="hrzhist">${z.all.length?[...z.all].reverse().map(x=>`<div><span>${esc(fmtDate(x.date))}</span><span>${x.src.id?`<button type="button" class="linkish" data-hrz-go="${esc(x.src.id)}|${esc(x.src.sub||"")}">${esc(x.src.lab)}</button>`:esc(x.src.lab)}</span>${hrzMeterIn(x.z)?`<span>H ${esc(x.z.ho?"OL":hrFmt(hrNum(x.z.h)))}</span><span>T/C ${esc(x.z.to?"OL":hrFmt(hrNum(x.z.t)))}</span>`:""}${x.z.f?"<span>⚑</span>":""}${hrzMegIn(x.z)?`<span class="hrzmeg">Megger${x.iv?" "+esc(x.iv)+" V":""}: H ${esc(x.z.iho?"OL":x.z.ih||"–")} · T/C ${esc(x.z.ito?"OL":x.z.it||"–")} MΩ</span>`:""}</div>`).join(""):`<div class="small">No readings for this zone yet.</div>`}</div>`:""}</div>`}).join("")}</div>`:""}
     ${hrPlHtml(m)}`}
 function hrEditHtml(m){const hr=JSON.parse(JSON.stringify(m.hr||{})),zs=hr.zones||[];const n=zs.length||hrZones(m).length||1;
   const row=(z,i)=>`<div class="hreditz" data-i="${i}"><span class="hrzn">Z${i+1}</span><input class="hr-l" value="${esc(z.l||"")}" placeholder="Label" aria-label="Zone ${i+1} label" autocapitalize="characters"><input class="hr-v mono" value="${esc(z.v||"")}" inputmode="decimal" placeholder="V" aria-label="Zone ${i+1} volts"><input class="hr-w mono" value="${esc(z.w||"")}" inputmode="decimal" placeholder="W" aria-label="Zone ${i+1} watts"><span class="hr-x small">${hrExp(z)?"≈ "+hrFmt(hrExp(z))+" Ω":""}</span></div>`;
@@ -5714,7 +5727,8 @@ document.addEventListener("click",e=>{const t=e.target;
 const updHrzOpen=new Set();
 function updHrzView(p,u){const v=hrzTrim(u&&u.hrz);if(!hrzHasData(v))return "";const k=p+"|"+u.id;
   return `<details class="panel ck hrzbox updhrz" data-updhrz="${esc(k)}"${updHrzOpen.has(k)?" open":""}><summary><span>Hot runner readings</span><span class="ckprog">${esc(hrzSummary(v))}</span></summary>`+
-    `<table class="hrzt hrzro"><thead><tr><th>Zone</th><th>Heater Ω</th><th>T/C Ω</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr class="${r.f?"flag":""}"><th>Z${i+1}${r.l?`<span class="hrzlab">${esc(r.l)}</span>`:""}${r.f?` <span class="hrzfl" title="Flagged">⚑</span>`:""}</th>${["h","t"].map(c=>`<td class="${r[c+"o"]?"olv":""}">${esc(hrzShow(r,c)||"–")}</td>`).join("")}</tr>`).join("")}</tbody></table></details>`}
+    hrzKinds(v).map(kd=>{const meg=kd==="i",cs=meg?["ih","it"]:["h","t"];
+      return (meg?`<div class="hrzrot">${esc(hrzMegTitle(v))}</div>`:"")+`<table class="hrzt hrzro"><thead><tr><th>Zone</th><th>${meg?"Heater–earth MΩ":"Heater Ω"}</th><th>${meg?"T/C–earth MΩ":"T/C Ω"}</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr class="${r.f?"flag":""}"><th>Z${i+1}${r.l?`<span class="hrzlab">${esc(r.l)}</span>`:""}${r.f?` <span class="hrzfl" title="Flagged">⚑</span>`:""}</th>${cs.map(c=>`<td class="${r[c+"o"]&&!meg?"olv":""}">${esc(hrzShow(r,c)||"–")}</td>`).join("")}</tr>`).join("")}</tbody></table>`}).join("")+`</details>`}
 document.addEventListener("toggle",e=>{const d=e.target;if(d.dataset&&d.dataset.updhrz){if(d.open)updHrzOpen.add(d.dataset.updhrz);else updHrzOpen.delete(d.dataset.updhrz)}},true);
 function renderUpd(p){
   setTimeout(()=>{if(typeof updFabShow==="function")updFabShow();if(typeof aiSumBtns==="function")aiSumBtns()},0);
@@ -6526,20 +6540,29 @@ updOn("keydown",e=>{if(e.key==="Enter"&&e.target.classList.contains("updd"))e.pr
 // (main / sub-job page), "uf"/"ub" the one in the update being written on that page.
 let fHrz=null,bHrz=null,hrzOpen={f:false,b:false};
 // The one-line summary shown when the table is folded away
-function hrzSummary(v){const filled=v.z.filter(r=>r.h||r.t||r.ho||r.to).length,ol=v.z.reduce((a,r)=>a+(r.ho?1:0)+(r.to?1:0),0),fl=v.z.filter(r=>r.f).length;
-  return `${v.n} zone${v.n===1?"":"s"}`+(filled<v.n?` · ${filled} done`:"")+(ol?` · ${ol} OL`:"")+(fl?` · ${fl} flagged`:"")}
+function hrzSummary(v){const filled=v.z.filter(hrzMeterIn).length,ol=v.z.reduce((a,r)=>a+(r.ho?1:0)+(r.to?1:0),0),fl=v.z.filter(r=>r.f).length,meg=v.z.filter(hrzMegIn).length;
+  return `${v.n} zone${v.n===1?"":"s"}`+(meg&&!filled?"":filled<v.n?` · ${filled} done`:"")+(ol?` · ${ol} OL`:"")+(meg?` · megger ${meg<v.n?meg+" done":"done"}`:"")+(fl?` · ${fl} flagged`:"")}
 const hrzUpd=p=>p.length>1&&updOpen&&updOpen.p===p.slice(1)?updOpen:null;
 const hrzList=p=>p==="f"?fHrz:p==="b"?bHrz:(hrzUpd(p)||{}).hrz||null;
 const hrzSet=(p,v)=>{if(p==="f")fHrz=v;else if(p==="b")bHrz=v;else{const u=hrzUpd(p);if(u)u.hrz=v}};
 const hrzEl=p=>$("#"+p+"-hrz");
+// Each zone: multimeter heater/T-C ohms (h, t; ho/to = open circuit) and the insulation (megger) test to earth in MΩ
+// (ih heater–earth, it T/C–earth; iho/ito = over the meter's range, i.e. no leak it can measure). iv: megger test voltage.
 function hrzClean(v){if(!v||!(+v.n>0))return null;const n=Math.min(64,Math.max(1,Math.round(+v.n)));
-  const z=Array.from({length:n},(_,i)=>{const r=(v.z||[])[i]||{},h=String(r.h??"").trim(),t=String(r.t??"").trim(),isOl=x=>/^ol$/i.test(x);
-    return {l:String(r.l??"").trim().toUpperCase(),h:isOl(h)?"":h,t:isOl(t)?"":t,ho:!!r.ho||isOl(h),to:!!r.to||isOl(t),f:!!r.f}});return {n,z}}
+  const z=Array.from({length:n},(_,i)=>{const r=(v.z||[])[i]||{},isOl=x=>/^ol$/i.test(x),g=k=>String(r[k]??"").trim(),h=g("h"),t=g("t"),ih=g("ih"),it=g("it");
+    return {l:String(r.l??"").trim().toUpperCase(),h:isOl(h)?"":h,t:isOl(t)?"":t,ho:!!r.ho||isOl(h),to:!!r.to||isOl(t),
+      ih:isOl(ih)?"":ih,it:isOl(it)?"":it,iho:!!r.iho||isOl(ih),ito:!!r.ito||isOl(it),f:!!r.f}});
+  return {n,z,iv:String(v.iv??"").trim()}}
+const hrzMeterIn=r=>!!(r&&(r.h||r.t||r.ho||r.to)),hrzMegIn=r=>!!(r&&(r.ih||r.it||r.iho||r.ito));
+const hrzHasMeter=v=>!!(v&&v.z&&v.z.some(hrzMeterIn)),hrzHasMeg=v=>!!(v&&v.z&&v.z.some(hrzMegIn));
 // zones up to the last one with a reading in it: a saved table shows these, not empty zones left at the end
-function hrzUsed(v){if(!v||!v.z)return 0;let n=0;v.z.forEach((r,i)=>{if(r.h||r.t||r.ho||r.to||r.f)n=i+1});return n}
-function hrzTrim(v){const n=hrzUsed(v);return n&&n<v.n?{n,z:v.z.slice(0,n)}:v}
-function hrzHasData(v){return !!(v&&v.z&&v.z.some(r=>r.h||r.t||r.l||r.ho||r.to||r.f))}
+function hrzUsed(v){if(!v||!v.z)return 0;let n=0;v.z.forEach((r,i)=>{if(hrzMeterIn(r)||hrzMegIn(r)||r.f)n=i+1});return n}
+function hrzTrim(v){const n=hrzUsed(v);return n&&n<v.n?{...v,n,z:v.z.slice(0,n)}:v}
+function hrzHasData(v){return !!(v&&v.z&&v.z.some(r=>hrzMeterIn(r)||hrzMegIn(r)||r.l||r.f))}
 const hrzShow=(r,c)=>r[c+"o"]?"OL":(r[c]||"");
+// which table a panel is showing: "m" multimeter (ohms) or "i" insulation / megger (MΩ to earth)
+const hrzMode={},hrzModeObj={};const hrzCols2=p=>hrzMode[p]==="i"?["ih","it"]:["h","t"];
+const hrzColName=c=>({h:"heater",t:"T/C",ih:"heater to earth",it:"T/C to earth"})[c];
 const hrzHasLabels=v=>!!(v&&v.z&&v.z.some(r=>r.l));
 // Suggested next label: G01 → G02, M09 → M10, NL → NL
 function hrzNextLabel(prev){const m=String(prev||"").match(/^(.*?)(\d+)$/);if(!m)return prev||"";return m[1]+String(+m[2]+1).padStart(m[2].length,"0")}
@@ -6548,7 +6571,7 @@ const hrzMouldOf=p=>{const k=p.slice(-1);return k==="f"?mainFor:k==="m"?mUpdFor:
 function hrzDirty(p,ms){if(String(p).slice(-1)==="m")return;markDirty(ms)}
 // The most recent readings for this mould (shown faintly as a guide): from other work orders and their updates, and for
 // an update's table also this work order's own table and its other updates (on or before the update's date)
-function hrzPrev(p){const mid=hrzMouldOf(p);if(!mid||mid===FORCE)return null;const all=[];
+function hrzPrev(p,kind){const mid=hrzMouldOf(p);if(!mid||mid===FORCE)return null;const all=[];
   for(const l of logs){if(l.id===editingId||!jobIds(l).includes(mid))continue;const v=pmVal(l,mid),w=hrzClean(v.hrz);
     if(hrzHasData(w))all.push({v:w,wo:l.wo,date:l.date||""});
     for(const u of updClean0(v.updates))if(u.hrz)all.push({v:u.hrz,wo:l.wo,date:u.date,upd:true})}
@@ -6559,6 +6582,7 @@ function hrzPrev(p){const mid=hrzMouldOf(p);if(!mid||mid===FORCE)return null;con
   if(up&&p!=="um"){const fp=p.slice(1),w=hrzClean(hrzList(fp)),c=hrzEl(p)&&hrzEl(p).closest(".updnew"),dd=c&&c.querySelector(".updd");upTo=(dd&&dd.value)||"";
     if(hrzHasData(w))all.push({v:w,cur:true,date:$(fp==="f"?"#f-date":"#b-date").value||""});
     for(const u of updClean0(updList(fp)))if(u.hrz&&u.id!==up.id)all.push({v:u.hrz,cur:true,upd:true,date:u.date})}
+  if(kind==="i")for(let j=all.length-1;j>=0;j--)if(!hrzHasMeg(all[j].v))all.splice(j,1); // the megger table's hints: the last megger test
   all.sort((a,b)=>String(b.date).localeCompare(String(a.date))||(b.cur?1:0)-(a.cur?1:0));
   return (upTo&&all.find(x=>!x.date||x.date<=upTo))||all[0]||null}
 // an update's "Adds to the … entry" note depends on whether it has readings (two sets of readings never merge)
@@ -6571,28 +6595,32 @@ function renderHrz(p,force){
   const sig=mid+"|"+(v?v.n:"none")+"|"+editingId+"|"+((hrzUpd(p)||{}).draft||"");
   if(!force&&el.dataset.sig===sig&&el.firstChild){if(v)hrzRefresh(p);return}
   el.dataset.sig=sig;
+  if(v&&hrzModeObj[p]!==v){hrzModeObj[p]=v;hrzMode[p]=hrzHasMeg(v)&&!hrzHasMeter(v)?"i":"m"}
   if(!v){const pv=hrzPrev(p);el.innerHTML=`<button type="button" class="addmould" data-hrzadd="${p}">+ Hot runner readings${pv?` <span class="hrzlast">(last: ${hrzUsed(pv.v)||pv.v.n} zone${(hrzUsed(pv.v)||pv.v.n)===1?"":"s"} on ${esc(hrzFrom(pv))})</span>`:""}</button>`;return}
-  const pv=hrzPrev(p),lab=i=>{const val=v.z[i].l,sug=(pv&&pv.v.z[i]&&pv.v.z[i].l)||(i?hrzNextLabel(v.z[i-1].l):"");
+  const pv=hrzPrev(p,hrzMode[p]),lab=i=>{const val=v.z[i].l,sug=(pv&&pv.v.z[i]&&pv.v.z[i].l)||(i?hrzNextLabel(v.z[i-1].l):"");
       return `<input class="hrzl mono" autocapitalize="characters" autocomplete="off" enterkeyhint="next" data-hrz="${p}|${i}|l" value="${esc(val)}" placeholder="${esc(sug||"Label")}" aria-label="Zone ${i+1} label">`},
+    meg=hrzMode[p]==="i",[c1,c2]=hrzCols2(p),
     cell=(i,c)=>{const val=v.z[i][c],ol=!!v.z[i][c+"o"],last=pv&&pv.v.z[i]?hrzShow(pv.v.z[i],c):"";
-    return `<td><div class="hrzc${ol?" ol":""}"><input class="mono" inputmode="decimal" enterkeyhint="${c==="t"&&i===v.n-1?"done":"next"}" autocomplete="off" data-hrz="${p}|${i}|${c}" value="${esc(val)}" placeholder="${esc(last||"Ω")}" aria-label="Zone ${i+1} ${c==="h"?"heater":"thermocouple"} ohms"><button type="button" class="hrzol" data-hrzol="${p}|${i}|${c}" aria-pressed="${ol}" title="Open circuit">OL</button></div></td>`};
-  el.innerHTML=`<details class="panel ck hrzbox" data-hrzd="${p}"${hrzOpen[p]?" open":""}><summary><span>Hot runner readings</span><span class="ckprog hrzsum">${esc(hrzSummary(v))}</span></summary><div class="hrzhead"><span class="hrztitle">Zones</span>${SpeechRec?`<button type="button" class="hrzmic${dict&&dict.p===p?" on":""}" data-hrzmic="${p}" aria-pressed="${!!(dict&&dict.p===p)}" title="Say the readings instead of typing them"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="7" y="2.5" width="6" height="10" rx="3"/><path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5"/></svg>Dictate</button>`:""}
+    return `<td><div class="hrzc${ol?(meg?" over":" ol"):""}"><input class="mono" inputmode="decimal" enterkeyhint="${c===c2&&i===v.n-1?"done":"next"}" autocomplete="off" data-hrz="${p}|${i}|${c}" value="${esc(val)}" placeholder="${esc(last||(meg?"MΩ":"Ω"))}" aria-label="Zone ${i+1} ${hrzColName(c)} ${meg?"megohms":"ohms"}"><button type="button" class="hrzol" data-hrzol="${p}|${i}|${c}" aria-pressed="${ol}" title="${meg?"Over range (higher than the meter reads)":"Open circuit"}">OL</button></div></td>`};
+  el.innerHTML=`<details class="panel ck hrzbox" data-hrzd="${p}"${hrzOpen[p]?" open":""}><summary><span>Hot runner readings</span><span class="ckprog hrzsum">${esc(hrzSummary(v))}</span></summary><div class="hrzhead"><span class="hrzmode" role="group" aria-label="Which test"><button type="button" data-hrzmode="${p}|m" aria-pressed="${!meg}">Multimeter</button><button type="button" data-hrzmode="${p}|i" aria-pressed="${meg}">Megger</button></span>${SpeechRec?`<button type="button" class="hrzmic${dict&&dict.p===p?" on":""}" data-hrzmic="${p}" aria-pressed="${!!(dict&&dict.p===p)}" title="Say the readings instead of typing them"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="7" y="2.5" width="6" height="10" rx="3"/><path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5"/></svg>Dictate</button>`:""}
       <span class="hrzn"><button type="button" data-hrzstep="${p}|-1" aria-label="One less zone">−</button><input class="mono" type="number" inputmode="numeric" min="1" max="64" value="${v.n}" data-hrzn="${p}" aria-label="Number of zones"><button type="button" data-hrzstep="${p}|1" aria-label="One more zone">+</button><span>zones</span></span></div>
-    <table class="hrzt"><thead><tr><th>Zone</th><th>Heater Ω</th><th>T/C Ω</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr class="${r.f?"flag":""}"><th><button type="button" class="hrzz" data-hrzflag="${p}|${i}" aria-pressed="${r.f}" title="Flag this zone">Z${i+1}</button>${lab(i)}</th>${cell(i,"h")}${cell(i,"t")}</tr>`).join("")}</tbody></table>
-    <div class="hrzfoot">${pv?`<span>Grey numbers: last readings, ${esc(hrzFrom(pv))}${pv.date?" · "+esc(fmtDate(pv.date)):""}.</span> `:""}<span class="hrzkey"><i class="k-dev"></i> flagged (tap a zone number)</span> <span class="hrzkey"><i class="k-ol"></i> open circuit</span>
+    ${meg?`<div class="hrziv"><label for="hrziv-${p}">Insulation test to earth · test voltage</label><input id="hrziv-${p}" class="mono" inputmode="numeric" list="hrzivl" autocomplete="off" data-hrziv="${p}" value="${esc(v.iv||"")}" placeholder="${esc((pv&&pv.v.iv)||"e.g. 500")}"><span>V</span></div>`:""}
+    <table class="hrzt"><thead><tr><th>Zone</th><th>${meg?"Heater–earth MΩ":"Heater Ω"}</th><th>${meg?"T/C–earth MΩ":"T/C Ω"}</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr class="${r.f?"flag":""}"><th><button type="button" class="hrzz" data-hrzflag="${p}|${i}" aria-pressed="${r.f}" title="Flag this zone">Z${i+1}</button>${lab(i)}</th>${cell(i,c1)}${cell(i,c2)}</tr>`).join("")}</tbody></table>
+    <div class="hrzfoot">${pv?`<span>Grey numbers: last readings, ${esc(hrzFrom(pv))}${pv.date?" · "+esc(fmtDate(pv.date)):""}.</span> `:""}<span class="hrzkey"><i class="k-dev"></i> flagged (tap a zone number)</span> ${meg?`<span class="hrzkey"><i class="k-over"></i> OL: over range</span>`:`<span class="hrzkey"><i class="k-ol"></i> open circuit</span>`}
       <button type="button" class="linkish" data-hrzdel="${p}">Remove table</button></div></details>`;
   if(dict&&dict.p===p){const vv=hrzList(p);if(!vv)dictStop();else{if(dict.i>=vv.n)dict.i=vv.n-1;dictMark()}}
 }
 function hrzRefresh(p){const el=hrzEl(p),v=hrzList(p);if(!el||!v)return;
   const sm=el.querySelector(".hrzsum");if(sm)sm.textContent=hrzSummary(v);
   el.querySelectorAll("[data-hrz]:not(.hrzl)").forEach(inp=>{const[,i,c]=inp.dataset.hrz.split("|"),ol=!!v.z[+i][c+"o"];
-    inp.parentElement.classList.toggle("ol",ol);inp.parentElement.querySelector(".hrzol").setAttribute("aria-pressed",String(ol))});
+    inp.parentElement.classList.toggle(c[0]==="i"?"over":"ol",ol);inp.parentElement.querySelector(".hrzol").setAttribute("aria-pressed",String(ol))});
   el.querySelectorAll("[data-hrzflag]").forEach(b=>{const i=+b.dataset.hrzflag.split("|")[1],f=!!v.z[i].f;b.setAttribute("aria-pressed",String(f));b.closest("tr").classList.toggle("flag",f)})}
-function hrzResize(p,n){const v=hrzList(p)||{n:0,z:[]};hrzSet(p,hrzClean({n,z:v.z}));renderHrz(p,true);hrzDirty(p,400)}
+function hrzResize(p,n){const v=hrzList(p)||{n:0,z:[]},nv=hrzClean({...v,n});hrzSet(p,nv);hrzModeObj[p]=nv;renderHrz(p,true);hrzDirty(p,400)}
 updOn("input",e=>{const t=e.target;
   if(t.dataset&&t.dataset.hrz){const[p,i,c]=t.dataset.hrz.split("|"),v=hrzList(p);if(!v)return;
     if(c==="l"){v.z[+i].l=t.value.trim().toUpperCase();const nx=$(`[data-hrz="${p}|${+i+1}|l"]`);if(nx&&!nx.value)nx.placeholder=hrzNextLabel(v.z[+i].l)||"Label";return}
     v.z[+i][c]=t.value.trim();const sm=t.closest(".hrz").querySelector(".hrzsum");if(sm)sm.textContent=hrzSummary(v);return}});
+updOn("input",e=>{const t=e.target;if(t.dataset&&t.dataset.hrziv){const v=hrzList(t.dataset.hrziv);if(v){v.iv=t.value.trim();hrzDirty(t.dataset.hrziv,400)}}});
 updOn("toggle",e=>{const d=e.target;if(d.dataset&&d.dataset.hrzd)hrzOpen[d.dataset.hrzd]=d.open},true);
 updOn("change",e=>{const t=e.target;if(t.dataset&&t.dataset.hrzn){const n=Math.min(64,Math.max(1,parseInt(t.value,10)||1));hrzResize(t.dataset.hrzn,n)}});
 updOn("keydown",e=>{const t=e.target;
@@ -6601,7 +6629,7 @@ updOn("keydown",e=>{const t=e.target;
   if(t.dataset&&t.dataset.hrz&&(e.key==="Enter"||e.keyCode===13)){e.preventDefault();hrzNext(t)}});
 function hrzNext(t){const[p,i,c]=t.dataset.hrz.split("|");
   if(c==="l"&&!t.value.trim()&&t.placeholder&&t.placeholder!=="Label"){t.value=t.placeholder;t.dispatchEvent(new Event("input",{bubbles:true}))}
-  const nx=$(`[data-hrz="${p}|${+i+1}|${c}"]`)||(c==="l"?$(`[data-hrz="${p}|0|h"]`):c==="h"?$(`[data-hrz="${p}|0|t"]`):null);
+  const [c1,c2]=hrzCols2(p),nx=$(`[data-hrz="${p}|${+i+1}|${c}"]`)||(c==="l"?$(`[data-hrz="${p}|0|${c1}"]`):c===c1?$(`[data-hrz="${p}|0|${c2}"]`):null);
   if(nx){nx.focus({preventScroll:true});nx.scrollIntoView({block:"nearest"});try{nx.select()}catch(e){}return true}t.blur();return false}
 // ---- Hot runner dictation: say the readings instead of typing them (hands stay on the meter) ----
 // Uses the browser's speech recognition (Chrome on Android needs a connection for it). Each number said goes into the
@@ -6660,12 +6688,13 @@ function dictParse(text){
   return out}
 const dictCellEl=()=>dict&&$(`[data-hrz="${dict.p}|${dict.i}|${dict.c}"]`);
 function dictOrder(){const v=hrzList(dict.p),o=[];if(!v)return o;
-  if(dictPref.order==="row")for(let i=0;i<v.n;i++)o.push([i,"h"],[i,"t"]);
-  else{for(let i=0;i<v.n;i++)o.push([i,"h"]);for(let i=0;i<v.n;i++)o.push([i,"t"])}return o}
+  const [a,b]=hrzCols2(dict.p);
+  if(dictPref.order==="row")for(let i=0;i<v.n;i++)o.push([i,a],[i,b]);
+  else{for(let i=0;i<v.n;i++)o.push([i,a]);for(let i=0;i<v.n;i++)o.push([i,b])}return o}
 function dictMove(d){const o=dictOrder(),j=o.findIndex(x=>x[0]===dict.i&&x[1]===dict.c)+d;if(j<0)return false;if(j>=o.length){dict.end=true;return false}[dict.i,dict.c]=o[j];return true}
 const dictZone=i=>{const v=hrzList(dict.p),l=v&&v.z[i]&&v.z[i].l;return l?l:`Zone ${i+1}`};
-const dictName=(i,c)=>`${dictZone(i)} ${c==="h"?"heater":"T/C"}`;
-const dictSpoken=(i,c)=>`${dictZone(i)} ${c==="h"?"heater":"thermocouple"}`;
+const dictName=(i,c)=>`${dictZone(i)} ${c.endsWith("h")?"heater":"T/C"}`;
+const dictSpoken=(i,c)=>`${dictZone(i)} ${c.endsWith("h")?"heater":"thermocouple"}`;
 function dictMark(){document.querySelectorAll(".hrzc.dict").forEach(x=>x.classList.remove("dict"));if(!dict)return;
   const el=dictCellEl();if(el){el.parentElement.classList.add("dict");const r=el.getBoundingClientRect();if(r.top<90||r.bottom>innerHeight-170)el.scrollIntoView({block:"center",behavior:reduceMotion()?"auto":"smooth"})}
   $("#dictcell").textContent=dict.end?"All zones done":dictName(dict.i,dict.c);
@@ -6680,10 +6709,10 @@ function dictRun(acts){if(!dict)return;const v=hrzList(dict.p);if(!v)return;cons
     if(x.a==="stop"){dictStop("Dictation stopped");return}
     if(x.a==="which"){say.push("Which zone?");continue}
     if(x.a==="zone"){if(x.n>=1&&x.n<=v.n){dict.i=x.n-1;dict.end=false;if(!fills)say.push(dictSpoken(dict.i,dict.c))}else say.push(`There are only ${v.n} zones`);continue}
-    if(x.a==="col"){dict.c=x.c;dict.end=false;if(!fills)say.push(dictSpoken(dict.i,dict.c));continue}
+    if(x.a==="col"){dict.c=hrzMode[dict.p]==="i"?"i"+x.c:x.c;dict.end=false;if(!fills)say.push(dictSpoken(dict.i,dict.c));continue}
     if(dict.end&&["val","ol","skip","clear","flag"].includes(x.a)){say.push("All zones are done. Say a zone number to go back.");continue}
     if(x.a==="val"||x.a==="ol"){const prev=dictSetVal(dict.i,dict.c,x.v,x.a==="ol");if(prev)dict.hist.push(prev);
-      say.push(`${dictSpoken(dict.i,dict.c).replace(/^Zone /,"")}, ${x.a==="ol"?"open circuit":x.v}`);dictMove(1);continue}
+      say.push(`${dictSpoken(dict.i,dict.c).replace(/^Zone /,"")}, ${x.a==="ol"?(dict.c[0]==="i"?"over range":"open circuit"):x.v}`);dictMove(1);continue}
     if(x.a==="skip"){dictMove(1);say.push(dict.end?"That was the last one":dictSpoken(dict.i,dict.c));continue}
     if(x.a==="back"){if(dict.end)dict.end=false;else dictMove(-1);say.push(dictSpoken(dict.i,dict.c));continue}
     if(x.a==="undo"){const h=dict.hist.pop();if(!h){say.push("Nothing to undo");continue}
@@ -6734,7 +6763,7 @@ async function dictStart(p){
   if(!hrzList(p)){const add=$(`[data-hrzadd="${p}"]`);if(add)add.click();if(!hrzList(p))return}
   hrzOpen[p]=true;const d=document.querySelector(`[data-hrzd="${p}"]`);if(d)d.open=true;
   // start where the cursor is, else at the first empty cell
-  const a=document.activeElement,v=hrzList(p);dict={p,i:0,c:"h",on:true,hist:[],starts:[],lang:navigator.language||"en-AU",end:false};
+  const a=document.activeElement,v=hrzList(p);dict={p,i:0,c:hrzCols2(p)[0],on:true,hist:[],starts:[],lang:navigator.language||"en-AU",end:false};
   if(a&&a.dataset&&a.dataset.hrz&&a.dataset.hrz.startsWith(p+"|")&&!a.dataset.hrz.endsWith("|l")){const[,i,c]=a.dataset.hrz.split("|");dict.i=+i;dict.c=c}
   else{const o=dictOrder(),e=o.find(([i,c])=>!v.z[i][c]&&!v.z[i][c+"o"]);if(e)[dict.i,dict.c]=e}
   if(a&&a.blur)a.blur(); // no keyboard
@@ -6760,7 +6789,12 @@ document.addEventListener("submit",e=>{const a=document.activeElement;if(a&&a.da
 updOn("click",e=>{const t=e.target;
   const add=t.closest("[data-hrzadd]");if(add){const p=add.dataset.hrzadd,pv=hrzPrev(p),sl=hrSpecLabels(p),n=sl?sl.length:pv?hrzUsed(pv.v)||pv.v.n:4;
     hrzSet(p,hrzClean({n,z:Array.from({length:n},(_,i)=>({l:(sl&&sl[i]&&sl[i].l)||(pv&&pv.v.z[i]&&pv.v.z[i].l)||""}))}));hrzOpen[p]=true;renderHrz(p,true);hrzDirty(p,400);hrzUpdHint(p);
-    const first=$(`[data-hrz="${p}|0|h"]`);if(first)first.focus();return}
+    const first=$(`[data-hrz="${p}|0|${hrzCols2(p)[0]}"]`);if(first)first.focus();return}
+  const md=t.closest("[data-hrzmode]");if(md){const[p,k]=md.dataset.hrzmode.split("|");if(hrzMode[p]===k||(k==="m"&&!hrzMode[p]))return;
+    if(dict&&dict.p===p)dictStop();hrzMode[p]=k;const v=hrzList(p);
+    // a first megger test here: the test voltage used last time
+    if(k==="i"&&v&&!v.iv&&!hrzHasMeg(v)){const pv=hrzPrev(p,"i");if(pv&&pv.v.iv){v.iv=pv.v.iv;hrzDirty(p,400)}}
+    renderHrz(p,true);return}
   const st=t.closest("[data-hrzstep]");if(st){const[p,d]=st.dataset.hrzstep.split("|"),v=hrzList(p);if(v)hrzResize(p,Math.min(64,Math.max(1,v.n+ +d)));return}
   const ol=t.closest("[data-hrzol]");if(ol){const[p,i,c]=ol.dataset.hrzol.split("|"),v=hrzList(p);if(!v)return;const r=v.z[+i];r[c+"o"]=!r[c+"o"]; // the typed value is kept
     hrzRefresh(p);hrzDirty(p,400);return}
@@ -6770,10 +6804,14 @@ updOn("click",e=>{const t=e.target;
     hrzSet(p,null);renderHrz(p,true);hrzDirty(p,250);hrzUpdHint(p);return}
 });
 // For reports and backups
-const hrzRows=v=>hrzTrim(v).z.map((r,i)=>hrzHasLabels(v)?[`Z${i+1}`,r.l||"–",hrzShow(r,"h")||"–",hrzShow(r,"t")||"–"]:[`Z${i+1}`,hrzShow(r,"h")||"–",hrzShow(r,"t")||"–"]);
+// k: "m" multimeter (default) or "i" the megger test
+const hrzRows=(v,k)=>{const [a,b]=k==="i"?["ih","it"]:["h","t"];return hrzTrim(v).z.map((r,i)=>[`Z${i+1}`,...(hrzHasLabels(v)?[r.l||"–"]:[]),hrzShow(r,a)||"–",hrzShow(r,b)||"–"])};
 const hrzFlagged=v=>hrzTrim(v).z.map((r,i)=>r.f?i:-1).filter(i=>i>=0);
-const hrzCols=v=>hrzHasLabels(v)?["Zone","Label","Heater (Ω)","T/C (Ω)"]:["Zone","Heater (Ω)","T/C (Ω)"];
-function hrzMd(v){v=hrzClean(v);if(!hrzHasData(v))return "";return `\n**Hot runner readings (Ω)**\n\n| ${hrzCols(v).join(" | ")} |\n|${hrzCols(v).map(()=>"---").join("|")}|\n`+hrzRows(v).map((r,i)=>`| ${(v.z[i].f?["**"+r[0]+" ⚑**",...r.slice(1)]:r).join(" | ")} |`).join("\n")+"\n"}
+const hrzCols=(v,k)=>["Zone",...(hrzHasLabels(v)?["Label"]:[]),...(k==="i"?["Heater–earth (MΩ)","T/C–earth (MΩ)"]:["Heater (Ω)","T/C (Ω)"])];
+const hrzMegTitle=v=>"Insulation test (megger)"+(v.iv?" · "+v.iv+" V":"");
+// the tables a set of readings makes: multimeter, megger, or both
+const hrzKinds=v=>[...(hrzHasMeter(v)||!hrzHasMeg(v)?["m"]:[]),...(hrzHasMeg(v)?["i"]:[])];
+function hrzMd(v){v=hrzClean(v);if(!hrzHasData(v))return "";return hrzKinds(v).map(k=>`\n**${k==="i"?hrzMegTitle(v)+", MΩ to earth":"Hot runner readings (Ω)"}**\n\n| ${hrzCols(v,k).join(" | ")} |\n|${hrzCols(v,k).map(()=>"---").join("|")}|\n`+hrzRows(v,k).map((r,i)=>`| ${(v.z[i].f?["**"+r[0]+" ⚑**",...r.slice(1)]:r).join(" | ")} |`).join("\n")+"\n").join("")}
 const hrzCsv=v=>{v=hrzClean(v);return hrzHasData(v)?v.z.map((r,i)=>`Z${i+1}${r.l?" ("+r.l+")":""}${r.f?" [flagged]":""} H ${hrzShow(r,"h")||"-"} / TC ${hrzShow(r,"t")||"-"}`).join("; "):""};
 
 // ---------- Work hours ----------
@@ -7961,7 +7999,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.23-168";
+const APP_VERSION="2026.11.24-169";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
@@ -8174,16 +8212,20 @@ function recBlock(lines){const a=[...lines];while(a.length&&!a[0].trim())a.shift
   if(!a.length||a.join("\n").trim()==="_None recorded_")return"";
   return a.map(l=>l.endsWith("  ")?l.slice(0,-2):l.replace(/^(\s*)- /,"$1• ")).join("\n")}
 // a hot runner readings table → {n,z}
+// (the multimeter table and/or the megger table, whose header says "earth"; its title line gives the test voltage)
 function recHrz(rows){const cells=r=>r.trim().replace(/^\|/,"").replace(/\|$/,"").split("|").map(c=>c.trim());
-  const rs=rows.map(cells).filter(c=>c.length>=3),data=rs.filter(c=>!/^-+$/.test(c[0])&&!/^Zone$/i.test(c[0]));if(!data.length)return null;
-  const lab=rs.some(c=>c.length>=4),ol=s=>/^OL$/i.test(s),val=s=>ol(s)?"":recDash(s);
-  const z=data.map(c=>{const [h,t]=lab?[c[2],c[3]]:[c[1],c[2]];return {l:lab?recDash(c[1]):"",h:val(h),t:val(t),ho:ol(h),to:ol(t),f:/⚑/.test(c[0])}});
-  const v=hrzClean({n:z.length,z});return hrzHasData(v)?v:null}
+  const ol=s=>/^OL$/i.test(s),val=s=>ol(s)?"":recDash(s),z=[];let meg=false,lab=false,i=0,iv="";
+  for(const r of rows){const t=r.match(/Insulation test \(megger\)(?: · (\d+(?:\.\d+)?) V)?/);if(t){iv=t[1]||iv;continue}
+    const c=cells(r);if(c.length<3||/^-+$/.test(c[0].replace(/:/g,"")))continue;
+    if(/^Zone$/i.test(c[0])){meg=/earth/i.test(c.join(" "));lab=c.length>=4;i=0;continue}
+    const [a,b]=lab?[c[2],c[3]]:[c[1],c[2]],r0=z[i]||(z[i]={l:"",f:false});if(lab&&!r0.l)r0.l=recDash(c[1]);if(/⚑/.test(c[0]))r0.f=true;
+    if(meg)Object.assign(r0,{ih:val(a),it:val(b),iho:ol(a),ito:ol(b)});else Object.assign(r0,{h:val(a),t:val(b),ho:ol(a),to:ol(b)});i++}
+  if(!z.length)return null;const v=hrzClean({n:z.length,z,iv});return hrzHasData(v)?v:null}
 function recUpdates(lines){const out=[];let last=null,tbl=[];const end=()=>{if(last&&tbl.length){const h=recHrz(tbl);if(h)last.hrz=h}tbl=[]};
   for(const ln of lines){const b=ln.match(/^- \*\*(.+?)\*\* – (.*)$/);
     if(b){end();let text=b[2],files=[];const ph=text.match(/\s*_\(photos: (.*)\)_\s*$/);if(ph){files=ph[1].split(/,\s*/).filter(Boolean);text=text.slice(0,ph.index)}
       const date=rstMdDate(b[1]);last=date?{date,text:text.trim(),files}:null;if(last)out.push(last);continue}
-    if(/^\s+\|/.test(ln))tbl.push(ln)}
+    if(/^\s+\|/.test(ln)||/^\s+\*\*Insulation test/.test(ln))tbl.push(ln)}
   end();for(const u of out)if(u.hrz&&u.text==="Hot runner readings")u.text="";return out}
 const recParts=lines=>lines.map(l=>l.match(/^- (.*)$/)).filter(Boolean).map(m=>{const a=m[1].match(/^\[(.*)\]\((\S+)\)$/);return a?{text:a[1].trim(),url:a[2]}:{text:m[1].trim(),url:""}}).filter(p=>p.text||p.url);
 // "Bucket lid + Lid insert" → mould ids (a name can itself have " + " in it; moulds on the work order win a tie)
@@ -8205,7 +8247,7 @@ function recParse(md,prefer=[]){
   const newTool=(names,no)=>{const r=recIds(names,prefer),t={title:names,no,names,ids:r.ids,unk:r.unk,status:"",type:"",date:"",dateCompleted:"",description:"",shots:null,faults:"",work:"",notes:"",partsList:[],hrz:null,updates:[]};P.tools.push(t);return t};
   const shotsOf=v=>{const n=recDash(v).replace(/[^\d]/g,"");return n?+n:null};
   const field=(t,sec,lines)=>{
-    if(sec==="Inspection / faults found"){const k=lines.findIndex(l=>/^\*\*Hot runner readings/.test(l));t.faults=recBlock(k<0?lines:lines.slice(0,k));if(k>=0)t.hrz=recHrz(lines.slice(k+1).filter(l=>/^\|/.test(l)))}
+    if(sec==="Inspection / faults found"){const k=lines.findIndex(l=>/^\*\*(Hot runner readings|Insulation test)/.test(l));t.faults=recBlock(k<0?lines:lines.slice(0,k));if(k>=0)t.hrz=recHrz(lines.slice(k+1).filter(l=>/^\||^\*\*Insulation test/.test(l)))}
     else if(sec==="Work done")t.work=recBlock(lines);
     else if(sec==="Notes")t.notes=recBlock(lines);
     else if(sec==="Updates")t.updates=recUpdates(lines);
