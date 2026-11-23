@@ -2690,7 +2690,7 @@ function hrReadings(m){const out=[],push=(v,date,src)=>{v=hrzClean(v);if(hrzHasD
   for(const u of updClean(m.updates))if(u.hrz)push(u.hrz,u.date,{lab:"Mould update"});
   return out.sort((a,b)=>String(a.date).localeCompare(String(b.date)))}
 // per zone: its readings in date order, and what stands out (rules, not guesses)
-function hrZones(m){const spec=(m.hr&&m.hr.zones)||[],rs=hrReadings(m),n=Math.max(spec.length,0,...rs.map(r=>r.v.n));
+function hrZones(m){const spec=(m.hr&&m.hr.zones)||[],rs=hrReadings(m),n=Math.max(spec.length,0,...rs.map(r=>hrzUsed(r.v)));
   return Array.from({length:n},(_,i)=>{const s=spec[i]||{},pts=rs.map(r=>({date:r.date,src:r.src,z:r.v.z[i]})).filter(x=>x.z&&(x.z.h||x.z.t||x.z.ho||x.z.to));
     const label=(s.l||"").trim()||[...pts].reverse().map(x=>x.z.l).find(Boolean)||"",exp=hrExp(s);
     const hs=pts.filter(x=>hrNum(x.z.h)!=null&&!x.z.ho),ts=pts.filter(x=>hrNum(x.z.t)!=null&&!x.z.to),last=pts[pts.length-1],flags=[];
@@ -2724,7 +2724,7 @@ function renderHistHr(m){const el=$("#h-hr");if(!el)return;
         ${z.flags.length?`<div class="hrzflags">${z.flags.map(f=>`<span>⚑ ${esc(f)}</span>`).join("")}</div>`:""}
         ${open?`<div class="hrzhist">${z.pts.length?[...z.pts].reverse().map(x=>`<div><span>${esc(fmtDate(x.date))}</span><span>${x.src.id?`<button type="button" class="linkish" data-hrz-go="${esc(x.src.id)}|${esc(x.src.sub||"")}">${esc(x.src.lab)}</button>`:esc(x.src.lab)}</span><span>H ${esc(x.z.ho?"OL":hrFmt(hrNum(x.z.h)))}</span><span>T/C ${esc(x.z.to?"OL":hrFmt(hrNum(x.z.t)))}</span>${x.z.f?"<span>⚑</span>":""}</div>`).join(""):`<div class="small">No readings for this zone yet.</div>`}</div>`:""}</div>`}).join("")}</div>`:""}
     ${hrPlHtml(m)}`}
-function hrEditHtml(m){const hr=JSON.parse(JSON.stringify(m.hr||{})),zs=hr.zones||[];const n=Math.max(zs.length,hrZones(m).length,1);
+function hrEditHtml(m){const hr=JSON.parse(JSON.stringify(m.hr||{})),zs=hr.zones||[];const n=zs.length||hrZones(m).length||1;
   const row=(z,i)=>`<div class="hreditz" data-i="${i}"><span class="hrzn">Z${i+1}</span><input class="hr-l" value="${esc(z.l||"")}" placeholder="Label" aria-label="Zone ${i+1} label" autocapitalize="characters"><input class="hr-v mono" value="${esc(z.v||"")}" inputmode="decimal" placeholder="V" aria-label="Zone ${i+1} volts"><input class="hr-w mono" value="${esc(z.w||"")}" inputmode="decimal" placeholder="W" aria-label="Zone ${i+1} watts"><span class="hr-x small">${hrExp(z)?"≈ "+hrFmt(hrExp(z))+" Ω":""}</span></div>`;
   return `<div class="row"><span class="label" style="margin:0">Hot runner details</span></div>
     <div class="grid2"><div class="field"><label class="label" for="hr-make">Make / model</label><input id="hr-make" value="${esc(hr.make||"")}" placeholder="e.g. YUDO valve gate, 8 drops"></div>
@@ -2745,7 +2745,7 @@ $("#h-hr").addEventListener("click",async e=>{const el=$("#h-hr"),m=moulds.find(
   const zn=e.target.closest("[data-hrzn]");if(zn){const cur=hrEditRead(),n=Math.max(1,Math.min(64,cur.zones.length+ +zn.dataset.hrzn));
     cur.zones=Array.from({length:n},(_,i)=>cur.zones[i]||{});el.innerHTML=hrEditHtml({...m,hr:{...(m.hr||{}),...cur}});growMany(el.querySelectorAll("textarea"));return}
   if(e.target.closest("[data-hrcancel]")){hrEdit=null;el.dataset.mode="";renderHistHr(m);return}
-  const sv=e.target.closest("[data-hrsave]");if(sv){const hr=hrEditRead();while(hr.zones.length&&!hr.zones[hr.zones.length-1].l&&!hr.zones[hr.zones.length-1].v&&!hr.zones[hr.zones.length-1].w&&hr.zones.length>hrZones({...m,hr:{}}).length)hr.zones.pop();
+  const sv=e.target.closest("[data-hrsave]");if(sv){const hr=hrEditRead();
     sv.disabled=true;const upd={updatedAt:new Date().toISOString()};for(const k of ["make","tc","idNo","notes","zones"])upd["hr."+k]=hr[k];
     try{await db.collection("moulds").doc(m.id).update(upd);hrEdit=null;el.dataset.mode="";toast("Hot runner details saved")}
     catch(err){sv.disabled=false;toast("Couldn't save: "+((err&&err.message)||err))}}});
@@ -2799,7 +2799,7 @@ function hrPlClick(e,m){
     db.collection("moulds").doc(m.id).update({"hr.plates":plates,updatedAt:new Date().toISOString()}).then(()=>toast("Photo removed from the mould (it's still in Drive)")).catch(err=>toast("Couldn't remove: "+(err.message||err.code)));return true}
   return false}
 // a mould's zone labels, for a new set of readings that has none to copy
-function hrSpecLabels(p){const id=p==="f"?(mainFor||$("#f-mould").value):p==="b"?boxFor:p==="m"?mUpdFor:null,m=id&&id!==FORCE&&moulds.find(x=>x.id===id),zs=m&&m.hr&&m.hr.zones;
+function hrSpecLabels(p){p=String(p).slice(-1);const id=p==="f"?(mainFor||$("#f-mould").value):p==="b"?boxFor:p==="m"?mUpdFor:null,m=id&&id!==FORCE&&moulds.find(x=>x.id===id),zs=m&&m.hr&&m.hr.zones;
   return zs&&zs.length?zs.map(z=>({l:z.l||""})):null}
 // ---- To-do tab: your own lists plus every work order's to-do list ----
 let todoLists=[], todoStale=false, todoFocusTitle=null;
@@ -5712,7 +5712,7 @@ document.addEventListener("click",e=>{const t=e.target;
     toast(`${x.n} photo${x.n===1?"":"s"} put on ${x.days.length} update${x.days.length===1?"":"s"}${nNew<x.days.length?` (${nNew} new)`:""}. Tap Edit on each to add the text.`)}});
 // An update's hot runner readings: folded to a one-line summary, open for the table (stays open across redraws)
 const updHrzOpen=new Set();
-function updHrzView(p,u){const v=u&&u.hrz;if(!hrzHasData(v))return "";const k=p+"|"+u.id;
+function updHrzView(p,u){const v=hrzTrim(u&&u.hrz);if(!hrzHasData(v))return "";const k=p+"|"+u.id;
   return `<details class="panel ck hrzbox updhrz" data-updhrz="${esc(k)}"${updHrzOpen.has(k)?" open":""}><summary><span>Hot runner readings</span><span class="ckprog">${esc(hrzSummary(v))}</span></summary>`+
     `<table class="hrzt hrzro"><thead><tr><th>Zone</th><th>Heater Ω</th><th>T/C Ω</th></tr></thead><tbody>${v.z.map((r,i)=>`<tr class="${r.f?"flag":""}"><th>Z${i+1}${r.l?`<span class="hrzlab">${esc(r.l)}</span>`:""}${r.f?` <span class="hrzfl" title="Flagged">⚑</span>`:""}</th>${["h","t"].map(c=>`<td class="${r[c+"o"]?"olv":""}">${esc(hrzShow(r,c)||"–")}</td>`).join("")}</tr>`).join("")}</tbody></table></details>`}
 document.addEventListener("toggle",e=>{const d=e.target;if(d.dataset&&d.dataset.updhrz){if(d.open)updHrzOpen.add(d.dataset.updhrz);else updHrzOpen.delete(d.dataset.updhrz)}},true);
@@ -6535,6 +6535,9 @@ const hrzEl=p=>$("#"+p+"-hrz");
 function hrzClean(v){if(!v||!(+v.n>0))return null;const n=Math.min(64,Math.max(1,Math.round(+v.n)));
   const z=Array.from({length:n},(_,i)=>{const r=(v.z||[])[i]||{},h=String(r.h??"").trim(),t=String(r.t??"").trim(),isOl=x=>/^ol$/i.test(x);
     return {l:String(r.l??"").trim().toUpperCase(),h:isOl(h)?"":h,t:isOl(t)?"":t,ho:!!r.ho||isOl(h),to:!!r.to||isOl(t),f:!!r.f}});return {n,z}}
+// zones up to the last one with a reading in it: a saved table shows these, not empty zones left at the end
+function hrzUsed(v){if(!v||!v.z)return 0;let n=0;v.z.forEach((r,i)=>{if(r.h||r.t||r.ho||r.to||r.f)n=i+1});return n}
+function hrzTrim(v){const n=hrzUsed(v);return n&&n<v.n?{n,z:v.z.slice(0,n)}:v}
 function hrzHasData(v){return !!(v&&v.z&&v.z.some(r=>r.h||r.t||r.l||r.ho||r.to||r.f))}
 const hrzShow=(r,c)=>r[c+"o"]?"OL":(r[c]||"");
 const hrzHasLabels=v=>!!(v&&v.z&&v.z.some(r=>r.l));
@@ -6568,7 +6571,7 @@ function renderHrz(p,force){
   const sig=mid+"|"+(v?v.n:"none")+"|"+editingId+"|"+((hrzUpd(p)||{}).draft||"");
   if(!force&&el.dataset.sig===sig&&el.firstChild){if(v)hrzRefresh(p);return}
   el.dataset.sig=sig;
-  if(!v){const pv=hrzPrev(p);el.innerHTML=`<button type="button" class="addmould" data-hrzadd="${p}">+ Hot runner readings${pv?` <span class="hrzlast">(last: ${pv.v.n} zones on ${esc(hrzFrom(pv))})</span>`:""}</button>`;return}
+  if(!v){const pv=hrzPrev(p);el.innerHTML=`<button type="button" class="addmould" data-hrzadd="${p}">+ Hot runner readings${pv?` <span class="hrzlast">(last: ${hrzUsed(pv.v)||pv.v.n} zone${(hrzUsed(pv.v)||pv.v.n)===1?"":"s"} on ${esc(hrzFrom(pv))})</span>`:""}</button>`;return}
   const pv=hrzPrev(p),lab=i=>{const val=v.z[i].l,sug=(pv&&pv.v.z[i]&&pv.v.z[i].l)||(i?hrzNextLabel(v.z[i-1].l):"");
       return `<input class="hrzl mono" autocapitalize="characters" autocomplete="off" enterkeyhint="next" data-hrz="${p}|${i}|l" value="${esc(val)}" placeholder="${esc(sug||"Label")}" aria-label="Zone ${i+1} label">`},
     cell=(i,c)=>{const val=v.z[i][c],ol=!!v.z[i][c+"o"],last=pv&&pv.v.z[i]?hrzShow(pv.v.z[i],c):"";
@@ -6755,7 +6758,8 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 // Phone keyboards' Go / Next key can submit the form instead of sending Enter: treat that as "next cell" too
 document.addEventListener("submit",e=>{const a=document.activeElement;if(a&&a.dataset&&a.dataset.hrz&&e.target.id==="logform"){e.preventDefault();e.stopImmediatePropagation();hrzNext(a)}},true);
 updOn("click",e=>{const t=e.target;
-  const add=t.closest("[data-hrzadd]");if(add){const p=add.dataset.hrzadd,pv=hrzPrev(p);const sl=!pv&&hrSpecLabels(p);hrzSet(p,hrzClean({n:pv?pv.v.n:sl?sl.length:4,z:pv?pv.v.z.map(r=>({l:r.l})):sl||[]}));hrzOpen[p]=true;renderHrz(p,true);hrzDirty(p,400);hrzUpdHint(p);
+  const add=t.closest("[data-hrzadd]");if(add){const p=add.dataset.hrzadd,pv=hrzPrev(p),sl=hrSpecLabels(p),n=sl?sl.length:pv?hrzUsed(pv.v)||pv.v.n:4;
+    hrzSet(p,hrzClean({n,z:Array.from({length:n},(_,i)=>({l:(sl&&sl[i]&&sl[i].l)||(pv&&pv.v.z[i]&&pv.v.z[i].l)||""}))}));hrzOpen[p]=true;renderHrz(p,true);hrzDirty(p,400);hrzUpdHint(p);
     const first=$(`[data-hrz="${p}|0|h"]`);if(first)first.focus();return}
   const st=t.closest("[data-hrzstep]");if(st){const[p,d]=st.dataset.hrzstep.split("|"),v=hrzList(p);if(v)hrzResize(p,Math.min(64,Math.max(1,v.n+ +d)));return}
   const ol=t.closest("[data-hrzol]");if(ol){const[p,i,c]=ol.dataset.hrzol.split("|"),v=hrzList(p);if(!v)return;const r=v.z[+i];r[c+"o"]=!r[c+"o"]; // the typed value is kept
@@ -6766,8 +6770,8 @@ updOn("click",e=>{const t=e.target;
     hrzSet(p,null);renderHrz(p,true);hrzDirty(p,250);hrzUpdHint(p);return}
 });
 // For reports and backups
-const hrzRows=v=>v.z.map((r,i)=>hrzHasLabels(v)?[`Z${i+1}`,r.l||"–",hrzShow(r,"h")||"–",hrzShow(r,"t")||"–"]:[`Z${i+1}`,hrzShow(r,"h")||"–",hrzShow(r,"t")||"–"]);
-const hrzFlagged=v=>v.z.map((r,i)=>r.f?i:-1).filter(i=>i>=0);
+const hrzRows=v=>hrzTrim(v).z.map((r,i)=>hrzHasLabels(v)?[`Z${i+1}`,r.l||"–",hrzShow(r,"h")||"–",hrzShow(r,"t")||"–"]:[`Z${i+1}`,hrzShow(r,"h")||"–",hrzShow(r,"t")||"–"]);
+const hrzFlagged=v=>hrzTrim(v).z.map((r,i)=>r.f?i:-1).filter(i=>i>=0);
 const hrzCols=v=>hrzHasLabels(v)?["Zone","Label","Heater (Ω)","T/C (Ω)"]:["Zone","Heater (Ω)","T/C (Ω)"];
 function hrzMd(v){v=hrzClean(v);if(!hrzHasData(v))return "";return `\n**Hot runner readings (Ω)**\n\n| ${hrzCols(v).join(" | ")} |\n|${hrzCols(v).map(()=>"---").join("|")}|\n`+hrzRows(v).map((r,i)=>`| ${(v.z[i].f?["**"+r[0]+" ⚑**",...r.slice(1)]:r).join(" | ")} |`).join("\n")+"\n"}
 const hrzCsv=v=>{v=hrzClean(v);return hrzHasData(v)?v.z.map((r,i)=>`Z${i+1}${r.l?" ("+r.l+")":""}${r.f?" [flagged]":""} H ${hrzShow(r,"h")||"-"} / TC ${hrzShow(r,"t")||"-"}`).join("; "):""};
@@ -7957,7 +7961,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.23-167";
+const APP_VERSION="2026.11.23-168";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
