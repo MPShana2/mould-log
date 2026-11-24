@@ -88,10 +88,11 @@ async function rptListing(l,onlyId){
       const ord=sf=>{const i=tabs.findIndex(x=>subName(x)===sf.name);return i<0?999:i};
       for(const sf of root.filter(f=>f.mimeType===FOLDER_MT).sort((a,b)=>ord(a)-ord(b)))v.sets.push({title:subTitle(sf.name),items:await listAll(sf.id)})}}
   const skip=f=>/ Work order\.md$/i.test(f.name||"")||/ report\.(pdf|docx)$/i.test(f.name||"");
-  v.images=[];v.other=[];
-  v.sets.forEach(st=>st.items.forEach(f=>{if(f.mimeType===FOLDER_MT||skip(f))return;if(String(f.mimeType||"").startsWith("image/"))v.images.push({f,set:st});else v.other.push({f,set:st})}));
+  v.images=[];v.other=[];v.videos=[];
+  v.sets.forEach(st=>st.items.forEach(f=>{if(f.mimeType===FOLDER_MT||skip(f))return;const mt=String(f.mimeType||"");if(mt.startsWith("image/"))v.images.push({f,set:st});else{v.other.push({f,set:st});if(mt.startsWith("video/"))v.videos.push({f,set:st,vid:true})}}));
   // oldest first (Drive lists newest first), so figures and the picker run in the order the photos were taken
-  {const ord=new Map(v.sets.map((st,i)=>[st,i]));v.images.sort((a,b)=>ord.get(a.set)-ord.get(b.set)||fileTaken(a.f).localeCompare(fileTaken(b.f))||String(a.f.name).localeCompare(String(b.f.name),undefined,{numeric:true}))}
+  {const ord=new Map(v.sets.map((st,i)=>[st,i])),by=(a,b)=>ord.get(a.set)-ord.get(b.set)||fileTaken(a.f).localeCompare(fileTaken(b.f))||String(a.f.name).localeCompare(String(b.f.name),undefined,{numeric:true});
+    v.images.sort(by);v.media=[...v.images,...v.videos].sort(by)} // media: photos and videos, for shared links (reports hold photos only)
   rptListCache={key,v};return v}
 const rptPhotoDate=f=>{const t=(f.imageMediaMetadata&&f.imageMediaMetadata.time)||f.createdTime||"";const m=/^(\d{4})[:-](\d\d)[:-](\d\d)/.exec(t);return m?fmtDate(`${m[1]}-${m[2]}-${m[3]}`):""};
 // The photos a report will hold: pick.mode is all / starred / chosen (pick.ids, Drive file ids) / none
@@ -501,21 +502,24 @@ async function rptRefresh(){
     :mode==="starred"?(picked?`The ${picked} starred photo${picked===1?"":"s"}`:"None of the photos are starred. Star them in the gallery, or use Choose.")
     :"Tap photos to put them in the report. Ones on an update go under it; the rest go in a Photos section.";
   if(mode==="chosen")rptPickRender(l,v)}
+// the share picker offers videos too (a shared page can play them); a report can only hold photos
+const pkList=(v,root)=>root&&root.id==="sh-pick"?(v.media||v.images):v.images;
 function rptPickRender(l,v,root,only){root=root||$("#rpt-pick");if(only===undefined)only=rptScopeId();const grid=root.querySelector(".rpk-grid"),cnt=root.querySelector(".rpk-n");
-  if(!v||!v.images.length){grid.innerHTML=`<div class="small">No photos in the Drive folder.</div>`;cnt.textContent="0 chosen";return}
-  const names=rptUpdNames(l,only),bySet=new Map();v.images.forEach(it=>{if(!bySet.has(it.set))bySet.set(it.set,[]);bySet.get(it.set).push(it)});
-  grid.innerHTML=[...bySet].map(([st,list])=>`<div class="rpk-grp">${bySet.size>1||st.title?`<span class="label">${esc(st.title||"Work order")}</span>`:""}${list.map(({f})=>{const on=rptSel.has(f.id),u=names.get(f.name);
-    return `<button type="button" class="rpk-t${on?" on":""}" data-pkid="${esc(f.id)}" aria-pressed="${on}" title="${esc(f.name)}">${thumbUrl(f,240)?`<img src="${esc(thumbUrl(f,240))}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="nm">${esc(f.name)}</span>`}<span class="ck">${on?"✓":""}</span>${f.starred?'<span class="st">★</span>':""}${u?`<span class="up">Update ${esc(u)}</span>`:""}</button>`}).join("")}</div>`).join("");
-  cnt.textContent=`${rptSel.size} chosen`}
+  const list0=v?pkList(v,root):[],vids=root.id==="sh-pick";
+  if(!list0.length){grid.innerHTML=`<div class="small">No photos${vids?" or videos":""} in the Drive folder.</div>`;cnt.textContent="0 chosen";return}
+  const names=rptUpdNames(l,only),bySet=new Map();list0.forEach(it=>{if(!bySet.has(it.set))bySet.set(it.set,[]);bySet.get(it.set).push(it)});
+  grid.innerHTML=[...bySet].map(([st,list])=>`<div class="rpk-grp">${bySet.size>1||st.title?`<span class="label">${esc(st.title||"Work order")}</span>`:""}${list.map(({f,vid})=>{const on=rptSel.has(f.id),u=names.get(f.name);
+    return `<button type="button" class="rpk-t${on?" on":""}${vid?" vid":""}" data-pkid="${esc(f.id)}" aria-pressed="${on}" title="${esc(f.name)}">${vid?'<span class="pl" aria-label="Video">▶</span>':""}${thumbUrl(f,240)?`<img src="${esc(thumbUrl(f,240))}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="nm">${esc(f.name)}</span>`}<span class="ck">${on?"✓":""}</span>${f.starred?'<span class="st">★</span>':""}${u?`<span class="up">Update ${esc(u)}</span>`:""}</button>`}).join("")}</div>`).join("");
+  cnt.textContent=`${list0.filter(it=>rptSel.has(it.f.id)).length} chosen`}
 $("#rpt-files").addEventListener("change",()=>{try{localStorage.setItem("ml_rpt_files",$("#rpt-files").checked?"1":"0")}catch(e){}});
 $("#rpt-pmode").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;segSet("#rpt-pmode",b.dataset.v);try{localStorage.setItem("ml_rpt_pmode",b.dataset.v)}catch(err){}rptRefresh()});
 $("#rpt-scope").addEventListener("click",e=>{if(e.target.closest("button"))setTimeout(rptRefresh,0)});
 async function rpkClick(e,root,l,only){
-  const t=e.target.closest("[data-pkid]");if(t){const id=t.dataset.pkid;rptSel.has(id)?rptSel.delete(id):rptSel.add(id);const on=rptSel.has(id);t.classList.toggle("on",on);t.setAttribute("aria-pressed",on);t.querySelector(".ck").textContent=on?"✓":"";root.querySelector(".rpk-n").textContent=`${rptSel.size} chosen`;return true}
+  const t=e.target.closest("[data-pkid]");if(t){const id=t.dataset.pkid;rptSel.has(id)?rptSel.delete(id):rptSel.add(id);const on=rptSel.has(id);t.classList.toggle("on",on);t.setAttribute("aria-pressed",on);t.querySelector(".ck").textContent=on?"✓":"";rptListing(l,only).then(v=>{if(v)root.querySelector(".rpk-n").textContent=`${pkList(v,root).filter(it=>rptSel.has(it.f.id)).length} chosen`}).catch(()=>{});return true}
   const q=e.target.closest("[data-pk]");if(!q)return false;const v=await rptListing(l,only).catch(()=>null);if(!v)return false;
   if(q.dataset.pk==="none")rptSel.clear();
-  else if(q.dataset.pk==="starred")v.images.forEach(({f})=>{if(f.starred)rptSel.add(f.id)});
-  else if(q.dataset.pk==="upd"){const names=rptUpdNames(l,only);v.images.forEach(({f})=>{if(names.has(f.name))rptSel.add(f.id)})}
+  else if(q.dataset.pk==="starred")pkList(v,root).forEach(({f})=>{if(f.starred)rptSel.add(f.id)});
+  else if(q.dataset.pk==="upd"){const names=rptUpdNames(l,only);pkList(v,root).forEach(({f})=>{if(names.has(f.name))rptSel.add(f.id)})}
   rptPickRender(l,v,root,only);return true}
 $("#rpt-pick").addEventListener("click",e=>{const l=logs.find(x=>x.id===(rptFor&&rptFor.id));if(l)rpkClick(e,$("#rpt-pick"),l,rptScopeId())});
 function openReport(){
@@ -591,7 +595,7 @@ function shareSnap(l,sh){
   const R=reportModel(l,sh.sub||null,{updates:true});
   const ids=new Set(sh.photos==="none"?[]:(l.rptPhotos||[])),meta=(sh.pm||[]).filter(m=>ids.has(m.id)).map(m=>({...m}));
   const ph=rptPlace(R,{imgs:meta,files:[],skipped:0});
-  const fig=im=>({id:im.id,fig:im.fig,date:im.date||""});
+  const fig=im=>({id:im.id,fig:im.fig,date:im.date||"",...(im.v?{v:1}:{})});
   const blocks=R.blocks.map(b=>{const o={...b};delete o.files;delete o.owner;if(b.figs)o.figs=b.figs.map(fig);return o});
   // a work order with sub-jobs gets a summary at the top: each sub-job's status, description, inspection and work done
   const summary=[];let cur=null;
@@ -604,7 +608,7 @@ function shEnc(v,inArr){if(Array.isArray(v)){const a=v.map(x=>shEnc(x,true));ret
   if(v&&typeof v==="object"){const o={};for(const k in v)if(v[k]!==undefined)o[k]=shEnc(v[k],false);return o}return v}
 const shLabel=(l,sh)=>{const sub=sh.sub&&tabIdsFor(l.mouldId,l.extraMouldIds).includes(sh.sub)?subMeta(l,sh.sub):null;return "#"+(sub&&sub.no?subLabel(l,sh.sub):l.wo)+" · "+(sh.sub?mName(sh.sub):jobTool(l))};
 // Photo details (names, dates, folders) for the work order's photos, from the Drive listing
-async function sharePhotoMeta(l,sub){const v=await rptListing(l,sub);return v?v.images.map(({f,set})=>({id:f.id,name:f.name,t:fileTaken(f),date:rptPhotoDate(f),set:set.title||""})):null}
+async function sharePhotoMeta(l,sub){const v=await rptListing(l,sub);return v?(v.media||v.images).map(({f,set,vid})=>({id:f.id,name:f.name,t:fileTaken(f),date:rptPhotoDate(f),set:set.title||"",...(vid?{v:1}:{})})):null}
 let shareBusy=false;
 async function shareSyncAll(){if(shareBusy)return;shareBusy=true;
   try{for(const sh of shares.filter(shareLive)){const l=logs.find(x=>x.id===sh.logId);if(!l)continue;
@@ -623,7 +627,7 @@ async function shPhotos(){const l=logs.find(x=>x.id===(shFor&&shFor.id));if(!l)r
   $("#sh-pick").hidden=mode!=="chosen";if(mode!=="chosen"){h.textContent="Photos aren't shown.";return}
   if(!hasToken()){const ok=typeof srvRenew==="function"?await srvRenew():false;if(!ok){h.textContent="Connect Google Drive to choose photos.";return}}
   h.textContent="Checking the Drive folder…";let v;try{v=await rptListing(l,shScopeId())}catch(e){h.textContent="Couldn't reach Google Drive";return}
-  h.textContent="Tap photos to show them. These are also the photos chosen for this work order's reports. Ones on an update show under it.";rptPickRender(l,v,$("#sh-pick"),shScopeId())}
+  h.textContent="Tap photos and videos to show them. The photos are also the ones chosen for this work order's reports. Ones on an update show under it.";rptPickRender(l,v,$("#sh-pick"),shScopeId())}
 function openShare(){
   if(!editingId){toast("Save the work order first");return}
   const l=logs.find(x=>x.id===editingId);if(!l)return;

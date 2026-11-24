@@ -86,9 +86,12 @@ td:first-child{font-weight:700}tr.flag td{background:var(--flag)}
 .parts{margin:4px 0 0;padding-left:20px}a{color:#1a5fb4}
 .msg{text-align:center;color:var(--muted);padding:60px 16px}.msg b{display:block;color:var(--ink);font-size:20px;margin-bottom:6px}
 .lbx{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:9;padding:12px}
-.lbx img{max-width:100%;max-height:100%;object-fit:contain}
+.lbx img,.lbx video{max-width:100%;max-height:100%;object-fit:contain}.lbx video{max-height:calc(100% - 110px);background:#000}
+.ph,.pgrid button{position:relative}
+.pl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;padding-left:3px;box-sizing:border-box;pointer-events:none}
 .lbx button{position:fixed;top:12px;right:12px;font:inherit;font-size:15px;background:#fff;border:0;border-radius:999px;padding:8px 16px;cursor:pointer}
 .lbx .cap{position:fixed;left:0;right:0;bottom:14px;text-align:center;color:#ddd;font-size:14px}
+.lbx .cap .go{position:static;background:none;border-radius:0;padding:4px 2px;font-size:inherit;text-decoration:underline}
 footer{max-width:860px;margin:0 auto;padding:0 16px 30px;color:var(--muted);font-size:12px;text-align:center}
 @media print{.band .ro,.lbx{display:none}body{background:#fff}.card{border:0;padding:0}}
 </style>
@@ -110,10 +113,12 @@ const bulHtml=s=>String(s??"").replace(/\r/g,"").replace(/\s+$/,"").split("\n").
   if(!m)return `<span class="ln">${ln.trim()?esc(ln):"<br>"}</span>`;const l=Math.min(3,Math.floor(m[1].replace(/\t/g,"    ").length/2));
   return `<span class="bl${m[3]?" num":""}" style="--l:${l}" data-m="${m[3]?esc(m[3]):l%2?"–":"•"}">${esc(m[4])}</span>`}).join("");
 const photo=(id,big)=>FN+"sharePhoto?t="+encodeURIComponent(t)+"&id="+encodeURIComponent(id)+(big?"&s=l":"");
+const video=id=>FN+"shareVideo?t="+encodeURIComponent(t)+"&id="+encodeURIComponent(id); // streamed in pieces as it plays
+const PLAY='<span class="pl" aria-hidden="true">▶</span>';
 const pillCls=s=>/complete|done|closed/i.test(s)?"done":/hold|wait|parts/i.test(s)?"hold":/pending|not started/i.test(s)?"wait":"";
 const pill=s=>s?`<span class="pill ${pillCls(s)}">${esc(s)}</span>`:"";
 const figRef=f=>{const ns=(f||[]).map(x=>x.fig);if(!ns.length)return "";const p=[];for(let i=0;i<ns.length;){let j=i;while(j+1<ns.length&&ns[j+1]===ns[j]+1)j++;p.push(j>i?ns[i]+"–"+ns[j]:String(ns[i]));i=j+1}return (ns.length>1?"Figs. ":"Fig. ")+p.join(", ")};
-const figs=list=>list&&list.length?`<div class="figs">${list.map(f=>`<figure class="fig" data-id="${esc(f.id)}" data-cap="Fig. ${f.fig}${f.date?" · "+esc(f.date):""}"><div class="ph"><img src="${photo(f.id)}" alt="Fig. ${f.fig}" loading="lazy"></div><figcaption><b>Fig. ${f.fig}</b>${esc(f.date||"")}</figcaption></figure>`).join("")}</div>`:"";
+const figs=list=>list&&list.length?`<div class="figs">${list.map(f=>`<figure class="fig" data-id="${esc(f.id)}" data-cap="Fig. ${f.fig}${f.date?" · "+esc(f.date):""}"><div class="ph"><img src="${photo(f.id)}" alt="Fig. ${f.fig}${f.v?", video":""}" loading="lazy">${f.v?PLAY:""}</div><figcaption><b>Fig. ${f.fig}</b>${f.v?"Video ":""}${esc(f.date||"")}</figcaption></figure>`).join("")}</div>`:"";
 function block(b){
   switch(b.t){
     case "grid":return `<div class="grid">${b.items.map(i=>`<div class="${i.full?"full":""}"><span class="k">${esc(i.k)}</span><span class="v">${esc(i.v)}</span></div>`).join("")}</div>`;
@@ -152,7 +157,7 @@ function render(d){d.snap=d.snap&&dec(d.snap);const s=d.snap;if(!s){$("#main").i
   if(ALL.length){$("#tabs").hidden=false;$("#phn").textContent=ALL.length;
     // where each photo came from, for the full-size view
     sets.forEach(x=>x.imgs.forEach(f=>{FROM[f.id]=x.u!=null?{upd:x.title,sub:x.sub,u:x.u}:{sub:x.sub}}));
-    $("#gal").innerHTML=`<div class="pgrid">${ALL.map(f=>`<button type="button" class="fig" data-id="${esc(f.id)}" aria-label="Fig. ${f.fig}"><img src="${photo(f.id)}" alt="" loading="lazy"></button>`).join("")}</div>`}
+    $("#gal").innerHTML=`<div class="pgrid">${ALL.map(f=>`<button type="button" class="fig" data-id="${esc(f.id)}" aria-label="Fig. ${f.fig}${f.v?", video":""}"><img src="${photo(f.id)}" alt="" loading="lazy">${f.v?PLAY:""}</button>`).join("")}</div>`}
   clamp();
   const upd=d.updatedAt?new Date(d.updatedAt):null,exp=d.expires?new Date(d.expires):null,f=x=>x.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
   $("#foot").textContent=["Shared from GT Hub. View only.",upd?"Last updated "+f(upd)+" "+upd.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})+".":"",exp?"This link works until "+f(exp)+".":""].filter(Boolean).join(" ")}
@@ -165,20 +170,22 @@ function clamp(){document.querySelectorAll("#main .figs").forEach((el,i)=>{el.da
   const isOpen=open.has(k);if(!isOpen)extra.forEach(x=>x.classList.add("xh"));
   if(!btn){btn=document.createElement("button");btn.type="button";btn.className="more";el.after(btn)}
   btn.dataset.k=k;btn.setAttribute("aria-expanded",String(isOpen));
-  btn.innerHTML=(isOpen?"Show fewer":`+${extra.length} more photo${extra.length===1?"":"s"}`)+' <span class="chev" aria-hidden="true">▾</span>'})}
+  btn.innerHTML=(isOpen?"Show fewer":`+${extra.length} more`)+' <span class="chev" aria-hidden="true">▾</span>'})}
 let rt=0;addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(clamp,120)});
 document.addEventListener("click",e=>{const m=e.target.closest(".more");if(m){const k=m.dataset.k;open.has(k)?open.delete(k):open.add(k);clamp();if(!open.has(k))m.previousElementSibling.scrollIntoView({block:"nearest"});return}});
 // full-size viewer: steps through the photos (arrows, keys or a swipe)
 let ALL=[],LBI=-1,FROM={};
 function lbShow(i){LBI=i;const f=ALL[i];if(!f)return;let o=$(".lbx");
-  if(!o){o=document.createElement("div");o.className="lbx";o.innerHTML=`<img alt=""><button type="button" class="x">Close</button><button type="button" class="nav p" aria-label="Previous photo">‹</button><button type="button" class="nav n" aria-label="Next photo">›</button><div class="cap"></div>`;document.body.appendChild(o);
-    o.addEventListener("click",e=>{if(e.target.closest(".p"))lbShow(LBI-1);else if(e.target.closest(".n"))lbShow(LBI+1);else if(e.target.closest(".go"))return;else lbClose()});
-    let sx=null;o.addEventListener("touchstart",e=>{sx=e.touches[0].clientX},{passive:true});o.addEventListener("touchend",e=>{if(sx==null)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)>50){lbShow(LBI+(dx<0?1:-1))}})}
-  o.querySelector("img").src=photo(f.id,true);const fr=FROM[f.id]||{};
-  o.querySelector(".cap").innerHTML=`<b>Fig. ${f.fig}</b>${f.date?" · taken "+esc(f.date):""} · ${i+1} of ${ALL.length}<small>${fr.upd?"From the update on "+esc(fr.upd):"Other photos"}${fr.sub?" · "+esc(fr.sub):""}${fr.u!=null?` · <button type="button" class="go" data-u="${fr.u}" style="color:#9cc3ff">Read update</button>`:""}</small>`;
+  if(!o){o=document.createElement("div");o.className="lbx";o.innerHTML=`<img alt=""><video controls playsinline preload="metadata" hidden></video><button type="button" class="x">Close</button><button type="button" class="nav p" aria-label="Previous photo">‹</button><button type="button" class="nav n" aria-label="Next photo">›</button><div class="cap"></div>`;document.body.appendChild(o);
+    o.addEventListener("click",e=>{if(e.target.closest("video"))return;if(e.target.closest(".p"))lbShow(LBI-1);else if(e.target.closest(".n"))lbShow(LBI+1);else if(e.target.closest(".go"))return;else lbClose()});
+    let sx=null;o.addEventListener("touchstart",e=>{sx=e.target.closest("video")?null:e.touches[0].clientX},{passive:true});o.addEventListener("touchend",e=>{if(sx==null)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)>50){lbShow(LBI+(dx<0?1:-1))}})}
+  const im=o.querySelector("img"),vd=o.querySelector("video");vd.pause();im.hidden=!!f.v;vd.hidden=!f.v;
+  if(f.v){im.removeAttribute("src");vd.poster=photo(f.id,true);vd.src=video(f.id)}else{vd.removeAttribute("src");vd.removeAttribute("poster");vd.load();im.src=photo(f.id,true)}
+  const fr=FROM[f.id]||{};
+  o.querySelector(".cap").innerHTML=`<b>Fig. ${f.fig}</b>${f.v?" · video":""}${f.date?" · taken "+esc(f.date):""} · ${i+1} of ${ALL.length}<small>${fr.upd?"From the update on "+esc(fr.upd):"Other photos"}${fr.sub?" · "+esc(fr.sub):""}${fr.u!=null?` · <button type="button" class="go" data-u="${fr.u}" style="color:#9cc3ff">Read update</button>`:""}</small>`;
   o.querySelector(".p").hidden=i<=0;o.querySelector(".n").hidden=i>=ALL.length-1;
-  [ALL[i+1],ALL[i-1]].forEach(n=>{if(n)new Image().src=photo(n.id,true)})}
-function lbClose(){const o=$(".lbx");if(o)o.remove();LBI=-1}
+  [ALL[i+1],ALL[i-1]].forEach(n=>{if(n&&!n.v)new Image().src=photo(n.id,true)})}
+function lbClose(){const o=$(".lbx");if(o){const vd=o.querySelector("video");if(vd){vd.pause();vd.removeAttribute("src");vd.load()}o.remove()}LBI=-1}
 document.addEventListener("click",e=>{const fg=e.target.closest(".fig");if(fg){const i=ALL.findIndex(x=>x.id===fg.dataset.id);if(i>=0)lbShow(i);return}
   const tb=e.target.closest("[data-tab]");if(tb){const ph=tb.dataset.tab==="ph";document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",String(b===tb)));$("#main").hidden=ph;$("#gal").hidden=!ph;scrollTo(0,0);if(!ph)clamp();return}
   const go=e.target.closest(".go");if(go){lbClose();const el=[...document.querySelectorAll("#main .upd")].find(x=>x.dataset.u===go.dataset.u);

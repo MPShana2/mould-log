@@ -636,6 +636,7 @@ button.calc:not(.has):hover{background:var(--sunk)}
 .rpk-t.on{border-color:var(--accent)}.rpk-t.on img{opacity:1}
 .rpk-t .ck{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.45);border:2px solid #fff;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700}
 .rpk-t.on .ck{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.rpk-t .pl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;padding-left:3px;box-sizing:border-box;z-index:1;pointer-events:none}
 .rpk-t .st{position:absolute;top:3px;left:5px;color:#ffcc33;font-size:14px;text-shadow:0 1px 2px rgba(0,0,0,.6)}
 .rpk-t .up{position:absolute;left:0;right:0;bottom:0;font-size:10.5px;line-height:1.2;padding:3px 4px;background:rgba(0,0,0,.6);color:#fff;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rptchk input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--accent);flex:none}
@@ -7999,7 +8000,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.24-169";
+const APP_VERSION="2026.11.24-170";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){

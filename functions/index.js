@@ -160,3 +160,37 @@ exports.sharePhoto = onRequest(SHARE_OPTS, async (req, res) => {
     res.status(502).send("Couldn't load the photo");
   }
 });
+
+// A shared video, streamed a piece at a time as the viewer plays it (the browser asks for byte ranges), so a long
+// video never goes through in one go and only what's watched is sent. Only videos the owner chose for this link.
+const {Readable} = require("stream");
+const VID_PIECE = 4 * 1024 * 1024;
+exports.shareVideo = onRequest({...SHARE_OPTS, maxInstances: 6, timeoutSeconds: 120}, async (req, res) => {
+  const t = String(req.query.t || ""), id = String(req.query.id || "");
+  const d = await liveShare(t).catch(() => null);
+  if (!d || d.gone || !/^[A-Za-z0-9_-]{10,100}$/.test(id) || !(d.photoIds || []).includes(id)) return res.status(404).send("Not found");
+  const tok = await ownerPass(d.uid).catch(() => null);
+  if (!tok) return res.status(503).send("Videos are unavailable right now");
+  const H = {Authorization: "Bearer " + tok}, url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}`;
+  try {
+    const m = await fetch(`${url}?fields=mimeType,size&supportsAllDrives=true`, {headers: H});
+    const meta = m.ok ? await m.json() : {}, size = Number(meta.size);
+    if (!String(meta.mimeType || "").startsWith("video/") || !(size > 0)) return res.status(404).send("Not found");
+    // "bytes=a-b", "bytes=a-" or "bytes=-n" (the last n bytes); each answer is at most one piece
+    const rg = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || "").trim());
+    let start = 0, end = size - 1;
+    if (rg && rg[1] !== "") { start = +rg[1]; if (rg[2] !== "") end = Math.min(+rg[2], size - 1); }
+    else if (rg && rg[2] !== "") { start = Math.max(0, size - +rg[2]); }
+    if (start >= size || end < start) { res.set("Content-Range", `bytes */${size}`); return res.status(416).end(); }
+    end = Math.min(end, start + VID_PIECE - 1);
+    const r = await fetch(`${url}?alt=media&supportsAllDrives=true`, {headers: {...H, Range: `bytes=${start}-${end}`}});
+    // Drive answers a range with 206; a whole-file 200 is only right when the whole file was asked for
+    if (!r.ok || !r.body || (r.status !== 206 && !(start === 0 && end === size - 1))) return res.status(502).send("Couldn't load the video");
+    res.status(206);
+    res.set({"Content-Type": meta.mimeType, "Accept-Ranges": "bytes", "Content-Range": `bytes ${start}-${end}/${size}`,
+      "Content-Length": String(end - start + 1), "Cache-Control": "private, max-age=3600"});
+    Readable.fromWeb(r.body).on("error", () => res.end()).pipe(res);
+  } catch (e) {
+    if (!res.headersSent) res.status(502).send("Couldn't load the video");
+  }
+});
