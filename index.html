@@ -955,6 +955,8 @@ details.ck>summary span:first-child{flex:1}
 .cl-cb{width:20px;height:20px;margin:10px 4px 0 2px;accent-color:#8a5a00;flex:none;cursor:pointer}
 .cl-text,.cl-new{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:15px;line-height:1.4;padding:8px 6px;resize:none;overflow:hidden;color:var(--fg);border-radius:6px;min-height:0}
 .cl-text:focus,.cl-new:focus{outline:none;background:var(--sunk)}
+/* list items always fit their text, however wide the list is when drawn (sizing by script alone missed lists drawn off screen) */
+@supports (field-sizing:content){.cl-text,.cl-new{field-sizing:content;height:auto!important}}
 .cl-row.done .cl-text{text-decoration:line-through;color:var(--muted)}
 .cl-del{flex:none;border:0;background:none;color:var(--muted);font-size:20px;line-height:1;width:36px;height:36px;border-radius:50%;cursor:pointer;opacity:.5}
 .cl-del:hover,.cl-row:focus-within .cl-del{opacity:1;background:var(--sunk)}
@@ -2355,6 +2357,8 @@ function clRender(key,focus){
     `<div class="cl-add"><span class="cl-plus" aria-hidden="true">+</span><textarea class="cl-new" rows="1" placeholder="${nw?"Work to do next time":"List item"}" aria-label="Add list item"></textarea></div>`+
     (done.length?`<button type="button" class="cl-donetoggle" aria-expanded="${!!inst.showDone}">${inst.showDone?"▾":"▸"} ${done.length} ticked item${done.length===1?"":"s"}</button>`+(inst.showDone?`<div class="cl-donelist">${done.map(row).join("")}</div>`:""):"");
   growMany(el.querySelectorAll("textarea"));
+  // browsers without that: measure again whenever the list is shown or changes width
+  if(!CSS.supports("field-sizing","content")&&window.ResizeObserver&&!el._clRO){let w=0;el._clRO=new ResizeObserver(en=>{const nw=Math.round(en[0].contentRect.width);if(nw!==w){w=nw;if(nw)growMany(el.querySelectorAll("textarea"))}});el._clRO.observe(el)}
   if(focus){
     const t=focus.id==="new"?el.querySelector(".cl-new"):el.querySelector(`.cl-row[data-id="${CSS.escape(focus.id)}"] .cl-text`);
     if(t){t.focus();const p=focus.pos==null?t.value.length:focus.pos;try{t.setSelectionRange(p,p)}catch(e){}}
@@ -8002,7 +8006,7 @@ $("#driveform").addEventListener("submit",async e=>{
   catch(err){toast("Couldn't save: "+(err.message||err.code))}
 });
 
-const APP_VERSION="2026.11.24-171";
+const APP_VERSION="2026.11.25-172";
 // ---------- Account, sign-in and sync start-up ----------
 let authApi=null, unsubs=[];
 function showGate(kind,msg){
